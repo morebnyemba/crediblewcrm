@@ -99,9 +99,14 @@ class WebhookEventLog(models.Model):
         ('unknown', 'Unknown Event Type'),
     ]
 
-    # A unique ID for the event if provided by Meta (e.g., message ID for messages, or a generated one for others)
-    # This might not always be present or unique across all event types, so use with caution as a primary key.
-    event_identifier = models.CharField(max_length=255, blank=True, null=True, db_index=True, help_text="A unique identifier for the event if available (e.g., wamid for messages).")
+    # --- THIS IS THE CORRECTED FIELD ---
+    # The unique=True constraint is the critical fix.
+    event_identifier = models.CharField(
+        max_length=255, 
+        unique=True, 
+        help_text="A unique identifier for the event (e.g., the top-level ID from the webhook entry)."
+    )
+
     app_config = models.ForeignKey(
         MetaAppConfig,
         on_delete=models.SET_NULL, # Keep log even if config is deleted
