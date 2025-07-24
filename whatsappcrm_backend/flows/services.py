@@ -288,7 +288,10 @@ InteractiveMessagePayload.model_rebuild()
 
 
 def _get_value_from_context_or_contact(variable_path: str, flow_context: dict, contact: Contact) -> Any:
-    """Resolves a variable path (e.g., 'contact.name', 'flow_context.user_email') to its value."""
+    """
+    Resolves a variable path (e.g., 'contact.name', 'flow_context.user_email') to its value.
+    Safely accesses attributes on Django models and keys in dictionaries. Does NOT execute methods.
+    """
     if not variable_path: return None
     parts = variable_path.split('.')
     current_value = None
@@ -306,7 +309,7 @@ def _get_value_from_context_or_contact(variable_path: str, flow_context: dict, c
             path_to_traverse = parts[1:]
         except (CustomerProfile.DoesNotExist, AttributeError):
             logger.debug(
-                f"CustomerProfile does not exist for contact {contact.id} when accessing '{variable_path}'"
+                f"Contact {contact.id}: CustomerProfile does not exist when accessing '{variable_path}'"
             )
             return None
     else: # Default to flow_context if no recognized prefix
@@ -314,20 +317,28 @@ def _get_value_from_context_or_contact(variable_path: str, flow_context: dict, c
         path_to_traverse = parts # Use all parts as keys for the context dict
 
     for i, part in enumerate(path_to_traverse):
+        if current_value is None: # If an intermediate part was None, the final value is None
+            return None
         try:
             if isinstance(current_value, dict):
                 current_value = current_value.get(part)
             elif hasattr(current_value, part): # Check for model field or property
-                attr_or_method = getattr(current_value, part)
-                # Call it if it's a callable (method), but be careful with methods not expecting zero args
-                # For simplicity, assume direct attribute access for now or properties.
-                current_value = attr_or_method() if callable(attr_or_method) and not hasattr(attr_or_method, '__code__') and attr_or_method.__code__.co_argcount == 0 else attr_or_method
+                attr = getattr(current_value, part)
+                if callable(attr) and not isinstance(getattr(type(current_value), part, None), property):
+                    # This is a method, not a property. Do not call it for security/predictability.
+                    logger.warning(
+                        f"Contact {contact.id}: Attempted to access a callable method '{part}' "
+                        f"via template variable '{variable_path}'. This is not allowed. Returning None."
+                    )
+                    return None
+                current_value = attr # Access property or attribute
             else: # Part not found
                 return None
         except Exception as e:
-            logger.warning(f"Error accessing path '{'.'.join(path_to_traverse[:i+1])}' on object for '{variable_path}': {e}")
-            return None
-        if current_value is None and i < len(path_to_traverse) - 1: # Intermediate part is None
+            logger.warning(
+                f"Contact {contact.id}: Error accessing path '{'.'.join(path_to_traverse[:i+1])}' "
+                f"for variable '{variable_path}': {e}"
+            )
             return None
     return current_value
 
@@ -448,9 +459,8 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                 interactive_payload_validated = send_message_config.interactive # Already validated by StepConfigSendMessage
                 interactive_payload_dict = interactive_payload_validated.model_dump(exclude_none=True, by_alias=True)
                 
-                # Resolve templates within the interactive payload
-                resolved_interactive_str = _resolve_value(json.dumps(interactive_payload_dict), current_step_context, contact)
-                final_api_data_structure = json.loads(resolved_interactive_str)
+                # Resolve templates directly within the dictionary structure
+                final_api_data_structure = _resolve_value(interactive_payload_dict, current_step_context, contact)
 
             elif actual_message_type == "template" and send_message_config.template:
                 template_payload_validated = send_message_config.template
@@ -784,8 +794,8 @@ def _evaluate_transition_condition(transition: FlowTransition, contact: Contact,
     if not isinstance(config, dict):
         logger.warning(f"Transition {transition.id} has invalid condition_config (not a dict): {config}")
         return False
-    condition_type = config.get('type')
-    logger.debug(f"Evaluating condition type '{condition_type}' for transition {transition.id} of step '{transition.current_step.name}'. Context: {flow_context}, Message Type: {message_data.get('type')}")
+    condition_type = config.get('type')    
+    logger.debug(f"Contact {contact.id}, Flow {transition.current_step.flow.id}, Step {transition.current_step.id}: Evaluating condition type '{condition_type}' for transition {transition.id}. Context: {flow_context}, Message Type: {message_data.get('type')}")
 
     if not condition_type: return False # No condition type means no specific condition to evaluate beyond default
     if condition_type == 'always_true': return True
@@ -842,21 +852,45 @@ def _evaluate_transition_condition(transition: FlowTransition, contact: Contact,
         variable_name = config.get('variable_name')
         if variable_name is None: return False
         actual_value = _get_value_from_context_or_contact(variable_name, flow_context, contact)
-        return str(actual_value) == str(value_for_condition) # Compare as strings
+        # Compare as strings for simplicity and predictability in flow logic
+        result = str(actual_value) == str(value_for_condition)
+        logger.debug(
+            f"Contact {contact.id}, Flow {transition.current_step.flow.id}, Step {transition.current_step.id}: "
+            f"Condition 'variable_equals' check for '{variable_name}'. "
+            f"Actual: '{actual_value}' (type: {type(actual_value).__name__}), "
+            f"Expected: '{value_for_condition}' (type: {type(value_for_condition).__name__}). "
+            f"Result (str comparison): {result}"
+        )
+        return result
         
     elif condition_type == 'variable_exists':
         variable_name = config.get('variable_name')
         if variable_name is None: return False
-        return _get_value_from_context_or_contact(variable_name, flow_context, contact) is not None
+        actual_value = _get_value_from_context_or_contact(variable_name, flow_context, contact)
+        result = actual_value is not None
+        logger.debug(
+            f"Contact {contact.id}, Flow {transition.current_step.flow.id}, Step {transition.current_step.id}: "
+            f"Condition 'variable_exists' check for '{variable_name}'. "
+            f"Value: '{str(actual_value)[:100]}' (type: {type(actual_value).__name__}). Result: {result}"
+        )
+        return result
         
     elif condition_type == 'variable_contains':
         variable_name = config.get('variable_name')
         if variable_name is None: return False
         actual_value = _get_value_from_context_or_contact(variable_name, flow_context, contact)
         expected_item = value_for_condition # This is the 'value' field from config
-        if isinstance(actual_value, str) and isinstance(expected_item, str): return expected_item in actual_value
-        if isinstance(actual_value, list) and expected_item is not None: return expected_item in actual_value
-        return False
+        result = False
+        if isinstance(actual_value, str) and isinstance(expected_item, str): result = expected_item in actual_value
+        elif isinstance(actual_value, list) and expected_item is not None: result = expected_item in actual_value
+        
+        logger.debug(
+            f"Contact {contact.id}, Flow {transition.current_step.flow.id}, Step {transition.current_step.id}: "
+            f"Condition 'variable_contains' check for '{variable_name}'. "
+            f"Container: '{str(actual_value)[:100]}' (type: {type(actual_value).__name__}), "
+            f"Expected item: '{expected_item}'. Result: {result}"
+        )
+        return result
 
     elif condition_type == 'nfm_response_field_equals' and nfm_response_data:
         field_path = config.get('field_path')
