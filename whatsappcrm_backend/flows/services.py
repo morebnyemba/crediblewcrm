@@ -28,6 +28,9 @@ if not MEDIA_ASSET_ENABLED:
     logger.warning("MediaAsset model not found or could not be imported. MediaAsset functionality (e.g., 'asset_pk') will be disabled in flows.")
 
 # --- Pydantic Models for Configuration Validation ---
+# NOTE: For better organization in a larger project, these Pydantic models could be
+# moved to a dedicated 'schemas.py' or 'types.py' file within the 'flows' app.
+
 # These should ideally be in a separate 'schemas.py' or 'types.py' file for better organization.
 
 class BasePydanticConfig(BaseModel):
@@ -52,7 +55,7 @@ class MediaMessageContent(BasePydanticConfig): # Renamed
     # Pydantic v2 model_validator
     # @model_validator(mode='after')
     # def check_media_source_v2(cls, values):
-    # For Pydantic v1 root_validator
+    # For Pydantic v1, this is a root_validator. In Pydantic v2, @model_validator(mode='after') is preferred.
     @root_validator(pre=False, skip_on_failure=True)
     def check_media_source(cls, values):
         asset_pk, media_id, link = values.get('asset_pk'), values.get('id'), values.get('link')
@@ -285,6 +288,7 @@ InteractiveMessagePayload.model_rebuild()
 
 
 def _get_value_from_context_or_contact(variable_path: str, flow_context: dict, contact: Contact) -> Any:
+    """Resolves a variable path (e.g., 'contact.name', 'flow_context.user_email') to its value."""
     if not variable_path: return None
     parts = variable_path.split('.')
     current_value = None
@@ -300,11 +304,10 @@ def _get_value_from_context_or_contact(variable_path: str, flow_context: dict, c
         try:
             current_value = contact.customerprofile # Access related object via Django ORM
             path_to_traverse = parts[1:]
-        except CustomerProfile.DoesNotExist:
-            logger.debug(f"CustomerProfile does not exist for contact {contact.id} when accessing '{variable_path}'")
-            return None
-        except AttributeError: # In case contact has no customerprofile reverse relation setup yet
-            logger.debug(f"Contact {contact.id} has no customerprofile attribute for '{variable_path}'")
+        except (CustomerProfile.DoesNotExist, AttributeError):
+            logger.debug(
+                f"CustomerProfile does not exist for contact {contact.id} when accessing '{variable_path}'"
+            )
             return None
     else: # Default to flow_context if no recognized prefix
         current_value = flow_context
