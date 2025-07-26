@@ -11,7 +11,7 @@ from pydantic import BaseModel, ValidationError, field_validator, model_validato
 
 from conversations.models import Contact, Message
 from .models import Flow, FlowStep, FlowTransition, ContactFlowState
-from customer_data.models import CustomerProfile # Make sure this import is correct
+from customer_data.models import MemberProfile # Correctly import the new model
 try:
     from media_manager.models import MediaAsset # For asset_pk lookup
     MEDIA_ASSET_ENABLED = True
@@ -247,7 +247,7 @@ class StepConfigQuestion(BasePydanticConfig):
     reply_config: ReplyConfig
 
 class ActionItemConfig(BasePydanticConfig):
-    action_type: Literal["set_context_variable", "update_contact_field", "update_customer_profile", "switch_flow"]
+    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow"]
     variable_name: Optional[str] = None
     value_template: Optional[Any] = None
     field_path: Optional[str] = None
@@ -264,9 +264,9 @@ class ActionItemConfig(BasePydanticConfig):
         elif action_type == 'update_contact_field':
             if not self.field_path or self.value_template is None:
                 raise ValueError("For update_contact_field, 'field_path' and 'value_template' are required.")
-        elif action_type == 'update_customer_profile':
+        elif action_type == 'update_member_profile':
             if not self.fields_to_update or not isinstance(self.fields_to_update, dict):
-                raise ValueError("For update_customer_profile, 'fields_to_update' (a dictionary) is required.")
+                raise ValueError("For update_member_profile, 'fields_to_update' (a dictionary) is required.")
         elif action_type == 'switch_flow':
             if not self.target_flow_name:
                 raise ValueError("For switch_flow, 'target_flow_name' is required.")
@@ -302,13 +302,13 @@ def _get_value_from_context_or_contact(variable_path: str, flow_context: dict, c
     elif source_object_name == 'contact':
         current_value = contact
         path_to_traverse = parts[1:]
-    elif source_object_name == 'customer_profile':
+    elif source_object_name == 'member_profile':
         try:
-            current_value = contact.customerprofile # Access related object via Django ORM
+            current_value = contact.member_profile # Access related object via Django ORM
             path_to_traverse = parts[1:]
-        except (CustomerProfile.DoesNotExist, AttributeError):
+        except (MemberProfile.DoesNotExist, AttributeError):
             logger.debug(
-                f"Contact {contact.id}: CustomerProfile does not exist when accessing '{variable_path}'"
+                f"Contact {contact.id}: MemberProfile does not exist when accessing '{variable_path}'"
             )
             return None
     else: # Default to flow_context if no recognized prefix
@@ -531,9 +531,9 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                 elif action_type == 'update_contact_field' and action_item_conf.field_path is not None:
                     resolved_value = _resolve_value(action_item_conf.value_template, current_step_context, contact)
                     _update_contact_data(contact, action_item_conf.field_path, resolved_value)
-                elif action_type == 'update_customer_profile' and action_item_conf.fields_to_update is not None:
+                elif action_type == 'update_member_profile' and action_item_conf.fields_to_update is not None:
                     resolved_fields_to_update = _resolve_value(action_item_conf.fields_to_update, current_step_context, contact)
-                    _update_customer_profile_data(contact, resolved_fields_to_update, current_step_context)
+                    _update_member_profile_data(contact, resolved_fields_to_update, current_step_context)
                 elif action_type == 'switch_flow' and action_item_conf.target_flow_name is not None:
                     resolved_initial_context = _resolve_value(action_item_conf.initial_context_template or {}, current_step_context, contact)
                     actions_to_perform.append({
@@ -1013,14 +1013,14 @@ def _update_contact_data(contact: Contact, field_path: str, value_to_set: Any):
         logger.warning(f"Unsupported field path '{field_path}' for updating Contact model.")
 
 
-def _update_customer_profile_data(contact: Contact, fields_to_update_config: Dict[str, Any], flow_context: dict):
+def _update_member_profile_data(contact: Contact, fields_to_update_config: Dict[str, Any], flow_context: dict):
     if not fields_to_update_config or not isinstance(fields_to_update_config, dict): 
-        logger.warning("_update_customer_profile_data called with invalid fields_to_update_config.")
+        logger.warning("_update_member_profile_data called with invalid fields_to_update_config.")
         return
 
-    profile, created = CustomerProfile.objects.get_or_create(contact=contact)
+    profile, created = MemberProfile.objects.get_or_create(contact=contact)
     if created: 
-        logger.info(f"Created CustomerProfile for contact {contact.whatsapp_id}")
+        logger.info(f"Created MemberProfile for contact {contact.whatsapp_id}")
 
     changed_fields = []
     for field_path, value_template in fields_to_update_config.items():
@@ -1028,7 +1028,7 @@ def _update_customer_profile_data(contact: Contact, fields_to_update_config: Dic
         
         parts = field_path.split('.')
         try:
-            if len(parts) == 1: # Direct attribute on CustomerProfile model
+            if len(parts) == 1: # Direct attribute on MemberProfile model
                 field_name = parts[0]
                 # Prevent updating protected/internal fields
                 if hasattr(profile, field_name) and field_name.lower() not in ['id', 'pk', 'contact', 'contact_id', 'created_at', 'updated_at', 'last_updated_from_conversation']:
@@ -1036,7 +1036,7 @@ def _update_customer_profile_data(contact: Contact, fields_to_update_config: Dic
                     if field_name not in changed_fields: 
                         changed_fields.append(field_name)
                 else:
-                    logger.warning(f"CustomerProfile field '{field_name}' not found or is protected.")
+                    logger.warning(f"MemberProfile field '{field_name}' not found or is protected.")
             elif parts[0] in ['preferences', 'custom_attributes'] and len(parts) > 1: # JSONFields
                 json_field_name = parts[0]
                 json_data = getattr(profile, json_field_name)
@@ -1047,7 +1047,7 @@ def _update_customer_profile_data(contact: Contact, fields_to_update_config: Dic
                 for key in parts[1:-1]: # Navigate to the second to last key
                     current_level = current_level.setdefault(key, {})
                     if not isinstance(current_level, dict):
-                        logger.warning(f"Path error in CustomerProfile.{json_field_name} at '{key}'. Expected dict, found {type(current_level)}.")
+                        logger.warning(f"Path error in MemberProfile.{json_field_name} at '{key}'. Expected dict, found {type(current_level)}.")
                         current_level = None # Stop further processing for this path
                         break
                 
@@ -1058,16 +1058,16 @@ def _update_customer_profile_data(contact: Contact, fields_to_update_config: Dic
                     if json_field_name not in changed_fields:
                         changed_fields.append(json_field_name)
             else:
-                logger.warning(f"Unsupported field path for CustomerProfile: {field_path}")
+                logger.warning(f"Unsupported field path for MemberProfile: {field_path}")
         except Exception as e:
-            logger.error(f"Error updating CustomerProfile field '{field_path}' for contact {contact.id}: {e}", exc_info=True)
+            logger.error(f"Error updating MemberProfile field '{field_path}' for contact {contact.id}: {e}", exc_info=True)
 
     if changed_fields:
         profile.last_updated_from_conversation = timezone.now()
         if 'last_updated_from_conversation' not in changed_fields:
             changed_fields.append('last_updated_from_conversation')
         profile.save(update_fields=changed_fields)
-        logger.info(f"CustomerProfile for {contact.whatsapp_id} updated fields: {changed_fields}")
+        logger.info(f"MemberProfile for {contact.whatsapp_id} updated fields: {changed_fields}")
     elif created: # If only created and no specific fields changed by the action, still update timestamp
         profile.last_updated_from_conversation = timezone.now()
         profile.save(update_fields=['last_updated_from_conversation'])
