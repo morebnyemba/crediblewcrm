@@ -135,6 +135,10 @@ USE_TZ = True
 STATIC_URL = '/static/' 
 STATIC_ROOT = BASE_DIR / 'staticfiles' # For production `collectstatic`
 
+# Media files (user-uploaded content)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'mediafiles' # Maps to the `media_volume` in Docker
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
