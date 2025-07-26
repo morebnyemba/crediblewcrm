@@ -5,53 +5,77 @@ from django.utils.translation import gettext_lazy as _
 # Link to the Contact model from the conversations app
 from conversations.models import Contact
 
-class CustomerProfile(models.Model):
+class Family(models.Model):
     """
-    Stores aggregated and specific data about a customer, linked to their Contact record.
-    This profile is enriched over time through conversations and flow interactions.
+    Represents a family unit to group members together.
+    """
+    name = models.CharField(_("Family Name"), max_length=150, help_text=_("e.g., 'The Smith Family'"))
+    head_of_household = models.ForeignKey(
+        Contact,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='led_families',
+        help_text=_("The primary contact for this family unit.")
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = _("Family")
+        verbose_name_plural = _("Families")
+        ordering = ['name']
+
+class MemberProfile(models.Model):
+    """
+    Stores aggregated and specific data about a church member, linked to their Contact record.
+    This profile is enriched over time through conversations, forms, and flow interactions.
     """
     contact = models.OneToOneField(
         Contact,
         on_delete=models.CASCADE,
-        related_name='customer_profile',
+        related_name='member_profile',
         primary_key=True, # Makes contact_id the primary key for this table
-        help_text=_("The contact this profile belongs to.")
+        help_text=_("The contact this member profile belongs to.")
     )
     
     # Personal Details
     first_name = models.CharField(_("First Name"), max_length=100, blank=True, null=True)
     last_name = models.CharField(_("Last Name"), max_length=100, blank=True, null=True)
-    email = models.EmailField(
-        _("Email Address"),
-        max_length=254,
-        blank=True,
-        null=True,
-    )
-    secondary_phone_number = models.CharField(
-        _("Secondary Phone"), 
-        max_length=30, 
-        blank=True, 
-        null=True,
-        help_text=_("An alternative phone number, if provided.")
-    )
+    email = models.EmailField(_("Email Address"), max_length=254, blank=True, null=True)
+    secondary_phone_number = models.CharField(_("Secondary Phone"), max_length=30, blank=True, null=True, help_text=_("An alternative phone number, if provided."))
     date_of_birth = models.DateField(_("Date of Birth"), null=True, blank=True)
+    
     GENDER_CHOICES = [
         ('male', _('Male')),
         ('female', _('Female')),
         ('other', _('Other')),
         ('prefer_not_to_say', _('Prefer not to say')),
     ]
-    gender = models.CharField(
-        _("Gender"),
-        max_length=20,
-        choices=GENDER_CHOICES,
-        blank=True,
-        null=True
-    )
+    gender = models.CharField(_("Gender"), max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
 
-    # Professional Details
-    company_name = models.CharField(_("Company Name"), max_length=255, blank=True, null=True)
-    job_title = models.CharField(_("Job Title"), max_length=255, blank=True, null=True)
+    MARITAL_STATUS_CHOICES = [
+        ('single', _('Single')),
+        ('married', _('Married')),
+        ('divorced', _('Divorced')),
+        ('widowed', _('Widowed')),
+    ]
+    marital_status = models.CharField(_("Marital Status"), max_length=20, choices=MARITAL_STATUS_CHOICES, blank=True, null=True)
+
+    # Family & Church Details
+    family = models.ForeignKey(
+        Family,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='members',
+        help_text=_("The family unit this member belongs to.")
+    )
+    date_joined = models.DateField(_("Date Joined"), null=True, blank=True, help_text=_("The date the person officially joined the church."))
+    baptism_date = models.DateField(_("Baptism Date"), null=True, blank=True)
 
     # Location Details
     address_line_1 = models.CharField(_("Address Line 1"), max_length=255, blank=True, null=True)
@@ -61,53 +85,53 @@ class CustomerProfile(models.Model):
     postal_code = models.CharField(_("Postal Code"), max_length=20, blank=True, null=True)
     country = models.CharField(_("Country"), max_length=100, blank=True, null=True)
 
-    # CRM Specifics
-    LIFECYCLE_STAGE_CHOICES = [
-        ('lead', _('Lead')),
-        ('opportunity', _('Opportunity')),
-        ('customer', _('Customer')),
-        ('vip', _('VIP Customer')),
-        ('churned', _('Churned')),
+    # Church Engagement Specifics
+    MEMBERSHIP_STATUS_CHOICES = [
+        ('visitor', _('Visitor')),
+        ('new_convert', _('New Convert')),
+        ('member', _('Member')),
+        ('leader', _('Leader')),
+        ('inactive', _('Inactive')),
         ('other', _('Other')),
     ]
-    lifecycle_stage = models.CharField(
-        _("Lifecycle Stage"),
+    membership_status = models.CharField(
+        _("Membership Status"),
         max_length=50,
-        choices=LIFECYCLE_STAGE_CHOICES,
+        choices=MEMBERSHIP_STATUS_CHOICES,
         blank=True,
         null=True,
-        default='lead'
+        default='visitor'
     )
     acquisition_source = models.CharField(
         _("Acquisition Source"),
         max_length=150, 
         blank=True, 
         null=True, 
-        help_text=_("How this customer was acquired, e.g., 'Ad Campaign X', 'Website Signup', 'Referral'")
+        help_text=_("How this person was reached, e.g., 'Outreach Event', 'Website', 'Referral'")
     )
     tags = models.JSONField( # List of strings
         _("Tags"),
         default=list, 
         blank=True, 
-        help_text=_("Descriptive tags for segmentation, e.g., ['product_x_interest', 'webinar_attendee']")
+        help_text=_("Descriptive tags for segmentation, e.g., ['youth_ministry', 'choir', 'volunteer']")
     )
     notes = models.TextField(
         _("Notes"), 
         blank=True, 
         null=True,
-        help_text=_("General notes about the customer.")
+        help_text=_("General notes about the member, prayer requests, etc.")
     )
 
     # Flexible JSON fields for data collected via flows or integrations
     preferences = models.JSONField(
         default=dict,
         blank=True,
-        help_text=_("Customer preferences collected over time (e.g., language, interests).")
+        help_text=_("Member preferences collected over time (e.g., communication preference, service time).")
     )
     custom_attributes = models.JSONField(
         default=dict,
         blank=True,
-        help_text=_("Arbitrary custom attributes collected for this customer.")
+        help_text=_("Arbitrary custom attributes collected for this member.")
     )
     
     # Timestamps
@@ -116,7 +140,7 @@ class CustomerProfile(models.Model):
     last_updated_from_conversation = models.DateTimeField(
         null=True, 
         blank=True, 
-        help_text=_("Last time data was explicitly updated from a conversation/flow.")
+        help_text=_("Last time data was explicitly updated from a conversation or flow.")
     )
 
     def get_full_name(self):
@@ -131,10 +155,10 @@ class CustomerProfile(models.Model):
     def __str__(self):
         full_name = self.get_full_name()
         if full_name:
-            return f"Profile for {full_name} ({self.contact.whatsapp_id})"
-        return f"Profile for {self.contact.name or self.contact.whatsapp_id}"
+            return f"Member Profile for {full_name} ({self.contact.whatsapp_id})"
+        return f"Member Profile for {self.contact.name or self.contact.whatsapp_id}"
 
     class Meta:
-        verbose_name = _("Customer Profile")
-        verbose_name_plural = _("Customer Profiles")
+        verbose_name = _("Member Profile")
+        verbose_name_plural = _("Member Profiles")
         ordering = ['-updated_at']
