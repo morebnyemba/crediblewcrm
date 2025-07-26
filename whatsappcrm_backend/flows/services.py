@@ -11,7 +11,7 @@ from pydantic import BaseModel, ValidationError, field_validator, model_validato
 
 from conversations.models import Contact, Message
 from .models import Flow, FlowStep, FlowTransition, ContactFlowState
-from customer_data.models import MemberProfile # Correctly import the new model
+from customer_data.models import MemberProfile
 try:
     from media_manager.models import MediaAsset # For asset_pk lookup
     MEDIA_ASSET_ENABLED = True

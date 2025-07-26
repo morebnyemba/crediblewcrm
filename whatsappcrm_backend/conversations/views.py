@@ -13,12 +13,15 @@ from .serializers import (
     ContactSerializer,
     MessageSerializer,
     MessageListSerializer,
-    ContactDetailSerializer,
+    ContactDetailSerializer,    
+    BroadcastTemplateSerializer,
 )
 # For dispatching Celery task
 from meta_integration.tasks import send_whatsapp_message_task
 # To get active MetaAppConfig for sending
-from meta_integration.models import MetaAppConfig # Or use your helper function like get_active_meta_config from meta_integration.views
+from meta_integration.models import MetaAppConfig
+# To personalize messages using flow template logic
+from flows.services import _resolve_value
 
 logger = logging.getLogger(__name__) # Standard way to get logger for current module
 
@@ -184,4 +187,67 @@ class MessageViewSet(
                 Q(contact__name__icontains=search_term) |
                 Q(contact__whatsapp_id__icontains=search_term)
             )
+        return queryset
+
+
+class BroadcastViewSet(viewsets.ViewSet):
+    """
+    API endpoint for sending business-initiated template messages (broadcasts).
+    """
+    permission_classes = [permissions.IsAdminUser] # Only admins can broadcast
+
+    @action(detail=False, methods=['post'], url_path='send-template')
+    def send_template_message(self, request):
+        """
+        Receives a list of contact IDs and a template to send.
+        Creates personalized messages and queues them for sending.
+        """
+        serializer = BroadcastTemplateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        validated_data = serializer.validated_data
+        contact_ids = validated_data['contact_ids']
+        template_name = validated_data['template_name']
+        language_code = validated_data['language_code']
+        components_template = validated_data.get('components')
+
+        try:
+            active_config = MetaAppConfig.objects.get_active_config()
+            if not active_config:
+                raise Exception("No active Meta App Configuration found.")
+        except Exception as e:
+            logger.error(f"Broadcast failed: Could not get active Meta config. Error: {e}")
+            return Response({"error": "Server configuration error: " + str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Fetch all contacts and their profiles in a single query to be efficient
+        contacts_to_message = Contact.objects.filter(id__in=contact_ids).select_related('member_profile')
+        
+        dispatched_count = 0
+        for contact in contacts_to_message:
+            # Construct the payload for this specific contact
+            components = _resolve_value(components_template, {}, contact) if components_template else None
+
+            content_payload = {
+                "name": template_name,
+                "language": {"code": language_code}
+            }
+            if components:
+                content_payload["components"] = components
+
+            # Create the Message object
+            message = Message.objects.create(
+                contact=contact, meta_app_config=active_config, direction='out',
+                message_type='template', content_payload=content_payload,
+                status='pending_dispatch', timestamp=timezone.now()
+            )
+
+            # Dispatch the Celery task for sending
+            send_whatsapp_message_task.delay(message.id, active_config.id)
+            dispatched_count += 1
+            logger.info(f"Dispatched template broadcast message {message.id} to contact {contact.id} ({contact.whatsapp_id})")
+
+        return Response({
+            "message": f"Broadcast dispatch initiated for {dispatched_count} of {len(contact_ids)} requested contacts.",
+        }, status=status.HTTP_202_ACCEPTED)
         return queryset

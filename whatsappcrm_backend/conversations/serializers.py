@@ -1,7 +1,7 @@
 # whatsappcrm_backend/conversations/serializers.py
 
 from rest_framework import serializers
-from .models import Contact, Message
+from .models import Contact, Message # Import Contact
 from customer_data.serializers import CustomerProfileSerializer # <--- IMPORT CustomerProfileSerializer
 
 class ContactSerializer(serializers.ModelSerializer):
@@ -168,5 +168,32 @@ class ContactDetailSerializer(ContactSerializer):
     class Meta(ContactSerializer.Meta):
         # Inherit fields from ContactSerializer and add new ones
         fields = ContactSerializer.Meta.fields + ['customer_profile', 'recent_messages']
+
+
+class BroadcastTemplateSerializer(serializers.Serializer):
+    """
+    Serializer for validating a broadcast request for a template message.
+    """
+    contact_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False,
+        help_text="A list of Contact IDs to send the message to."
+    )
+    template_name = serializers.CharField(max_length=255)
+    language_code = serializers.CharField(max_length=15, default="en_US")
+    components = serializers.ListField(
+        child=serializers.DictField(), 
+        required=False, 
+        help_text="A template for components with variables like {{ member_profile.first_name }}. E.g., [{'type': 'body', 'parameters': [{'type': 'text', 'text': '{{ member_profile.first_name }}'}]}]"
+    )
+
+    def validate_contact_ids(self, value):
+        """
+        Check if all provided contact IDs exist in the database.
+        """
+        existing_contacts_count = Contact.objects.filter(id__in=value).count()
+        if existing_contacts_count != len(set(value)):
+            raise serializers.ValidationError("One or more contact IDs are invalid or do not exist.")
+        return value
         # read_only_fields are inherited from ContactSerializer.Meta.
         # 'customer_profile' and 'recent_messages' are defined as read_only=True here.
