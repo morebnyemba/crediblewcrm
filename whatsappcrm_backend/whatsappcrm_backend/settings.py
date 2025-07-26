@@ -23,13 +23,18 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-fallback-key-for-de
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True' # Default to True for dev if not set
 
-ALLOWED_HOSTS_STRING = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,popular-real-squirrel.ngrok-free.app')
+# --- Allowed Hosts ---
+# Add your backend domain here. The frontend domain is NOT needed here.
+ALLOWED_HOSTS_STRING = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,crmbackend.lifeinternationalministries.com')
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STRING.split(',') if host.strip()]
 
 # --- CSRF Trusted Origins ---
-# Add your ngrok URL and any other frontend domains that will make state-changing requests
-# Ensure these are HTTPS if your site uses HTTPS.
-CSRF_TRUSTED_ORIGINS_STRING = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173,https://popular-real-squirrel.ngrok-free.app')
+# Add your frontend domains that will make state-changing requests (POST, PUT, etc.).
+# This is crucial for your React frontend to be able to log in and submit data.
+CSRF_TRUSTED_ORIGINS_STRING = os.getenv(
+    'CSRF_TRUSTED_ORIGINS',
+    'http://localhost:5173,http://127.0.0.1:5173,https://crmfrontend.lifeinternationalministries.com'
+)
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS_STRING.split(',') if origin.strip()]
 
 
@@ -169,7 +174,11 @@ SIMPLE_JWT = {
 }
 
 # --- CORS Settings ---
-CORS_ALLOWED_ORIGINS_STRING = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173,http://localhost,http://127.0.0.1,https://popular-real-squirrel.ngrok-free.app')
+# This tells the browser that it's safe to accept cross-origin requests from your frontend.
+CORS_ALLOWED_ORIGINS_STRING = os.getenv(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:5173,http://127.0.0.1:5173,https://crmfrontend.lifeinternationalministries.com'
+)
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_STRING.split(',') if origin.strip()]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -275,10 +284,10 @@ JAZZMIN_UI_TWEAKS = {
 # Ensure your .env file has DJANGO_SECRET_KEY and other sensitive variables.
 # Example .env content (should be in a separate .env file at project root):
 # DJANGO_SECRET_KEY="your-actual-strong-secret-key-here"
-# DJANGO_DEBUG="True" # Set to "False" for production
-# DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1,yourdomain.com,popular-real-squirrel.ngrok-free.app"
-# CSRF_TRUSTED_ORIGINS="http://localhost:5173,https://popular-real-squirrel.ngrok-free.app"
-# CORS_ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173,http://localhost,http://127.0.0.1,https://popular-real-squirrel.ngrok-free.app"
+# DJANGO_DEBUG="False" # Set to "False" for production
+# DJANGO_ALLOWED_HOSTS="crmbackend.lifeinternationalministries.com,localhost,127.0.0.1"
+# CSRF_TRUSTED_ORIGINS="https://crmfrontend.lifeinternationalministries.com,http://localhost:5173"
+# CORS_ALLOWED_ORIGINS="https://crmfrontend.lifeinternationalministries.com,http://localhost:5173"
 # CELERY_BROKER_URL="redis://localhost:6379/0"
 # CELERY_RESULT_BACKEND="redis://localhost:6379/1"
 # DB_ENGINE="django.db.backends.postgresql" # Or your preferred DB
