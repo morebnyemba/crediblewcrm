@@ -6,8 +6,8 @@ from django.utils import timezone
 from django.http import Http404
 
 
-from .models import CustomerProfile
-from .serializers import CustomerProfileSerializer
+from .models import MemberProfile, Family
+from .serializers import MemberProfileSerializer, FamilySerializer
 from conversations.models import Contact # To ensure contact exists for profile creation/retrieval
 
 import logging
@@ -21,17 +21,16 @@ class IsAdminOrUpdateOnly(permissions.BasePermission): # Example, adjust as need
             return True
         return request.user and request.user.is_staff
 
-class CustomerProfileViewSet(viewsets.ModelViewSet):
-    queryset = CustomerProfile.objects.select_related('contact').all()
-    serializer_class = CustomerProfileSerializer
+class MemberProfileViewSet(viewsets.ModelViewSet):
+    queryset = MemberProfile.objects.select_related('contact').all()
+    serializer_class = MemberProfileSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrUpdateOnly]
     
-    # CustomerProfile's PK is contact_id
+    # MemberProfile's PK is contact_id
     # DRF ModelViewSet will use 'pk' from URL by default.
-    # Since CustomerProfile.pk IS contact_id, this works.
-    # If you want the URL to explicitly say /profiles/{contact_pk}/
-    # you might need to adjust lookup_field or URL regex slightly
-    # but /profiles/{pk}/ where pk is contact_id is fine.
+    # Since MemberProfile.pk IS contact_id, this works.
+    # The URL will be /profiles/{pk}/ where pk is the contact_id.
+    lookup_field = 'pk' # Explicitly state we are looking up by the primary key (contact_id)
 
     def get_object(self):
         """
@@ -45,23 +44,31 @@ class CustomerProfileViewSet(viewsets.ModelViewSet):
             obj = queryset.get(pk=pk) # pk here is contact_id
             self.check_object_permissions(self.request, obj)
             return obj
-        except CustomerProfile.DoesNotExist:
+        except MemberProfile.DoesNotExist:
             # If profile doesn't exist but contact does, create profile for GET/PUT/PATCH.
             if self.request.method in ['GET', 'PUT', 'PATCH']:
                 contact = get_object_or_404(Contact, pk=pk) # Check if contact exists
-                obj, created = CustomerProfile.objects.get_or_create(contact=contact)
+                obj, created = MemberProfile.objects.get_or_create(contact=contact)
                 if created:
-                    logger.info(f"CustomerProfile created on-the-fly for Contact ID: {pk} during {self.request.method} action.")
+                    logger.info(f"MemberProfile created on-the-fly for Contact ID: {pk} during {self.request.method} action.")
                 self.check_object_permissions(self.request, obj)
                 return obj
-            raise Http404("CustomerProfile not found and action is not retrieve/update.")
+            raise Http404("MemberProfile not found and action is not retrieve/update.")
 
     def perform_update(self, serializer):
         # Set last_updated_from_conversation when an agent/API updates the profile
         serializer.save(last_updated_from_conversation=timezone.now())
-        logger.info(f"CustomerProfile for Contact ID {serializer.instance.contact_id} updated by {self.request.user}.")
+        logger.info(f"MemberProfile for Contact ID {serializer.instance.contact_id} updated by {self.request.user}.")
 
     # perform_create is usually not needed for a OneToOneProfile that's auto-created
     # or created on first update/get. If you want an explicit POST to /profiles/
     # to create one (expecting contact_id in payload), that's also possible.
     # The get_or_create in get_object handles on-demand creation for GET/PUT/PATCH.
+
+class FamilyViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing Family units.
+    """
+    queryset = Family.objects.prefetch_related('members').all()
+    serializer_class = FamilySerializer
+    permission_classes = [permissions.IsAuthenticated] # Adjust permissions as needed
