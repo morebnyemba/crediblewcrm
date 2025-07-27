@@ -20,6 +20,8 @@ from rest_framework.decorators import action # Used by ViewSets
 # ParseError is not explicitly raised but good to keep if DRF might raise it for malformed requests
 from rest_framework.exceptions import ParseError
 
+from whatsappcrm_backend.conversations.models import Message
+
 
 from .models import MetaAppConfig, WebhookEventLog # EVENT_TYPE_CHOICES removed from here
 from .serializers import (
