@@ -219,4 +219,6 @@ class BroadcastSerializer(serializers.ModelSerializer):
         model = Broadcast
         fields = [
             'id', 'name', 'template_name', 'created_by_username', 'created_at', 'status',
-            'total_recipients', 'pending']
+            'total_recipients', 'pending_dispatch_count', 'sent_count', 'delivered_count',
+            'read_count', 'failed_count'
+        ]

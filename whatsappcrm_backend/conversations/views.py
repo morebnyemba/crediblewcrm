@@ -14,7 +14,7 @@ from .serializers import (
     MessageSerializer,
     MessageListSerializer,
     ContactDetailSerializer,    
-    BroadcastTemplateSerializer,
+    BroadcastCreateSerializer,
 )
 # For dispatching Celery task
 from meta_integration.tasks import send_whatsapp_message_task
@@ -202,7 +202,7 @@ class BroadcastViewSet(viewsets.ViewSet):
         Receives a list of contact IDs and a template to send.
         Creates personalized messages and queues them for sending.
         """
-        serializer = BroadcastTemplateSerializer(data=request.data)
+        serializer = BroadcastCreateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
