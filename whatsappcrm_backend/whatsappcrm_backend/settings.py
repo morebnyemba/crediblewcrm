@@ -238,8 +238,8 @@ LOGGING = {
 WHATSAPP_APP_SECRET = os.getenv('WHATSAPP_APP_SECRET', None)
 # --- Jazzmin Admin Theme Settings ---
 JAZZMIN_SETTINGS = {
-    "site_title": "AutoWhasapp",
-    "site_header": "AutoWhatsapp",
+    "site_title": "AutoWhats",
+    "site_header": "AutoWhats",
     "site_brand": "A-W",
     "site_logo_classes": "img-circle",
     # "site_logo": "path/to/your/logo.png", # Optional: Add your logo
