@@ -10,12 +10,14 @@ router = DefaultRouter()
 # Registering the ViewSets defined in conversations/views.py
 router.register(r'contacts', views.ContactViewSet, basename='contact')
 router.register(r'messages', views.MessageViewSet, basename='message')
+router.register(r'broadcasts', views.BroadcastViewSet, basename='broadcast')
 
 urlpatterns = [
     path('', include(router.urls)),
     # This will create URLs like:
     # /crm-api/conversations/contacts/
     # /crm-api/conversations/contacts/{id}/
+    # /crm-api/conversations/broadcasts/send-template/ (custom action)
     # /crm-api/conversations/contacts/{id}/messages/ (custom action)
     # /crm-api/conversations/contacts/{id}/toggle-block/ (custom action)
     # /crm-api/conversations/messages/

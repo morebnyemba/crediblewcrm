@@ -473,5 +473,18 @@ class MetaWebhookAPIView(View):
             logger.info(f"Webhook successfully verified for app: {active_config.name}.")
             return HttpResponse(challenge, status=200)
         else:
-            logger.warning(f"Webhook verification failed for app: {active_config.name}.")
+            # More detailed logging for easier debugging
+            failure_reasons = []
+            if mode != 'subscribe':
+                failure_reasons.append(f"mode was '{mode}' not 'subscribe'")
+            if verify_token != active_config.verify_token:
+                failure_reasons.append("verify_token did not match")
+            if not challenge:
+                failure_reasons.append("challenge was missing")
+            
+            logger.warning(
+                f"Webhook verification failed for app: {active_config.name}. "
+                f"Reason(s): {', '.join(failure_reasons) or 'Unknown'}. "
+                f"Received Token: '{verify_token}'"
+            )
             return HttpResponse("Error: Verification token mismatch or challenge missing.", status=403)
