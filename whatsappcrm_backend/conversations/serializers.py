@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 from .models import Contact, Message # Import Contact
-from customer_data.serializers import CustomerProfileSerializer # <--- IMPORT CustomerProfileSerializer
+from customer_data.serializers import MemberProfileSerializer
 
 class ContactSerializer(serializers.ModelSerializer):
     """
@@ -163,7 +163,7 @@ class ContactDetailSerializer(ContactSerializer):
     """
     # The `source` attribute points to the related model manager on the Contact model.
     # `member_profile` is the likely `related_name` from a OneToOneField on MemberProfile.
-    customer_profile = CustomerProfileSerializer(source='member_profile', read_only=True)
+    customer_profile = MemberProfileSerializer(source='member_profile', read_only=True)
     # The `source` for recent_messages should be 'messages' to use the Prefetch from the view.
     recent_messages = MessageListSerializer(many=True, read_only=True, source='messages')
 

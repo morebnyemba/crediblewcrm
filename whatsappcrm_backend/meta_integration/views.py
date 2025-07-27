@@ -327,12 +327,15 @@ class MetaWebhookAPIView(View):
     def _handle_message(self, msg_data: dict, metadata: dict, value_entry: dict, active_config: MetaAppConfig, log_entry: WebhookEventLog, contact):
         # Local imports
         from conversations.models import Message
-        from flows.services import process_message_for_flow # This is the import that was failing
+        from flows.services import process_message_for_flow
+        # Import Contact for type hinting and for the action loop
+        from conversations.models import Contact
 
         whatsapp_message_id = msg_data.get("id")
-        # ... (rest of your _handle_message logic from your original file or my refined version) ...
-        # This includes creating the Message object, calling process_message_for_flow,
-        # and then dispatching actions like send_whatsapp_message_task.
+        logger.info(
+            f"Handling message WAMID: {whatsapp_message_id} for Contact ID: {contact.id} "
+            f"({contact.whatsapp_id})."
+        )
 
         # --- Start of _handle_message logic (ensure this aligns with your intent) ---
         message_timestamp_str = msg_data.get("timestamp")
@@ -370,41 +373,58 @@ class MetaWebhookAPIView(View):
             log_entry.save(update_fields=['message', 'processing_status'])
         
         try:
+            # This service function contains its own robust error handling and will
+            # return actions, including user-facing error messages if something goes wrong inside the flow.
             flow_actions = process_message_for_flow(contact, msg_data, incoming_msg_obj)
             
             sent_message_count = 0
             if flow_actions:
+                logger.info(f"Flow for contact {contact.id} returned {len(flow_actions)} action(s).")
                 for action in flow_actions:
                     if action.get('type') == 'send_whatsapp_message':
                         recipient_wa_id = action.get('recipient_wa_id', contact.whatsapp_id)
                         outgoing_message_type = action.get('message_type')
                         outgoing_data_payload = action.get('data')
                         
-                        # Create outgoing Message object
+                        # Determine the recipient contact object.
+                        # In most cases, this will be the same contact who sent the message.
+                        # This avoids a DB hit inside the loop if the recipient is the same.
+                        if recipient_wa_id == contact.whatsapp_id:
+                            recipient_contact = contact
+                        else:
+                            # If sending to a different contact, we must fetch them.
+                            # This is less common for direct replies but necessary for some flows.
+                            try:
+                                recipient_contact = Contact.objects.get(whatsapp_id=recipient_wa_id)
+                            except Contact.DoesNotExist:
+                                logger.error(f"Flow action requested sending to a non-existent contact WA_ID: {recipient_wa_id}. Skipping this action.")
+                                continue
+
+                        # Create the outgoing Message object in the database
                         outgoing_msg = Message.objects.create(
-                            contact=Contact.objects.get(whatsapp_id=recipient_wa_id), # Ensure contact exists for recipient
+                            contact=recipient_contact,
                             meta_app_config=active_config,
                             direction='out',
                             message_type=outgoing_message_type,
                             content_payload=outgoing_data_payload,
                             status='pending_dispatch',
                             timestamp=timezone.now(),
-                            triggered_by_flow_step_id=getattr(contact.flow_state, 'current_step_id', None) if hasattr(contact, 'flow_state') and contact.flow_state else None,
+                            triggered_by_flow_step_id=getattr(contact.flow_state, 'current_step_id', None) if hasattr(contact, 'flow_state') and contact.flow_state else None, # Use original contact's flow state
                             related_incoming_message=incoming_msg_obj # Link to incoming message
                         )
+                        # Asynchronously dispatch the message to be sent via the WhatsApp API
                         send_whatsapp_message_task.delay(outgoing_msg.id, active_config.id)
                         sent_message_count += 1
             
             if log_entry and log_entry.pk:
-                 self._save_log(log_entry, 'processed', f'Message processed by flow. {sent_message_count} action(s) dispatched.')
+                 self._save_log(log_entry, 'processed', f'Flow processing complete. {sent_message_count} message(s) dispatched.')
 
         except Exception as e:
-            logger.error(f"Error during flow processing for message {whatsapp_message_id}: {e}", exc_info=True)
+            # This block catches unexpected errors in the message handling logic itself,
+            # outside of the `process_message_for_flow` service's internal error handling.
+            logger.error(f"Unhandled exception in _handle_message for WAMID {whatsapp_message_id} (Contact: {contact.id}): {e}", exc_info=True)
             if log_entry and log_entry.pk:
-                self._save_log(log_entry, 'failed', f"Flow processing error: {str(e)[:200]}")
-            # Consider if flow state should be cleared on error
-            # from flows.services import _clear_contact_flow_state
-            # _clear_contact_flow_state(contact, error=True)
+                self._save_log(log_entry, 'failed', f"Critical error in webhook handler: {str(e)[:200]}")
 
     # --- Placeholder for other handlers from your original file ---
     def handle_status_update(self, status_data, metadata, app_config, log_entry: WebhookEventLog):
@@ -458,4 +478,3 @@ class MetaWebhookAPIView(View):
         else:
             logger.warning(f"Webhook verification failed for app: {active_config.name}.")
             return HttpResponse("Error: Verification token mismatch or challenge missing.", status=403)
-
