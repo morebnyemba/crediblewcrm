@@ -33,7 +33,7 @@ ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STRING.split(',') if hos
 # This is crucial for your React frontend to be able to log in and submit data.
 CSRF_TRUSTED_ORIGINS_STRING = os.getenv(
     'CSRF_TRUSTED_ORIGINS',
-    'http://localhost:5173,http://127.0.0.1:5173,https://crmfrontend.lifeinternationalministries.com'
+    'http://localhost:5173,http://127.0.0.1:5173,https://crmfrontend.lifeinternationalministries.com,https://crmbackend.lifeinternationalministries.com'
 )
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS_STRING.split(',') if origin.strip()]
 
