@@ -1,5 +1,5 @@
 # whatsappcrm_backend/conversations/models.py
-
+from django.db.models import F
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -184,3 +184,72 @@ class Message(models.Model):
             models.Index(fields=['message_type']),
             models.Index(fields=['status', 'direction']),
         ]
+
+
+class Broadcast(models.Model):
+    """
+    Represents a broadcast job initiated by a user. This acts as a parent
+    record for tracking the status of a bulk message campaign.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    name = models.CharField(max_length=255, help_text="An internal name for this broadcast campaign.")
+    template_name = models.CharField(max_length=255, help_text="The name of the Meta template used for this broadcast.")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='broadcasts'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, default='pending', choices=STATUS_CHOICES, db_index=True)
+
+    # Aggregate statistics for quick reporting
+    total_recipients = models.PositiveIntegerField(default=0)
+    pending_dispatch_count = models.PositiveIntegerField(default=0)
+    sent_count = models.PositiveIntegerField(default=0)
+    delivered_count = models.PositiveIntegerField(default=0)
+    read_count = models.PositiveIntegerField(default=0)
+    failed_count = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"Broadcast '{self.name}' ({self.template_name}) at {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Broadcast"
+        verbose_name_plural = "Broadcasts"
+
+
+class BroadcastRecipient(models.Model):
+    """
+    Links a Contact to a specific Broadcast job and tracks the individual message status.
+    """
+    broadcast = models.ForeignKey(Broadcast, on_delete=models.CASCADE, related_name='recipients')
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='broadcasts_received')
+    message = models.OneToOneField(
+        Message,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='broadcast_recipient'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Message.STATUS_CHOICES,
+        default='pending_dispatch'
+    )
+    status_timestamp = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Recipient {self.contact.whatsapp_id} for Broadcast {self.broadcast.id}"
+
+    class Meta:
+        unique_together = ('broadcast', 'contact')
+        ordering = ['broadcast', 'contact']

@@ -175,18 +175,15 @@ class MetaWebhookAPIView(View):
         # logger.debug(f"Request body (raw): {request.body[:1000]}") # Log more if needed
 
         active_config = get_active_meta_config()
-        app_secret = getattr(settings, 'WHATSAPP_APP_SECRET', None)
+        app_secret = active_config.app_secret if active_config else None
 
         if not active_config:
             logger.error("WEBHOOK POST: Processing failed - No active MetaAppConfig. Event ignored.")
             return HttpResponse("EVENT_RECEIVED_BUT_UNCONFIGURED", status=200)
 
-        if not app_secret and active_config.enforce_signature_verification: # Assuming you add this field to model
-             logger.critical(f"CRITICAL: WHATSAPP_APP_SECRET not configured and signature verification is enforced for {active_config.name}.")
-             # Log and return 403 or 500
-             return HttpResponse("Server security configuration error.", status=500)
-        elif not app_secret:
-             logger.warning(f"WHATSAPP_APP_SECRET not configured for {active_config.name}. Signature verification will be SKIPPED.")
+        if not app_secret:
+             logger.warning(f"App Secret is not configured for '{active_config.name}'. Webhook signature verification will be SKIPPED. This is INSECURE.")
+             # The _verify_signature method will return True if app_secret is None, allowing processing to continue.
         elif not self._verify_signature(request.body, request.headers.get('X-Hub-Signature-256'), app_secret):
             logger.error("Webhook signature verification FAILED. Discarding request.")
             # ... (logging to WebhookEventLog as in your original code) ...

@@ -15,6 +15,7 @@ class MetaAppConfigSerializer(serializers.ModelSerializer):
             'name',
             'verify_token',
             'access_token', # Be cautious about exposing this directly or ensure proper permissions
+            'app_secret',
             'phone_number_id',
             'waba_id',
             'api_version',
@@ -24,10 +25,21 @@ class MetaAppConfigSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ('id', 'created_at', 'updated_at')
         extra_kwargs = {
-            # access_token is sensitive, consider write-only or specific update methods if needed for frontend modification.
-            # For now, allowing it to be updated by trusted clients.
-            'access_token': {'write_only': False, 'style': {'input_type': 'password'} if serializers.HyperlinkedModelSerializer else {}}, # Mask in browsable API if possible
-            'verify_token': {'write_only': False, 'style': {'input_type': 'password'} if serializers.HyperlinkedModelSerializer else {}}, # Mask in browsable API if possible
+            'access_token': {
+                'write_only': True,
+                'required': False, # Not required on PATCH/PUT unless provided
+                'style': {'input_type': 'password'},
+                'help_text': "Leave empty if not changing."
+            },
+            'app_secret': {
+                'write_only': True,
+                'required': False, # Not required on PATCH/PUT unless provided
+                'style': {'input_type': 'password'},
+                'help_text': "Leave empty if not changing. Used for webhook signature verification."
+            },
+            'verify_token': {
+                'style': {'input_type': 'password'}
+            },
         }
 
     def validate(self, data):

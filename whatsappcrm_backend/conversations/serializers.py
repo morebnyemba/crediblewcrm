@@ -2,7 +2,7 @@
 
 from datetime import timezone
 from rest_framework import serializers
-from .models import Contact, Message # Import Contact
+from .models import Contact, Message, Broadcast, BroadcastRecipient
 from customer_data.serializers import MemberProfileSerializer
 
 class ContactSerializer(serializers.ModelSerializer):
@@ -172,10 +172,12 @@ class ContactDetailSerializer(ContactSerializer):
         # Inherit fields from ContactSerializer and add new ones
         fields = ContactSerializer.Meta.fields + ['customer_profile', 'recent_messages']
 
-class BroadcastTemplateSerializer(serializers.Serializer):
+class BroadcastCreateSerializer(serializers.Serializer):
     """
-    Serializer for validating a broadcast request for a template message.
+    Serializer for validating the creation of a broadcast job.
+    This is used by the `create` action of the BroadcastViewSet.
     """
+    name = serializers.CharField(max_length=255, required=False, help_text="An optional internal name for this broadcast.")
     contact_ids = serializers.ListField(
         child=serializers.IntegerField(),
         allow_empty=False,
@@ -197,5 +199,24 @@ class BroadcastTemplateSerializer(serializers.Serializer):
         if existing_contacts_count != len(set(value)):
             raise serializers.ValidationError("One or more contact IDs are invalid or do not exist.")
         return value
-        # read_only_fields are inherited from ContactSerializer.Meta.
-        # 'customer_profile' and 'recent_messages' are defined as read_only=True here.
+
+
+class BroadcastRecipientSerializer(serializers.ModelSerializer):
+    """Serializer for displaying individual recipient status within a broadcast."""
+    contact = ContactSerializer(read_only=True)
+
+    class Meta:
+        model = BroadcastRecipient
+        fields = ['id', 'contact', 'status', 'status_timestamp']
+
+
+class BroadcastSerializer(serializers.ModelSerializer):
+    """Serializer for displaying the details and aggregate status of a Broadcast job."""
+    recipients = BroadcastRecipientSerializer(many=True, read_only=True, help_text="A list of recipients and their individual statuses.")
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+
+    class Meta:
+        model = Broadcast
+        fields = [
+            'id', 'name', 'template_name', 'created_by_username', 'created_at', 'status',
+            'total_recipients', 'pending

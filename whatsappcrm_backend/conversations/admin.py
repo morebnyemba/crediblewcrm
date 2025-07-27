@@ -1,7 +1,7 @@
 # whatsappcrm_backend/conversations/admin.py
 
 from django.contrib import admin
-from .models import Contact, Message
+from .models import Contact, Message, Broadcast, BroadcastRecipient
 
 @admin.register(Contact)
 class ContactAdmin(admin.ModelAdmin):
@@ -75,3 +75,26 @@ class MessageAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         # Optimize query by prefetching related Contact
         return super().get_queryset(request).select_related('contact') # 'app_config'
+
+
+class BroadcastRecipientInline(admin.TabularInline):
+    model = BroadcastRecipient
+    fields = ('contact', 'status', 'status_timestamp', 'message')
+    readonly_fields = fields
+    extra = 0
+    can_delete = False
+    show_change_link = True
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+@admin.register(Broadcast)
+class BroadcastAdmin(admin.ModelAdmin):
+    list_display = ('name', 'template_name', 'status', 'total_recipients', 'sent_count', 'delivered_count', 'read_count', 'failed_count', 'created_at', 'created_by')
+    list_filter = ('status', 'template_name', 'created_at')
+    search_fields = ('name', 'template_name', 'created_by__username')
+    readonly_fields = ('created_at', 'created_by', 'total_recipients', 'pending_dispatch_count', 'sent_count', 'delivered_count', 'read_count', 'failed_count')
+    inlines = [BroadcastRecipientInline]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('created_by')
