@@ -20,7 +20,7 @@ from rest_framework.decorators import action # Used by ViewSets
 # ParseError is not explicitly raised but good to keep if DRF might raise it for malformed requests
 from rest_framework.exceptions import ParseError
 
-from whatsappcrm_backend.conversations.models import Message
+
 
 
 from .models import MetaAppConfig, WebhookEventLog # EVENT_TYPE_CHOICES removed from here
@@ -34,7 +34,7 @@ from .serializers import (
 # --- Cross-app imports to be localized or already localized ---
 # from flows.services import process_message_for_flow # Imported locally in _handle_message
 # from conversations.services import get_or_create_contact_by_wa_id # Imported locally in post
-# from conversations.models import Message # Imported locally in _handle_message
+from conversations.models import Message # Imported locally in _handle_message
 from .tasks import send_whatsapp_message_task # Used in MetaWebhookAPIView._handle_message
 
 logger = logging.getLogger('meta_integration') # Using the app-specific logger from your original file
