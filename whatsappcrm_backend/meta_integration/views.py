@@ -347,7 +347,7 @@ class MetaWebhookAPIView(View):
             wamid=whatsapp_message_id,
             defaults={
                 'contact': contact,
-                'meta_app_config': active_config, # Link message to app config
+                'app_config': active_config, # Link message to app config
                 'direction': 'in',
                 'message_type': msg_data.get("type", "unknown"),
                 'content_payload': msg_data,
@@ -401,7 +401,7 @@ class MetaWebhookAPIView(View):
                         # Create the outgoing Message object in the database
                         outgoing_msg = Message.objects.create(
                             contact=recipient_contact,
-                            meta_app_config=active_config,
+                            app_config=active_config,
                             direction='out',
                             message_type=outgoing_message_type,
                             content_payload=outgoing_data_payload,
@@ -431,7 +431,7 @@ class MetaWebhookAPIView(View):
         if not log_entry.event_identifier: log_entry.event_identifier = wamid
         logger.info(f"Status Update: WAMID={wamid}, Status='{status_value}'")
         notes = [f"Status for WAMID {wamid} is {status_value}."]
-        try:
+        try: # noqa
             msg_to_update = Message.objects.filter(wamid=wamid, direction='out').first()
             if msg_to_update:
                 msg_to_update.status = status_value; msg_to_update.status_timestamp = status_ts

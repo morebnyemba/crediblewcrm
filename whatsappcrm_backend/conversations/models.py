@@ -5,7 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 # It's good practice to link conversations to the MetaAppConfig if you might have multiple,
 # or just to know which configuration handled this conversation.
-# from meta_integration.models import MetaAppConfig # Assuming models are in meta_integration
+from meta_integration.models import MetaAppConfig # Assuming models are in meta_integration
 
 class Contact(models.Model):
     """
@@ -25,13 +25,13 @@ class Contact(models.Model):
     )
     # Link to the MetaAppConfig that this contact is primarily associated with, if applicable
     # This helps if you manage multiple WhatsApp numbers/businesses through the same CRM.
-    # associated_app_config = models.ForeignKey(
-    #     MetaAppConfig,
-    #     on_delete=models.SET_NULL, # Keep contact even if config is deleted
-    #     null=True,
-    #     blank=True,
-    #     help_text="The Meta App Configuration this contact is associated with."
-    # )
+    associated_app_config = models.ForeignKey(
+        MetaAppConfig,
+        on_delete=models.SET_NULL, # Keep contact even if config is deleted
+        null=True,
+        blank=True,
+        help_text="The Meta App Configuration this contact is associated with."
+    )
     
     needs_human_intervention = models.BooleanField(
         default=False,
@@ -106,13 +106,13 @@ class Message(models.Model):
         related_name='messages'
     )
     # Link to the MetaAppConfig used for this specific message, if applicable
-    # app_config = models.ForeignKey(
-    #     MetaAppConfig,
-    #     on_delete=models.SET_NULL,
-    #     null=True,
-    #     blank=True,
-    #     help_text="The Meta App Configuration used for sending/receiving this message."
-    # )
+    app_config = models.ForeignKey(
+        MetaAppConfig,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="The Meta App Configuration used for sending/receiving this message."
+    )
     wamid = models.CharField(
         max_length=255,
         blank=True,

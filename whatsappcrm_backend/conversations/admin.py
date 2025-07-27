@@ -5,20 +5,20 @@ from .models import Contact, Message, Broadcast, BroadcastRecipient
 
 @admin.register(Contact)
 class ContactAdmin(admin.ModelAdmin):
-    list_display = ('whatsapp_id', 'name', 'first_seen', 'last_seen', 'is_blocked') # Add 'associated_app_config_name' if using the FK
+    list_display = ('whatsapp_id', 'name', 'first_seen', 'last_seen', 'is_blocked', 'associated_app_config_name') # Add 'associated_app_config_name' if using the FK
     search_fields = ('whatsapp_id', 'name')
-    list_filter = ('is_blocked', 'last_seen', 'first_seen') # Add 'associated_app_config' if using the FK
+    list_filter = ('is_blocked', 'last_seen', 'first_seen', 'associated_app_config') # Add 'associated_app_config' if using the FK
     readonly_fields = ('first_seen', 'last_seen')
-    # fieldsets = (
-    #     (None, {'fields': ('whatsapp_id', 'name', 'is_blocked')}),
-    #     # ('Association', {'fields': ('associated_app_config',)}), # If using the FK
-    #     # ('Details', {'fields': ('custom_fields',)}),
-    #     ('Timestamps', {'fields': ('first_seen', 'last_seen'), 'classes': ('collapse',)}),
-    # )
+    fieldsets = (
+        (None, {'fields': ('whatsapp_id', 'name', 'is_blocked')}),
+        ('Association', {'fields': ('associated_app_config',)}), # If using the FK
+        # ('Details', {'fields': ('custom_fields',)}),
+        ('Timestamps', {'fields': ('first_seen', 'last_seen'), 'classes': ('collapse',)}),
+    )
 
-    # def associated_app_config_name(self, obj):
-    #     return obj.associated_app_config.name if obj.associated_app_config else "N/A"
-    # associated_app_config_name.short_description = "App Config"
+    def associated_app_config_name(self, obj):
+        return obj.associated_app_config.name if obj.associated_app_config else "N/A"
+    associated_app_config_name.short_description = "App Config"
 
 
 class MessageInline(admin.TabularInline): # Or admin.StackedInline for a different layout
@@ -44,14 +44,14 @@ class MessageInline(admin.TabularInline): # Or admin.StackedInline for a differe
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    list_display = ('id', 'contact_link', 'direction', 'message_type', 'status', 'timestamp', 'wamid_short')
-    list_filter = ('timestamp', 'direction', 'message_type', 'status', 'contact__name') # Add 'app_config' if using the FK
+    list_display = ('id', 'contact_link', 'direction', 'message_type', 'status', 'timestamp', 'wamid_short', 'app_config')
+    list_filter = ('timestamp', 'direction', 'message_type', 'status', 'contact__name', 'app_config') # Add 'app_config' if using the FK
     search_fields = ('wamid', 'text_content', 'contact__whatsapp_id', 'contact__name', 'content_payload') # Be careful with JSON search
-    readonly_fields = ('contact', 'wamid', 'direction', 'message_type', 'content_payload', 'timestamp', 'status_timestamp', 'error_details') # 'app_config'
+    readonly_fields = ('contact', 'app_config', 'wamid', 'direction', 'message_type', 'content_payload', 'timestamp', 'status_timestamp', 'error_details') # 'app_config'
     date_hierarchy = 'timestamp'
     list_per_page = 25
     fieldsets = (
-        ('Message Info', {'fields': ('contact', 'direction', 'message_type', 'timestamp')}), # 'app_config'
+        ('Message Info', {'fields': ('contact', 'app_config', 'direction', 'message_type', 'timestamp')}), # 'app_config'
         ('Content', {'fields': ('wamid', 'text_content', 'content_payload')}),
         ('Status & Delivery', {'fields': ('status', 'status_timestamp', 'error_details')}),
         ('Internal', {'fields': ('is_internal_note',)}),
@@ -74,7 +74,7 @@ class MessageAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         # Optimize query by prefetching related Contact
-        return super().get_queryset(request).select_related('contact') # 'app_config'
+        return super().get_queryset(request).select_related('contact', 'app_config') # 'app_config'
 
 
 class BroadcastRecipientInline(admin.TabularInline):

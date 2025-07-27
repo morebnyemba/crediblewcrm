@@ -22,8 +22,8 @@ def get_or_create_contact_by_wa_id(wa_id: str, name: str = None, meta_app_config
     
     # The 'associated_app_config' field on the Contact model is currently commented out.
     # If you uncomment it, you can use the meta_app_config parameter like this:
-    # if meta_app_config:
-    #     defaults['associated_app_config'] = meta_app_config
+    if meta_app_config:
+        defaults['associated_app_config'] = meta_app_config
 
     contact, created = Contact.objects.update_or_create(
         whatsapp_id=wa_id,
