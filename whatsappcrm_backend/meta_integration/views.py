@@ -472,7 +472,7 @@ class MetaWebhookAPIView(View):
 
         logger.info(f"Webhook GET verification for config '{active_config.name}': mode='{mode}', received_token='{verify_token}', challenge='{challenge}'")
 
-        if mode == 'subscribe' and verify_token == active_config.webhook_verify_token and challenge:
+        if mode == 'subscribe' and verify_token == active_config.verify_token and challenge:
             logger.info(f"Webhook successfully verified for app: {active_config.name}.")
             return HttpResponse(challenge, status=200)
         else:
