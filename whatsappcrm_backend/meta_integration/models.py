@@ -2,6 +2,7 @@
 
 from django.db import models
 from django.core.exceptions import ValidationError
+from conversations.models import Message
 import logging
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,13 @@ class WebhookEventLog(models.Model):
         null=True,
         blank=True,
         help_text="Configuration used when this event was received, if identifiable."
+    )
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='webhook_logs',
+        help_text="The Message object created from this event, if applicable."
     )
     waba_id_received = models.CharField(max_length=50, blank=True, null=True, help_text="WABA ID from the webhook payload.")
     phone_number_id_received = models.CharField(max_length=50, blank=True, null=True, help_text="Phone Number ID from the webhook payload.")
