@@ -161,14 +161,15 @@ class ContactDetailSerializer(ContactSerializer):
     Contact serializer that includes the nested CustomerProfile 
     and a list of recent messages for detailed views.
     """
-    customer_profile = CustomerProfileSerializer(read_only=True) # <--- NESTED PROFILE
-    recent_messages = MessageListSerializer(many=True, read_only=True, source='get_recent_messages_for_serializer') 
-    # 'get_recent_messages_for_serializer' should be a method on your Contact model
+    # The `source` attribute points to the related model manager on the Contact model.
+    # `member_profile` is the likely `related_name` from a OneToOneField on MemberProfile.
+    customer_profile = CustomerProfileSerializer(source='member_profile', read_only=True)
+    # The `source` for recent_messages should be 'messages' to use the Prefetch from the view.
+    recent_messages = MessageListSerializer(many=True, read_only=True, source='messages')
 
     class Meta(ContactSerializer.Meta):
         # Inherit fields from ContactSerializer and add new ones
         fields = ContactSerializer.Meta.fields + ['customer_profile', 'recent_messages']
-
 
 class BroadcastTemplateSerializer(serializers.Serializer):
     """
