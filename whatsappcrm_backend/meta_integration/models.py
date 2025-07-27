@@ -2,7 +2,7 @@
 
 from django.db import models
 from django.core.exceptions import ValidationError
-from conversations.models import Message
+# from conversations.models import Message # This is removed to prevent circular import
 import logging
 
 logger = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ class WebhookEventLog(models.Model):
         help_text="Configuration used when this event was received, if identifiable."
     )
     message = models.ForeignKey(
-        Message,
+        'conversations.Message',
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='webhook_logs',
