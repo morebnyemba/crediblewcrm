@@ -210,8 +210,7 @@ class MetaWebhookAPIView(View):
 
         log_entry = None # Initialize
         base_log_defaults = {
-            'app_config': active_config, 'payload_object_type': payload.get("object"),
-            'processing_status': 'pending'
+            'app_config': active_config, 'payload_object_type': payload.get("object")
         }
 
         try:
@@ -300,6 +299,7 @@ class MetaWebhookAPIView(View):
                  WebhookEventLog.objects.create(
                     **base_log_defaults,
                     event_identifier=f"error_{timezone.now().timestamp()}",
+                    processing_status='failed',
                     payload=current_payload_for_log,
                     event_type='unhandled_exception',
                     processing_status='failed',
