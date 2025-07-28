@@ -18,12 +18,17 @@ REGISTRATION_FLOW = {
                 "message_config": {
                     "message_type": "text",
                     "text": {
-                        "body": "Welcome to our new member registration! We need to ask a few questions to get you set up.\n\nLet's start with your first name. What is your first name?"
+                        "body": "Welcome! To register you as a new member, I just need to ask a few quick questions.\n\nLet's start with your first name."
                     }
                 },
                 "reply_config": {
                     "save_to_variable": "first_name",
                     "expected_type": "text"
+                },
+                "fallback_config": {
+                    "max_retries": 2,
+                    "re_prompt_message": "Sorry, I didn't catch that. Please enter your first name.",
+                    "on_max_retries_transition_to": "end_registration_failed"
                 }
             },
             "transitions": {
@@ -42,6 +47,11 @@ REGISTRATION_FLOW = {
                 "reply_config": {
                     "save_to_variable": "last_name",
                     "expected_type": "text"
+                },
+                "fallback_config": {
+                    "max_retries": 2,
+                    "re_prompt_message": "Sorry, I didn't catch that. Please enter your last name.",
+                    "on_max_retries_transition_to": "end_registration_failed"
                 }
             },
             "transitions": {
@@ -81,6 +91,11 @@ REGISTRATION_FLOW = {
                 "reply_config": {
                     "save_to_variable": "gender",
                     "expected_type": "interactive_id"
+                },
+                "fallback_config": {
+                    "max_retries": 1,
+                    "re_prompt_message": "Please make a selection from the list to continue.",
+                    "on_max_retries_transition_to": "end_registration_failed"
                 }
             },
             "transitions": {
@@ -113,6 +128,11 @@ REGISTRATION_FLOW = {
                 "reply_config": {
                     "save_to_variable": "marital_status",
                     "expected_type": "interactive_id"
+                },
+                "fallback_config": {
+                    "max_retries": 1,
+                    "re_prompt_message": "Please make a selection from the list to continue.",
+                    "on_max_retries_transition_to": "end_registration_failed"
                 }
             },
             "transitions": {
@@ -130,6 +150,11 @@ REGISTRATION_FLOW = {
                     "save_to_variable": "date_of_birth",
                     "expected_type": "text",
                     "validation_regex": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "fallback_config": {
+                    "max_retries": 2,
+                    "re_prompt_message": "That doesn't look like a valid date format. Please use YYYY-MM-DD.",
+                    "on_max_retries_transition_to": "end_registration_failed"
                 }
             },
             "transitions": {
@@ -146,6 +171,11 @@ REGISTRATION_FLOW = {
                 "reply_config": {
                     "save_to_variable": "email",
                     "expected_type": "email"
+                },
+                "fallback_config": {
+                    "max_retries": 2,
+                    "re_prompt_message": "That doesn't look like a valid email. Please enter a correct email address.",
+                    "on_max_retries_transition_to": "end_registration_failed"
                 }
             },
             "transitions": {
@@ -159,7 +189,12 @@ REGISTRATION_FLOW = {
                     "message_type": "text",
                     "text": {"body": "Which city do you currently live in?"}
                 },
-                "reply_config": {"save_to_variable": "city", "expected_type": "text"}
+                "reply_config": {"save_to_variable": "city", "expected_type": "text"},
+                "fallback_config": {
+                    "max_retries": 2,
+                    "re_prompt_message": "Sorry, I didn't get that. Please tell me which city you live in.",
+                    "on_max_retries_transition_to": "end_registration_failed"
+                }
             },
             "transitions": {
                 "next": "save_profile_data"
@@ -194,6 +229,15 @@ REGISTRATION_FLOW = {
                 "message_config": {
                     "message_type": "text",
                     "text": {"body": "Thank you, {{ context.first_name }}! Your profile has been updated. Welcome to the community! 🙏"}
+                }
+            }
+        },
+        "end_registration_failed": {
+            "type": "end_flow",
+            "config": {
+                "message_config": {
+                    "message_type": "text",
+                    "text": {"body": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."}
                 }
             }
         }
