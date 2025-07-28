@@ -2,7 +2,7 @@
 
 """
 This flow definition collects all the necessary data to create a MemberProfile.
-It uses various message types for a bSetter user experience and concludes
+It uses various message types for a better user experience and concludes
 by using an 'action' step to persist the data.
 """
 
@@ -54,14 +54,26 @@ REGISTRATION_FLOW = {
                 "message_config": {
                     "message_type": "interactive",
                     "interactive": {
-                        "type": "button",
+                        "type": "list",
+                        "header": {
+                            "type": "text",
+                            "text": "Gender Selection"
+                        },
                         "body": {
-                            "text": "What is your gender?"
+                            "text": "Please select your gender from the list below."
                         },
                         "action": {
-                            "buttons": [
-                                {"type": "reply", "reply": {"id": "male", "title": "Male"}},
-                                {"type": "reply", "reply": {"id": "female", "title": "Female"}}
+                            "button": "Select Gender",
+                            "sections": [
+                                {
+                                    "title": "Options",
+                                    "rows": [
+                                        {"id": "male", "title": "Male"},
+                                        {"id": "female", "title": "Female"},
+                                        {"id": "other", "title": "Other"},
+                                        {"id": "prefer_not_to_say", "title": "Prefer not to say"}
+                                    ]
+                                }
                             ]
                         }
                     }
@@ -72,4 +84,118 @@ REGISTRATION_FLOW = {
                 }
             },
             "transitions": {
-                "
+                "next": "ask_marital_status"
+            }
+        },
+        "ask_marital_status": {
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "list",
+                        "header": {"type": "text", "text": "Marital Status"},
+                        "body": {"text": "What is your marital status?"},
+                        "action": {
+                            "button": "Select Status",
+                            "sections": [{
+                                "title": "Options",
+                                "rows": [
+                                    {"id": "single", "title": "Single"},
+                                    {"id": "married", "title": "Married"},
+                                    {"id": "divorced", "title": "Divorced"},
+                                    {"id": "widowed", "title": "Widowed"}
+                                ]
+                            }]
+                        }
+                    }
+                },
+                "reply_config": {
+                    "save_to_variable": "marital_status",
+                    "expected_type": "interactive_id"
+                }
+            },
+            "transitions": {
+                "next": "ask_dob"
+            }
+        },
+        "ask_dob": {
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "text",
+                    "text": {"body": "What is your date of birth?\n\nPlease use the format YYYY-MM-DD (e.g., 1990-05-21)."}
+                },
+                "reply_config": {
+                    "save_to_variable": "date_of_birth",
+                    "expected_type": "text",
+                    "validation_regex": "^\\d{4}-\\d{2}-\\d{2}$"
+                }
+            },
+            "transitions": {
+                "next": "ask_email"
+            }
+        },
+        "ask_email": {
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "text",
+                    "text": {"body": "What is your email address? This will help us keep you updated."}
+                },
+                "reply_config": {
+                    "save_to_variable": "email",
+                    "expected_type": "email"
+                }
+            },
+            "transitions": {
+                "next": "ask_city"
+            }
+        },
+        "ask_city": {
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "text",
+                    "text": {"body": "Which city do you currently live in?"}
+                },
+                "reply_config": {"save_to_variable": "city", "expected_type": "text"}
+            },
+            "transitions": {
+                "next": "save_profile_data"
+            }
+        },
+        "save_profile_data": {
+            "type": "action",
+            "config": {
+                "actions_to_run": [
+                    {
+                        "action_type": "update_member_profile",
+                        "fields_to_update": {
+                            "first_name": "{{ context.first_name }}",
+                            "last_name": "{{ context.last_name }}",
+                            "gender": "{{ context.gender }}",
+                            "marital_status": "{{ context.marital_status }}",
+                            "date_of_birth": "{{ context.date_of_birth }}",
+                            "email": "{{ context.email }}",
+                            "city": "{{ context.city }}",
+                            "last_updated_from_conversation": "{{ now }}"
+                        }
+                    }
+                ]
+            },
+            "transitions": {
+                "next": "end_registration"
+            }
+        },
+        "end_registration": {
+            "type": "end_flow",
+            "config": {
+                "message_config": {
+                    "message_type": "text",
+                    "text": {"body": "Thank you, {{ context.first_name }}! Your profile has been updated. Welcome to the community! 🙏"}
+                }
+            }
+        }
+    }
+}
