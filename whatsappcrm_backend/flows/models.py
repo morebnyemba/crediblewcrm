@@ -16,7 +16,12 @@ class Flow(models.Model):
     name = models.CharField(
         max_length=255,
         unique=True,
-        help_text="Unique name for this flow."
+        help_text="Unique name for this flow (used as an identifier)."
+    )
+    friendly_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="A user-friendly name for display purposes. If blank, it will be derived from the name."
     )
     description = models.TextField(
         blank=True, null=True,
@@ -38,7 +43,7 @@ class Flow(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
-        return f"{self.name} ({'Active' if self.is_active else 'Inactive'})"
+        return f"{self.friendly_name or self.name} ({'Active' if self.is_active else 'Inactive'})"
 
     def clean(self) -> None:
         super().clean()
@@ -57,6 +62,8 @@ class Flow(models.Model):
             })
 
     def save(self, *args, **kwargs) -> None:
+        if not self.friendly_name:
+            self.friendly_name = self.name.replace('_', ' ').replace('-', ' ').title()
         self.full_clean() # Call full_clean before saving to run all validations
         super().save(*args, **kwargs)
 
