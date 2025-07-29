@@ -30,3 +30,7 @@ gunicorn
 daphne
 requests
 pydantic
+# WebSocket support
+django-channels # For WebSocket handling
+django-channels-redis # For Redis channel layer
+# For handling file uploads
