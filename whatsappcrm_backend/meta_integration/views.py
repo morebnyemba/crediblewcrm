@@ -302,7 +302,6 @@ class MetaWebhookAPIView(View):
                     processing_status='failed',
                     payload=current_payload_for_log,
                     event_type='unhandled_exception',
-                    processing_status='failed',
                     processing_notes=f"General processing error: {str(e)[:250]}"
                 )
             return HttpResponse("Internal Server Error processing event.", status=500)
