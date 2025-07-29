@@ -11,7 +11,7 @@ from rest_framework_simplejwt.views import (
 urlpatterns = [
     # Django Admin interface - useful for backend management via Jazzmin
     path('admin/', admin.site.urls),
-
+    path('prometheus/', include('django_prometheus.urls')),
     # API endpoints for 'meta_integration' application
     # This includes:
     #   - The webhook receiver for Meta (e.g., /crm-api/meta/webhook/)

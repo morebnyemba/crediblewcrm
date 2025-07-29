@@ -56,6 +56,9 @@ INSTALLED_APPS = [
     'django_celery_results',
     'django_celery_beat',
     'media_manager.apps.MediaManagerConfig',
+    'django_extensions', # Useful for development, optional
+    'drf_spectacular', # For OpenAPI schema generation
+    'django_prometheus', # For metrics collection
 
     # Our apps
     "stats",

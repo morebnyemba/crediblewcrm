@@ -38,3 +38,5 @@ django-storages
 # For Additional Functionality
 django-filter # For filtering in DRF
 django-extensions # For additional management commands
+drf-spectacular # For OpenAPI schema generation
+django-prometheus # For monitoring
