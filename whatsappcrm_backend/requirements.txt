@@ -31,7 +31,7 @@ daphne
 requests
 pydantic
 # WebSocket support
-django-channels-redis # For Redis channel layer
+ # For Redis channel layer
 # For handling file uploads
 django-storages
 # For Additional Functionality
