@@ -26,9 +26,10 @@ REGISTRATION_FLOW = {
                     "expected_type": "text"
                 },
                 "fallback_config": {
+                    "action": "re_prompt",
                     "max_retries": 2,
-                    "re_prompt_message": "Sorry, I didn't catch that. Please enter your first name.",
-                    "on_max_retries_transition_to": "end_registration_failed"
+                    "re_prompt_message_text": "Sorry, I didn't catch that. Please enter your first name.",
+                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
             "transitions": {
@@ -49,9 +50,10 @@ REGISTRATION_FLOW = {
                     "expected_type": "text"
                 },
                 "fallback_config": {
+                    "action": "re_prompt",
                     "max_retries": 2,
-                    "re_prompt_message": "Sorry, I didn't catch that. Please enter your last name.",
-                    "on_max_retries_transition_to": "end_registration_failed"
+                    "re_prompt_message_text": "Sorry, I didn't catch that. Please enter your last name.",
+                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
             "transitions": {
@@ -93,9 +95,10 @@ REGISTRATION_FLOW = {
                     "expected_type": "interactive_id"
                 },
                 "fallback_config": {
+                    "action": "re_prompt",
                     "max_retries": 1,
-                    "re_prompt_message": "Please make a selection from the list to continue.",
-                    "on_max_retries_transition_to": "end_registration_failed"
+                    "re_prompt_message_text": "Please make a selection from the list to continue.",
+                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
             "transitions": {
@@ -130,9 +133,10 @@ REGISTRATION_FLOW = {
                     "expected_type": "interactive_id"
                 },
                 "fallback_config": {
+                    "action": "re_prompt",
                     "max_retries": 1,
-                    "re_prompt_message": "Please make a selection from the list to continue.",
-                    "on_max_retries_transition_to": "end_registration_failed"
+                    "re_prompt_message_text": "Please make a selection from the list to continue.",
+                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
             "transitions": {
@@ -152,9 +156,10 @@ REGISTRATION_FLOW = {
                     "validation_regex": "^\\d{4}-\\d{2}-\\d{2}$"
                 },
                 "fallback_config": {
+                    "action": "re_prompt",
                     "max_retries": 2,
-                    "re_prompt_message": "That doesn't look like a valid date format. Please use YYYY-MM-DD.",
-                    "on_max_retries_transition_to": "end_registration_failed"
+                    "re_prompt_message_text": "That doesn't look like a valid date format. Please use YYYY-MM-DD.",
+                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
             "transitions": {
@@ -173,9 +178,10 @@ REGISTRATION_FLOW = {
                     "expected_type": "email"
                 },
                 "fallback_config": {
+                    "action": "re_prompt",
                     "max_retries": 2,
-                    "re_prompt_message": "That doesn't look like a valid email. Please enter a correct email address.",
-                    "on_max_retries_transition_to": "end_registration_failed"
+                    "re_prompt_message_text": "That doesn't look like a valid email. Please enter a correct email address.",
+                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
             "transitions": {
@@ -191,9 +197,10 @@ REGISTRATION_FLOW = {
                 },
                 "reply_config": {"save_to_variable": "city", "expected_type": "text"},
                 "fallback_config": {
+                    "action": "re_prompt",
                     "max_retries": 2,
-                    "re_prompt_message": "Sorry, I didn't get that. Please tell me which city you live in.",
-                    "on_max_retries_transition_to": "end_registration_failed"
+                    "re_prompt_message_text": "Sorry, I didn't get that. Please tell me which city you live in.",
+                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
             "transitions": {
