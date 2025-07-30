@@ -1,5 +1,5 @@
 # whatsappcrm_backend/flows/services.py
-
+from django.db import models
 import logging
 import json
 import re
