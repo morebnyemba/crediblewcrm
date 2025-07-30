@@ -77,66 +77,35 @@ MAIN_MENU_FLOW = {
                 }
             },
             "transitions": [
+                # --- Direct Flow Switches ---
                 {"to_step": "switch_to_registration", "condition_config": {"type": "interactive_reply_id_equals", "value": "trigger_registration_flow"}},
-                {"to_step": "show_profile_summary", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
-                {"to_step": "show_upcoming_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
-                {"to_step": "show_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
-                {"to_step": "show_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
                 {"to_step": "switch_to_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "submit_prayer_request"}},
                 {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
+                
+                # --- Handover ---
                 {"to_step": "initiate_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
+
+                # --- Conditional & Informational Paths ---
+                {"to_step": "check_profile_exists", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
+                {"to_step": "set_coming_soon_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
+                {"to_step": "set_coming_soon_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
+                {"to_step": "set_coming_soon_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
             ]
         },
 
-        # 2a. Action to switch to the registration flow
+        # --- Steps for Switching Flows ---
         {
             "name": "switch_to_registration",
             "type": "action",
             "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "member_registration"}]},
             "transitions": []
         },
-
-        # 2b. Show profile summary
-        {
-            "name": "show_profile_summary",
-            "type": "send_message",
-            "config": {"message_type": "text", "text": {"body": "Here is your profile summary:\n\n*Name:* {{ member_profile.first_name }} {{ member_profile.last_name }}\n*Email:* {{ member_profile.email }}\n*City:* {{ member_profile.city }}\n\nType 'menu' to return to the main menu."}},
-            "transitions": [{"to_step": "end_menu_flow", "condition_config": {"type": "always_true"}}]
-        },
-
-        # 2c. Placeholder for upcoming events
-        {
-            "name": "show_upcoming_events",
-            "type": "send_message",
-            "config": {"message_type": "text", "text": {"body": "Here are our upcoming events... (feature coming soon).\n\nType 'menu' to return."}},
-            "transitions": [{"to_step": "end_menu_flow", "condition_config": {"type": "always_true"}}]
-        },
-
-        # 2d. Placeholder for ministries
-        {
-            "name": "show_ministries",
-            "type": "send_message",
-            "config": {"message_type": "text", "text": {"body": "Here are our ministries and groups... (feature coming soon).\n\nType 'menu' to return."}},
-            "transitions": [{"to_step": "end_menu_flow", "condition_config": {"type": "always_true"}}]
-        },
-
-        # 2e. Placeholder for sermons
-        {
-            "name": "show_sermons",
-            "type": "send_message",
-            "config": {"message_type": "text", "text": {"body": "Here are our recent sermons... (feature coming soon).\n\nType 'menu' to return."}},
-            "transitions": [{"to_step": "end_menu_flow", "condition_config": {"type": "always_true"}}]
-        },
-
-        # 2f. Action to switch to the prayer request flow
         {
             "name": "switch_to_prayer_request",
             "type": "action",
             "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "prayer_request"}]},
             "transitions": []
         },
-
-        # 2g. Action to switch to the giving flow
         {
             "name": "switch_to_giving",
             "type": "action",
@@ -144,7 +113,7 @@ MAIN_MENU_FLOW = {
             "transitions": []
         },
 
-        # 2h. Initiate human handover to a pastor
+        # --- Step for Human Handover ---
         {
             "name": "initiate_pastor_handover",
             "type": "human_handover",
@@ -152,9 +121,88 @@ MAIN_MENU_FLOW = {
             "transitions": []
         },
 
-        # 3. Common end point
+        # --- Profile Summary Path (Improved) ---
         {
-            "name": "end_menu_flow",
+            "name": "check_profile_exists",
+            "type": "action",
+            "config": {"actions_to_run": []},
+            "transitions": [
+                {"to_step": "show_profile_summary", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "member_profile.first_name"}},
+                {"to_step": "prompt_to_register", "priority": 20, "condition_config": {"type": "always_true"}}
+            ]
+        },
+        {
+            "name": "show_profile_summary",
+            "type": "send_message",
+            "config": {"message_type": "text", "text": {"body": "Here is your profile summary:\n\n*Name:* {{ member_profile.first_name }} {{ member_profile.last_name }}\n*Email:* {{ member_profile.email }}\n*City:* {{ member_profile.city }}\n\nType 'menu' to return to the main menu."}},
+            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+        },
+        {
+            "name": "prompt_to_register",
+            "type": "send_message",
+            "config": {"message_type": "text", "text": {"body": "It looks like your profile is incomplete. Please register first to view your summary.\n\nType 'register' to begin, or 'menu' to go back."}},
+            "transitions": [{"to_step": "end_flow_silently", "condition_config": {"type": "always_true"}}]
+        },
+
+        # --- "Coming Soon" Path (Refactored) ---
+        {
+            "name": "set_coming_soon_events",
+            "type": "action",
+            "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "feature_name", "value_template": "Upcoming Events"}]},
+            "transitions": [{"to_step": "show_coming_soon_message", "condition_config": {"type": "always_true"}}]
+        },
+        {
+            "name": "set_coming_soon_ministries",
+            "type": "action",
+            "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "feature_name", "value_template": "Ministries & Groups"}]},
+            "transitions": [{"to_step": "show_coming_soon_message", "condition_config": {"type": "always_true"}}]
+        },
+        {
+            "name": "set_coming_soon_sermons",
+            "type": "action",
+            "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "feature_name", "value_template": "Recent Sermons"}]},
+            "transitions": [{"to_step": "show_coming_soon_message", "condition_config": {"type": "always_true"}}]
+        },
+        {
+            "name": "show_coming_soon_message",
+            "type": "send_message",
+            "config": {"message_type": "text", "text": {"body": "The '{{ flow_context.feature_name }}' feature is coming soon! We're working hard to bring it to you.\n\nType 'menu' to return to the main menu."}},
+            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+        },
+
+        # --- Looping and Ending (Improved) ---
+        {
+            "name": "offer_return_to_menu",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {"text": "Would you like to return to the main menu?"},
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": "return_to_menu", "title": "Yes, show menu"}},
+                                {"type": "reply", "reply": {"id": "end_conversation", "title": "No, I'm done"}}
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {"save_to_variable": "return_choice", "expected_type": "interactive_id"}
+            },
+            "transitions": [
+                {"to_step": "show_main_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}},
+                {"to_step": "say_goodbye", "condition_config": {"type": "interactive_reply_id_equals", "value": "end_conversation"}}
+            ]
+        },
+        {
+            "name": "say_goodbye",
+            "type": "send_message",
+            "config": {"message_type": "text", "text": {"body": "You're welcome! Have a blessed day. 🙏"}},
+            "transitions": [{"to_step": "end_flow_silently", "condition_config": {"type": "always_true"}}]
+        },
+        {
+            "name": "end_flow_silently",
             "type": "end_flow",
             "config": {},
             "transitions": []
