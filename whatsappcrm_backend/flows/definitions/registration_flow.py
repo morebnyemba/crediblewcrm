@@ -272,8 +272,7 @@ REGISTRATION_FLOW = {
                             "marital_status": "{{ context.marital_status }}",
                             "date_of_birth": "{{ context.date_of_birth }}",
                             "email": "{{ context.email }}",
-                            "city": "{{ context.city }}",
-                            "last_updated_from_conversation": "{{ now }}"
+                            "city": "{{ context.city }}"
                         }
                     }
                 ]

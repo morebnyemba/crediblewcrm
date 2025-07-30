@@ -1043,6 +1043,14 @@ def _update_member_profile_data(contact: Contact, fields_to_update_config: Dict[
                 field_name = parts[0]
                 # Prevent updating protected/internal fields
                 if hasattr(profile, field_name) and field_name.lower() not in ['id', 'pk', 'contact', 'contact_id', 'created_at', 'updated_at', 'last_updated_from_conversation']:
+                    # Get the model field to check its type
+                    field_object = profile._meta.get_field(field_name)
+                    
+                    # If the field is a DateField and the resolved value is an empty string,
+                    # convert it to None to avoid a ValidationError.
+                    if isinstance(field_object, models.DateField) and resolved_value == '':
+                        resolved_value = None
+
                     setattr(profile, field_name, resolved_value)
                     if field_name not in changed_fields: 
                         changed_fields.append(field_name)
