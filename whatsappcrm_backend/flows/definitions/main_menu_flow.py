@@ -1,8 +1,6 @@
-# whatsappcrm_backend/flows/definitions/main_menu_flow.py
-
 """
 This flow definition provides a main menu for users to navigate to different
-parts of the application, such as registration or checking their profile.
+parts of the application, such as registration, viewing events, or giving.
 """
 
 MAIN_MENU_FLOW = {
@@ -24,23 +22,43 @@ MAIN_MENU_FLOW = {
                         "type": "list",
                         "header": {
                             "type": "text",
-                            "text": "Main Menu"
+                            "text": "Church Main Menu"
                         },
                         "body": {
-                            "text": "Hello {{ contact.name }}! 👋\n\nHow can I help you today? Please choose an option from the menu below."
+                            "text": "Hello {{ contact.name }}! 🙏\n\nWelcome to our digital church home. How can we serve you today? Please choose an option from our main menu below."
                         },
                         "footer": {
-                            "text": "Powered by AutoWhats"
+                            "text": "Powered by Credible Brands(credible.co.zw)"
                         },
                         "action": {
-                            "button": "Show Options",
+                            "button": "Show Menu",
                             "sections": [
                                 {
-                                    "title": "Available Options",
+                                    "title": "Get Involved",
                                     "rows": [
-                                        {"id": "trigger_registration_flow", "title": "Register as a New Member", "description": "Create your profile with us."},
-                                        {"id": "go_to_profile_summary", "title": "Check My Profile", "description": "View your current profile information."},
-                                        {"id": "trigger_human_handover", "title": "Talk to a Human", "description": "Get assistance from one of our agents."}
+                                        {"id": "trigger_registration_flow", "title": "New Member Registration", "description": "Join our church family officially."},
+                                        {"id": "view_upcoming_events", "title": "Upcoming Events", "description": "See what's happening at our church."},
+                                        {"id": "explore_ministries", "title": "Ministries & Groups", "description": "Find a group to connect with."}
+                                    ]
+                                },
+                                {
+                                    "title": "Spiritual Growth",
+                                    "rows": [
+                                        {"id": "watch_recent_sermons", "title": "Recent Sermons", "description": "Catch up on the latest messages."},
+                                        {"id": "submit_prayer_request", "title": "Submit a Prayer Request", "description": "Let us know how we can pray for you."}
+                                    ]
+                                },
+                                {
+                                    "title": "Giving & Support",
+                                    "rows": [
+                                        {"id": "give_online", "title": "Give Online", "description": "Support our ministry through tithes & offerings."},
+                                        {"id": "talk_to_pastor", "title": "Talk to a Pastor", "description": "Request a conversation with our leadership."}
+                                    ]
+                                },
+                                {
+                                    "title": "My Profile",
+                                    "rows": [
+                                        {"id": "go_to_profile_summary", "title": "Check My Profile", "description": "View your current information."}
                                     ]
                                 }
                             ]
@@ -55,156 +73,90 @@ MAIN_MENU_FLOW = {
                     "action": "re_prompt",
                     "max_retries": 1,
                     "re_prompt_message_text": "Sorry, that's not a valid selection. Please choose an option from the menu.",
-                    "fallback_message_text": "If you need help, just type 'menu' again."
+                    "fallback_message_text": "If you need help, just type 'menu' to see the options again."
                 }
             },
             "transitions": [
-                {
-                    "to_step": "switch_to_registration",
-                    "priority": 10,
-                    "condition_config": {
-                        "type": "interactive_reply_id_equals",
-                        "value": "trigger_registration_flow"
-                    }
-                },
-                {
-                    "to_step": "check_if_profile_exists",
-                    "priority": 10,
-                    "condition_config": {
-                        "type": "interactive_reply_id_equals",
-                        "value": "go_to_profile_summary"
-                    }
-                },
-                {
-                    "to_step": "initiate_human_handover",
-                    "priority": 10,
-                    "condition_config": {
-                        "type": "interactive_reply_id_equals",
-                        "value": "trigger_human_handover"
-                    }
-                }
+                {"to_step": "switch_to_registration", "condition_config": {"type": "interactive_reply_id_equals", "value": "trigger_registration_flow"}},
+                {"to_step": "show_profile_summary", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
+                {"to_step": "show_upcoming_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
+                {"to_step": "show_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
+                {"to_step": "show_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
+                {"to_step": "switch_to_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "submit_prayer_request"}},
+                {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
+                {"to_step": "initiate_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
             ]
         },
 
-        # 2. Check if a profile exists before showing summary
-        {
-            "name": "check_if_profile_exists",
-            "type": "action", # An action step with no actions acts as a simple router
-            "config": {},
-            "transitions": [
-                {
-                    "to_step": "show_profile_summary",
-                    "priority": 10,
-                    "condition_config": {
-                        "type": "variable_exists",
-                        "variable_name": "member_profile.first_name" # Check if a key profile field exists
-                    }
-                },
-                {
-                    "to_step": "prompt_to_register",
-                    "priority": 20, # Lower priority, acts as a fallback
-                    "condition_config": {
-                        "type": "always_true"
-                    }
-                }
-            ]
-        },
-
-        # 3. If no profile, ask the user if they want to register
-        {
-            "name": "prompt_to_register",
-            "type": "question",
-            "config": {
-                "message_config": {
-                    "message_type": "interactive",
-                    "interactive": {
-                        "type": "button",
-                        "body": {
-                            "text": "It looks like you don't have a profile with us yet. Would you like to register now?"
-                        },
-                        "action": {
-                            "buttons": [
-                                {"type": "reply", "reply": {"id": "start_registration_yes", "title": "Yes, register now"}},
-                                {"type": "reply", "reply": {"id": "start_registration_no", "title": "No, maybe later"}}
-                            ]
-                        }
-                    }
-                },
-                "reply_config": {
-                    "save_to_variable": "register_choice",
-                    "expected_type": "interactive_id"
-                }
-            },
-            "transitions": [
-                {"to_step": "switch_to_registration", "condition_config": {"type": "interactive_reply_id_equals", "value": "start_registration_yes"}},
-                {"to_step": "end_menu_flow_with_message", "condition_config": {"type": "interactive_reply_id_equals", "value": "start_registration_no"}}
-            ]
-        },
-
-        # 2a. Action step to switch to the registration flow
+        # 2a. Action to switch to the registration flow
         {
             "name": "switch_to_registration",
             "type": "action",
-            "config": {
-                "actions_to_run": [
-                    {
-                        "action_type": "switch_flow",
-                        "target_flow_name": "member_registration"
-                    }
-                ]
-            },
-            "transitions": [] # No transition needed, as the flow is switched internally
-        },
-
-        # 2b. Step to show the user's profile summary
-        {
-            "name": "show_profile_summary",
-            "type": "send_message",
-            "config": {
-                "message_type": "text",
-                "text": {
-                    "body": "Here is your profile summary:\n\n*Name:* {{ member_profile.first_name }} {{ member_profile.last_name }}\n*Email:* {{ member_profile.email }}\n*City:* {{ member_profile.city }}\n\nType 'menu' to return to the main menu."
-                }
-            },
-            "transitions": [
-                {
-                    "to_step": "end_menu_flow",
-                    "priority": 10,
-                    "condition_config": {
-                        "type": "always_true"
-                    }
-                }
-            ]
-        },
-
-        # 2c. Step to initiate a human handover
-        {
-            "name": "initiate_human_handover",
-            "type": "human_handover",
-            "config": {
-                "pre_handover_message_text": "One moment please, I'm connecting you to a human agent who will be with you shortly."
-            },
-            "transitions": [] # This step automatically ends the flow
-        },
-
-        # 3. A common end point for paths that don't switch flows
-        {
-            "name": "end_menu_flow",
-            "type": "end_flow",
-            "config": {}, # No final message needed
+            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "member_registration"}]},
             "transitions": []
         },
 
-        # 4. End flow with a polite message if user declines to register
+        # 2b. Show profile summary
         {
-            "name": "end_menu_flow_with_message",
+            "name": "show_profile_summary",
+            "type": "send_message",
+            "config": {"message_type": "text", "text": {"body": "Here is your profile summary:\n\n*Name:* {{ member_profile.first_name }} {{ member_profile.last_name }}\n*Email:* {{ member_profile.email }}\n*City:* {{ member_profile.city }}\n\nType 'menu' to return to the main menu."}},
+            "transitions": [{"to_step": "end_menu_flow", "condition_config": {"type": "always_true"}}]
+        },
+
+        # 2c. Placeholder for upcoming events
+        {
+            "name": "show_upcoming_events",
+            "type": "send_message",
+            "config": {"message_type": "text", "text": {"body": "Here are our upcoming events... (feature coming soon).\n\nType 'menu' to return."}},
+            "transitions": [{"to_step": "end_menu_flow", "condition_config": {"type": "always_true"}}]
+        },
+
+        # 2d. Placeholder for ministries
+        {
+            "name": "show_ministries",
+            "type": "send_message",
+            "config": {"message_type": "text", "text": {"body": "Here are our ministries and groups... (feature coming soon).\n\nType 'menu' to return."}},
+            "transitions": [{"to_step": "end_menu_flow", "condition_config": {"type": "always_true"}}]
+        },
+
+        # 2e. Placeholder for sermons
+        {
+            "name": "show_sermons",
+            "type": "send_message",
+            "config": {"message_type": "text", "text": {"body": "Here are our recent sermons... (feature coming soon).\n\nType 'menu' to return."}},
+            "transitions": [{"to_step": "end_menu_flow", "condition_config": {"type": "always_true"}}]
+        },
+
+        # 2f. Action to switch to the prayer request flow
+        {
+            "name": "switch_to_prayer_request",
+            "type": "action",
+            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "prayer_request"}]},
+            "transitions": []
+        },
+
+        # 2g. Action to switch to the giving flow
+        {
+            "name": "switch_to_giving",
+            "type": "action",
+            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "giving"}]},
+            "transitions": []
+        },
+
+        # 2h. Initiate human handover to a pastor
+        {
+            "name": "initiate_pastor_handover",
+            "type": "human_handover",
+            "config": {"pre_handover_message_text": "One moment please, I'm connecting you to a pastor who will be with you shortly."},
+            "transitions": []
+        },
+
+        # 3. Common end point
+        {
+            "name": "end_menu_flow",
             "type": "end_flow",
-            "config": {
-                "message_config": {
-                    "message_type": "text",
-                    "text": {"body": "No problem! You can type 'menu' anytime to see the options again."}
-                }
-            },
+            "config": {},
             "transitions": []
         }
     ]
