@@ -68,7 +68,7 @@ MAIN_MENU_FLOW = {
                     }
                 },
                 {
-                    "to_step": "show_profile_summary",
+                    "to_step": "check_if_profile_exists",
                     "priority": 10,
                     "condition_config": {
                         "type": "interactive_reply_id_equals",
@@ -83,6 +83,61 @@ MAIN_MENU_FLOW = {
                         "value": "trigger_human_handover"
                     }
                 }
+            ]
+        },
+
+        # 2. Check if a profile exists before showing summary
+        {
+            "name": "check_if_profile_exists",
+            "type": "action", # An action step with no actions acts as a simple router
+            "config": {},
+            "transitions": [
+                {
+                    "to_step": "show_profile_summary",
+                    "priority": 10,
+                    "condition_config": {
+                        "type": "variable_exists",
+                        "variable_name": "member_profile.first_name" # Check if a key profile field exists
+                    }
+                },
+                {
+                    "to_step": "prompt_to_register",
+                    "priority": 20, # Lower priority, acts as a fallback
+                    "condition_config": {
+                        "type": "always_true"
+                    }
+                }
+            ]
+        },
+
+        # 3. If no profile, ask the user if they want to register
+        {
+            "name": "prompt_to_register",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {
+                            "text": "It looks like you don't have a profile with us yet. Would you like to register now?"
+                        },
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": "start_registration_yes", "title": "Yes, register now"}},
+                                {"type": "reply", "reply": {"id": "start_registration_no", "title": "No, maybe later"}}
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {
+                    "save_to_variable": "register_choice",
+                    "expected_type": "interactive_id"
+                }
+            },
+            "transitions": [
+                {"to_step": "switch_to_registration", "condition_config": {"type": "interactive_reply_id_equals", "value": "start_registration_yes"}},
+                {"to_step": "end_menu_flow_with_message", "condition_config": {"type": "interactive_reply_id_equals", "value": "start_registration_no"}}
             ]
         },
 
@@ -137,6 +192,19 @@ MAIN_MENU_FLOW = {
             "name": "end_menu_flow",
             "type": "end_flow",
             "config": {}, # No final message needed
+            "transitions": []
+        },
+
+        # 4. End flow with a polite message if user declines to register
+        {
+            "name": "end_menu_flow_with_message",
+            "type": "end_flow",
+            "config": {
+                "message_config": {
+                    "message_type": "text",
+                    "text": {"body": "No problem! You can type 'menu' anytime to see the options again."}
+                }
+            },
             "transitions": []
         }
     ]
