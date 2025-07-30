@@ -242,9 +242,18 @@ class ReplyConfig(BasePydanticConfig):
     expected_type: Literal["text", "email", "number", "interactive_id"]
     validation_regex: Optional[str] = None
 
+class FallbackConfig(BasePydanticConfig):
+    action: Literal["re_prompt", "human_handover"] = "re_prompt"
+    max_retries: int = Field(1, ge=0)
+    re_prompt_message_text: Optional[str] = None
+    fallback_message_text: Optional[str] = None
+    handover_after_message: bool = False
+    pre_handover_message_text: Optional[str] = None
+
 class StepConfigQuestion(BasePydanticConfig):
     message_config: StepConfigSendMessage
     reply_config: ReplyConfig
+    fallback_config: Optional[FallbackConfig] = None
 
 class ActionItemConfig(BasePydanticConfig):
     action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow"]
