@@ -146,6 +146,29 @@ class Message(models.Model):
     status_timestamp = models.DateTimeField(null=True, blank=True, help_text="Timestamp of the last status update.")
     error_details = models.JSONField(null=True, blank=True, help_text="Error details if message sending failed.")
 
+    # --- Flow & Conversation Threading ---
+    triggered_by_flow_step = models.ForeignKey(
+        'flows.FlowStep',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='triggered_messages',
+        help_text="The flow step that triggered this outgoing message."
+    )
+    related_incoming_message = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='replies',
+        help_text="The incoming message that this message is a reply to."
+    )
+
+    # --- Meta API Metadata ---
+    conversation_id_from_meta = models.CharField(max_length=255, blank=True, null=True, help_text="The conversation ID from Meta for this message.")
+    pricing_model_from_meta = models.CharField(max_length=50, blank=True, null=True, help_text="The pricing model from Meta (e.g., 'CBP').")
+
+
     # Timestamps for specific statuses (optional, can be derived from status_timestamp and status)
     # sent_at = models.DateTimeField(null=True, blank=True)
     # delivered_at = models.DateTimeField(null=True, blank=True)
