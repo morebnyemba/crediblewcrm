@@ -948,24 +948,26 @@ def _transition_to_step(contact_flow_state: ContactFlowState, next_step: FlowSte
         current_flow_context.pop('_fallback_count', None)
         logger.debug(f"Cleared question expectation and fallback count from previous step '{contact_flow_state.current_step.name}'.")
 
+    # --- FIX: Save the new step and the context from the previous step's answer ---
+    # This ensures the contact is officially at the new step before we execute its actions.
     contact_flow_state.current_step = next_step
-    contact_flow_state.last_updated_at = timezone.now()
-    # The context is passed to _execute_step_actions and then saved if it's still the same flow state.
+    contact_flow_state.flow_context_data = current_flow_context
+    contact_flow_state.save()
 
     actions_from_new_step, context_after_new_step_execution = _execute_step_actions(
         next_step, contact, current_flow_context.copy() # Pass a copy to avoid modification by reference if new step also modifies
     )
     
     # Re-fetch state to see if it was cleared or changed by _execute_step_actions (e.g., by end_flow, human_handover, switch_flow)
-    # This is crucial because actions_from_new_step might contain _internal_command_clear_flow_state or _internal_command_switch_flow
     current_db_state = ContactFlowState.objects.filter(contact=contact).first()
 
-    if current_db_state and current_db_state.pk == contact_flow_state.pk and current_db_state.current_step == next_step:
-        # If the state still exists, belongs to this flow, and is at the 'next_step' we just transitioned to,
-        # then save the context that resulted from executing this 'next_step'.
-        current_db_state.flow_context_data = context_after_new_step_execution
-        current_db_state.save() # This updates last_updated_at too
-        logger.debug(f"Saved updated context for contact {contact.whatsapp_id} after transitioning to and executing step '{next_step.name}'.")
+    if current_db_state and current_db_state.pk == contact_flow_state.pk:
+        # If the state still exists and belongs to this flow, then save the context
+        # that resulted from executing this 'next_step'.
+        if current_db_state.flow_context_data != context_after_new_step_execution:
+            current_db_state.flow_context_data = context_after_new_step_execution
+            current_db_state.save(update_fields=['flow_context_data', 'last_updated_at'])
+            logger.debug(f"Saved updated context for contact {contact.whatsapp_id} after executing step '{next_step.name}'.")
     elif not current_db_state:
         logger.info(f"ContactFlowState for contact {contact.whatsapp_id} was cleared during execution of step '{next_step.name}'.")
     else: # State exists but is different (e.g., switched flow)
