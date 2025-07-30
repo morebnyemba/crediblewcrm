@@ -10,9 +10,12 @@ REGISTRATION_FLOW = {
     "name": "member_registration",
     "friendly_name": "New Member Registration",
     "description": "Collects information to create a new member profile.",
-    "initial_step": "start_registration",
-    "steps": {
-        "start_registration": {
+    "trigger_keywords": ["register", "join", "signup"],
+    "is_active": True,
+    "steps": [
+        {
+            "name": "start_registration",
+            "is_entry_point": True,
             "type": "question",
             "config": {
                 "message_config": {
@@ -32,11 +35,18 @@ REGISTRATION_FLOW = {
                     "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
-            "transitions": {
-                "next": "ask_last_name"
-            }
+            "transitions": [
+                {
+                    "to_step": "ask_last_name",
+                    "priority": 10,
+                    "condition_config": {
+                        "type": "always_true"
+                    }
+                }
+            ]
         },
-        "ask_last_name": {
+        {
+            "name": "ask_last_name",
             "type": "question",
             "config": {
                 "message_config": {
@@ -56,11 +66,18 @@ REGISTRATION_FLOW = {
                     "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
-            "transitions": {
-                "next": "ask_gender"
-            }
+            "transitions": [
+                {
+                    "to_step": "ask_gender",
+                    "priority": 10,
+                    "condition_config": {
+                        "type": "always_true"
+                    }
+                }
+            ]
         },
-        "ask_gender": {
+        {
+            "name": "ask_gender",
             "type": "question",
             "config": {
                 "message_config": {
@@ -101,11 +118,18 @@ REGISTRATION_FLOW = {
                     "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
-            "transitions": {
-                "next": "ask_marital_status"
-            }
+            "transitions": [
+                {
+                    "to_step": "ask_marital_status",
+                    "priority": 10,
+                    "condition_config": {
+                        "type": "always_true"
+                    }
+                }
+            ]
         },
-        "ask_marital_status": {
+        {
+            "name": "ask_marital_status",
             "type": "question",
             "config": {
                 "message_config": {
@@ -139,11 +163,18 @@ REGISTRATION_FLOW = {
                     "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
-            "transitions": {
-                "next": "ask_dob"
-            }
+            "transitions": [
+                {
+                    "to_step": "ask_dob",
+                    "priority": 10,
+                    "condition_config": {
+                        "type": "always_true"
+                    }
+                }
+            ]
         },
-        "ask_dob": {
+        {
+            "name": "ask_dob",
             "type": "question",
             "config": {
                 "message_config": {
@@ -162,11 +193,18 @@ REGISTRATION_FLOW = {
                     "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
-            "transitions": {
-                "next": "ask_email"
-            }
+            "transitions": [
+                {
+                    "to_step": "ask_email",
+                    "priority": 10,
+                    "condition_config": {
+                        "type": "always_true"
+                    }
+                }
+            ]
         },
-        "ask_email": {
+        {
+            "name": "ask_email",
             "type": "question",
             "config": {
                 "message_config": {
@@ -184,11 +222,18 @@ REGISTRATION_FLOW = {
                     "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
-            "transitions": {
-                "next": "ask_city"
-            }
+            "transitions": [
+                {
+                    "to_step": "ask_city",
+                    "priority": 10,
+                    "condition_config": {
+                        "type": "always_true"
+                    }
+                }
+            ]
         },
-        "ask_city": {
+        {
+            "name": "ask_city",
             "type": "question",
             "config": {
                 "message_config": {
@@ -203,11 +248,18 @@ REGISTRATION_FLOW = {
                     "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
-            "transitions": {
-                "next": "save_profile_data"
-            }
+            "transitions": [
+                {
+                    "to_step": "save_profile_data",
+                    "priority": 10,
+                    "condition_config": {
+                        "type": "always_true"
+                    }
+                }
+            ]
         },
-        "save_profile_data": {
+        {
+            "name": "save_profile_data",
             "type": "action",
             "config": {
                 "actions_to_run": [
@@ -226,27 +278,37 @@ REGISTRATION_FLOW = {
                     }
                 ]
             },
-            "transitions": {
-                "next": "end_registration"
-            }
+            "transitions": [
+                {
+                    "to_step": "end_registration",
+                    "priority": 10,
+                    "condition_config": {
+                        "type": "always_true"
+                    }
+                }
+            ]
         },
-        "end_registration": {
+        {
+            "name": "end_registration",
             "type": "end_flow",
             "config": {
                 "message_config": {
                     "message_type": "text",
                     "text": {"body": "Thank you, {{ context.first_name }}! Your profile has been updated. Welcome to the community! 🙏"}
                 }
-            }
+            },
+            "transitions": []
         },
-        "end_registration_failed": {
+        {
+            "name": "end_registration_failed",
             "type": "end_flow",
             "config": {
                 "message_config": {
                     "message_type": "text",
                     "text": {"body": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."}
                 }
-            }
+            },
+            "transitions": []
         }
-    }
+    ]
 }
