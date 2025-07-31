@@ -96,6 +96,12 @@ PRAYER_REQUEST_FLOW = {
                 "reply_config": {
                     "save_to_variable": "anonymity_choice",
                     "expected_type": "interactive_id"
+                },
+                "fallback_config": {
+                    "action": "re_prompt",
+                    "max_retries": 2,
+                    "re_prompt_message_text": "Sorry, that's not a valid selection. Please choose one of the buttons.",
+                    "fallback_message_text": "If you need help, just type 'menu' to see the options again."
                 }
             },
             "transitions": [

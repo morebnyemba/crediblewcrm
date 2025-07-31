@@ -1206,6 +1206,17 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
             if next_step_to_transition_to:
                 actions, flow_context = _transition_to_step(contact_flow_state, next_step_to_transition_to, flow_context, contact, message_data)
                 actions_to_perform.extend(actions)
+
+                # --- FIX: Check if the new step's actions include a flow control command. ---
+                # If so, we must break the processing loop immediately and let the outer
+                # handler process the switch/end command, preventing a "dead end" error.
+                has_flow_control_command = any(
+                    action.get('type') in ['_internal_command_clear_flow_state', '_internal_command_switch_flow']
+                    for action in actions
+                )
+                if has_flow_control_command:
+                    break # Exit the while loop
+
             else:
                 logger.info(f"No transition met for step '{current_step.name}'. Engaging fallback logic for contact {contact.id}.")
                 fallback_actions = _handle_fallback(current_step, contact, flow_context, contact_flow_state)
@@ -1238,10 +1249,9 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
     final_actions_for_meta_view = []
     for action in actions_to_perform: # actions_to_perform could be modified by switch_flow
         if action.get('type') == '_internal_command_clear_flow_state':
-            # This command is a signal to end the flow. The state is already cleared by
-            # the step that generated it (e.g., 'end_flow', 'human_handover').
-            # No further action is needed here.
-            logger.debug(f"Contact {contact.id}: Processed internal command to end flow.")
+            # --- FIX: Actually clear the state when the command is processed. ---
+            _clear_contact_flow_state(contact)
+            logger.debug(f"Contact {contact.id}: Processed internal command to clear flow state.")
         elif action.get('type') == '_internal_command_switch_flow':
             logger.info(f"Contact {contact.id}: Processing internal command to switch flow.")
             
