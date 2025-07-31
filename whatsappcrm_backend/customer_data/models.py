@@ -176,11 +176,9 @@ class Payment(models.Model):
     ]
     PAYMENT_METHOD_CHOICES = [
         ('ecocash', _('EcoCash')),
-        ('onemoney', _('OneMoney')),
-        ('telecash', _('Telecash')),
-        ('bank_transfer', _('Bank Transfer')),
-        ('cash', _('Cash')),
-        ('other', _('Other')),
+        ('manual_payment', _('Manual/Cash Payment')),
+        ('omari', _('Omari (Coming Soon)')),
+        ('innbucks', _('Innbucks (Coming Soon)')),
     ]
     PAYMENT_TYPE_CHOICES = [
         ('tithe', _('Tithe')),
@@ -212,6 +210,13 @@ class Payment(models.Model):
     status = models.CharField(_("Status"), max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     transaction_reference = models.CharField(_("Transaction Reference"), max_length=255, blank=True, null=True, help_text="Reference from payment gateway or bank.")
     notes = models.TextField(_("Notes"), blank=True, null=True, help_text="Internal notes about the payment.")
+    proof_of_payment = models.ImageField(
+        _("Proof of Payment"),
+        upload_to='payment_proofs/%Y/%m/',
+        blank=True,
+        null=True,
+        help_text=_("Image uploaded as proof for manual or cash payments.")
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

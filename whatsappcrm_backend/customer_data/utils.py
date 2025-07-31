@@ -18,7 +18,7 @@ def record_payment(
     payment_method: str = 'whatsapp_flow',
     transaction_ref: str = None,
     notes: str = None
-) -> Payment | None:
+) -> tuple[Payment | None, dict | None]:
     """
     Creates a Payment record for a contact and an associated history entry.
 
@@ -32,16 +32,16 @@ def record_payment(
         notes: Optional internal notes for the payment.
 
     Returns:
-        The created Payment object, or None if an error occurred.
+        A tuple of (Payment object, confirmation_action_dict), or (None, None) if an error occurred.
     """
     try:
         amount = Decimal(amount_str)
         if amount <= 0:
             logger.warning(f"Attempted to record a non-positive payment amount ({amount}) for contact {contact.id}. Aborting.")
-            return None
+            return None, None
     except (InvalidOperation, TypeError):
         logger.error(f"Invalid amount '{amount_str}' provided for payment for contact {contact.id}. Cannot convert to Decimal.")
-        return None
+        return None, None
 
     valid_payment_types = [choice[0] for choice in Payment.PAYMENT_TYPE_CHOICES]
     if payment_type not in valid_payment_types:
@@ -59,8 +59,24 @@ def record_payment(
             )
 
             PaymentHistory.objects.create(payment=payment, status='completed', notes=f"Payment recorded via flow for contact {contact.whatsapp_id}.")
+            
+            # Create confirmation message action
+            confirmation_message_text = (
+                f"Thank you for your contribution! 🙏\n\n"
+                f"We have successfully recorded your payment of *{amount} {currency}* "
+                f"for *{payment.get_payment_type_display()}*.\n\n"
+                f"Your transaction ID is: {payment.id}"
+            )
+            
+            confirmation_action = {
+                'type': 'send_whatsapp_message',
+                'recipient_wa_id': contact.whatsapp_id,
+                'message_type': 'text',
+                'data': {'body': confirmation_message_text}
+            }
+
             logger.info(f"Successfully recorded payment {payment.id} of {amount} {currency} for contact {contact.id}.")
-            return payment
+            return payment, confirmation_action
     except Exception as e:
         logger.error(f"Failed to record payment for contact {contact.id}. Error: {e}", exc_info=True)
-        return None
+        return None, None

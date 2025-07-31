@@ -567,16 +567,19 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     currency = _resolve_value(action_item_conf.currency_template, current_step_context, contact)
                     notes = _resolve_value(action_item_conf.notes_template, current_step_context, contact)
 
-                    payment_obj = record_payment(
+                    payment_obj, confirmation_action = record_payment(
                         contact=contact,
                         amount_str=str(amount_str) if amount_str is not None else "0",
                         payment_type=str(payment_type) if payment_type else "other",
                         currency=str(currency) if currency else "USD",
                         notes=str(notes) if notes else None
                     )
+
                     if payment_obj:
                         current_step_context['last_payment_id'] = str(payment_obj.id)
                         logger.info(f"Contact {contact.id}: Action in step {step.id} recorded payment {payment_obj.id}.")
+                        if confirmation_action:
+                            actions_to_perform.append(confirmation_action)
                     else:
                         logger.error(f"Contact {contact.id}: Action in step {step.id} failed to record payment for amount '{amount_str}'.")
                 else:
