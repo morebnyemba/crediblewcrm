@@ -4,6 +4,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 # Link to the Contact model from the conversations app
 from conversations.models import Contact
+import uuid
 
 class Family(models.Model):
     """
@@ -162,3 +163,86 @@ class MemberProfile(models.Model):
         verbose_name = _("Member Profile")
         verbose_name_plural = _("Member Profiles")
         ordering = ['-updated_at']
+
+class Payment(models.Model):
+    """
+    Represents a single payment transaction, linked to a member and/or contact.
+    """
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', _('Pending')),
+        ('completed', _('Completed')),
+        ('failed', _('Failed')),
+        ('refunded', _('Refunded')),
+    ]
+    PAYMENT_METHOD_CHOICES = [
+        ('ecocash', _('EcoCash')),
+        ('onemoney', _('OneMoney')),
+        ('telecash', _('Telecash')),
+        ('bank_transfer', _('Bank Transfer')),
+        ('cash', _('Cash')),
+        ('other', _('Other')),
+    ]
+    PAYMENT_TYPE_CHOICES = [
+        ('tithe', _('Tithe')),
+        ('offering', _('Offering')),
+        ('pledge', 'Pledge'),
+        ('event_registration', _('Event Registration')),
+        ('other', _('Other')),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    member = models.ForeignKey(
+        MemberProfile,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='payments',
+        help_text=_("The member profile associated with this payment, if one exists.")
+    )
+    contact = models.ForeignKey(
+        Contact,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='initiated_payments',
+        help_text=_("The contact who initiated the payment, even if not a full member.")
+    )
+    amount = models.DecimalField(_("Amount"), max_digits=10, decimal_places=2)
+    currency = models.CharField(_("Currency"), max_length=10, default='USD')
+    payment_type = models.CharField(_("Payment Type"), max_length=50, choices=PAYMENT_TYPE_CHOICES, default='offering')
+    payment_method = models.CharField(_("Payment Method"), max_length=50, choices=PAYMENT_METHOD_CHOICES, blank=True)
+    status = models.CharField(_("Status"), max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    transaction_reference = models.CharField(_("Transaction Reference"), max_length=255, blank=True, null=True, help_text="Reference from payment gateway or bank.")
+    notes = models.TextField(_("Notes"), blank=True, null=True, help_text="Internal notes about the payment.")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        display_name = self.member.get_full_name() if self.member and self.member.get_full_name() else str(self.contact)
+        return f"Payment {self.id} - {self.amount} {self.currency} by {display_name}"
+
+    class Meta:
+        verbose_name = _("Payment")
+        verbose_name_plural = _("Payments")
+        ordering = ['-created_at']
+
+class PaymentHistory(models.Model):
+    """
+    Logs the status changes for a Payment, creating an audit trail.
+    """
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='history')
+    status = models.CharField(
+        _("Status"),
+        max_length=20,
+        choices=Payment.PAYMENT_STATUS_CHOICES,
+        help_text=_("The status of the payment at this point in time.")
+    )
+    timestamp = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(_("Notes"), blank=True, null=True, help_text="Reason for the status change, if any.")
+
+    def __str__(self):
+        return f"History for Payment {self.payment.id}: {self.status} at {self.timestamp}"
+
+    class Meta:
+        verbose_name = _("Payment History")
+        verbose_name_plural = _("Payment Histories")
+        ordering = ['-timestamp']

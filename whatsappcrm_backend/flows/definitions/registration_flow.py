@@ -274,6 +274,11 @@ REGISTRATION_FLOW = {
                             "email": "{{ context.email }}",
                             "city": "{{ context.city }}"
                         }
+                    },
+                    {
+                        "action_type": "update_contact_field",
+                        "field_path": "name",
+                        "value_template": "{{ context.first_name }} {{ context.last_name }}"
                     }
                 ]
             },

@@ -12,6 +12,7 @@ from pydantic import BaseModel, ValidationError, field_validator, model_validato
 from conversations.models import Contact, Message
 from .models import Flow, FlowStep, FlowTransition, ContactFlowState
 from customer_data.models import MemberProfile
+from customer_data.utils import record_payment
 try:
     from media_manager.models import MediaAsset # For asset_pk lookup
     MEDIA_ASSET_ENABLED = True
@@ -256,13 +257,18 @@ class StepConfigQuestion(BasePydanticConfig):
     fallback_config: Optional[FallbackConfig] = None
 
 class ActionItemConfig(BasePydanticConfig):
-    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow"]
+    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow", "record_payment"]
     variable_name: Optional[str] = None
     value_template: Optional[Any] = None
     field_path: Optional[str] = None
     fields_to_update: Optional[Dict[str, Any]] = None
     target_flow_name: Optional[str] = None
     initial_context_template: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    # Fields for 'record_payment'
+    amount_template: Optional[str] = None
+    payment_type_template: Optional[str] = None
+    currency_template: Optional[str] = None
+    notes_template: Optional[str] = None
 
     @model_validator(mode='after')
     def check_action_fields(self):
@@ -279,6 +285,9 @@ class ActionItemConfig(BasePydanticConfig):
         elif action_type == 'switch_flow':
             if not self.target_flow_name:
                 raise ValueError("For switch_flow, 'target_flow_name' is required.")
+        elif action_type == 'record_payment':
+            if self.amount_template is None or self.payment_type_template is None:
+                raise ValueError("For record_payment, 'amount_template' and 'payment_type_template' are required.")
         return self
 
 class StepConfigAction(BasePydanticConfig):
@@ -552,6 +561,24 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     })
                     logger.info(f"Contact {contact.id}: Action in step {step.id} queued switch to flow '{action_item_conf.target_flow_name}'.")
                     break # Stop processing further actions in this step if switching flow
+                elif action_type == 'record_payment':
+                    amount_str = _resolve_value(action_item_conf.amount_template, current_step_context, contact)
+                    payment_type = _resolve_value(action_item_conf.payment_type_template, current_step_context, contact)
+                    currency = _resolve_value(action_item_conf.currency_template, current_step_context, contact)
+                    notes = _resolve_value(action_item_conf.notes_template, current_step_context, contact)
+
+                    payment_obj = record_payment(
+                        contact=contact,
+                        amount_str=str(amount_str) if amount_str is not None else "0",
+                        payment_type=str(payment_type) if payment_type else "other",
+                        currency=str(currency) if currency else "USD",
+                        notes=str(notes) if notes else None
+                    )
+                    if payment_obj:
+                        current_step_context['last_payment_id'] = str(payment_obj.id)
+                        logger.info(f"Contact {contact.id}: Action in step {step.id} recorded payment {payment_obj.id}.")
+                    else:
+                        logger.error(f"Contact {contact.id}: Action in step {step.id} failed to record payment for amount '{amount_str}'.")
                 else:
                     logger.warning(f"Contact {contact.id}: Unknown or misconfigured action_type '{action_type}' in step '{step.name}' (ID: {step.id}).")
         except ValidationError as e:
