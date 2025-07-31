@@ -267,8 +267,10 @@ class ActionItemConfig(BasePydanticConfig):
     # Fields for 'record_payment'
     amount_template: Optional[str] = None
     payment_type_template: Optional[str] = None
+    payment_method_template: Optional[str] = None
     currency_template: Optional[str] = None
     notes_template: Optional[str] = None
+    transaction_ref_template: Optional[str] = None
 
     @model_validator(mode='after')
     def check_action_fields(self):
@@ -564,15 +566,19 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                 elif action_type == 'record_payment':
                     amount_str = _resolve_value(action_item_conf.amount_template, current_step_context, contact)
                     payment_type = _resolve_value(action_item_conf.payment_type_template, current_step_context, contact)
+                    payment_method = _resolve_value(action_item_conf.payment_method_template, current_step_context, contact)
                     currency = _resolve_value(action_item_conf.currency_template, current_step_context, contact)
                     notes = _resolve_value(action_item_conf.notes_template, current_step_context, contact)
+                    transaction_ref = _resolve_value(action_item_conf.transaction_ref_template, current_step_context, contact)
 
                     payment_obj, confirmation_action = record_payment(
                         contact=contact,
                         amount_str=str(amount_str) if amount_str is not None else "0",
                         payment_type=str(payment_type) if payment_type else "other",
+                        payment_method=str(payment_method) if payment_method else "whatsapp_flow",
                         currency=str(currency) if currency else "USD",
-                        notes=str(notes) if notes else None
+                        notes=str(notes) if notes else None,
+                        transaction_ref=str(transaction_ref) if transaction_ref else None
                     )
 
                     if payment_obj:

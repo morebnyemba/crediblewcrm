@@ -52,21 +52,36 @@ def record_payment(
         with transaction.atomic():
             member_profile = MemberProfile.objects.filter(contact=contact).first()
 
+            # Determine status and confirmation message based on payment method
+            is_manual_payment = payment_method == 'manual_payment'
+            payment_status = 'pending' if is_manual_payment else 'completed'
+
             payment = Payment.objects.create(
                 contact=contact, member=member_profile, amount=amount, currency=currency,
                 payment_type=payment_type, payment_method=payment_method,
-                status='completed', transaction_reference=transaction_ref, notes=notes
+                status=payment_status, transaction_reference=transaction_ref, notes=notes
             )
 
-            PaymentHistory.objects.create(payment=payment, status='completed', notes=f"Payment recorded via flow for contact {contact.whatsapp_id}.")
+            history_note = f"Payment recorded via flow for contact {contact.whatsapp_id}."
+            if is_manual_payment:
+                history_note = f"Manual payment initiated via flow for contact {contact.whatsapp_id}. Awaiting confirmation."
+
+            PaymentHistory.objects.create(payment=payment, status=payment_status, notes=history_note)
             
             # Create confirmation message action
-            confirmation_message_text = (
-                f"Thank you for your contribution! 🙏\n\n"
-                f"We have successfully recorded your payment of *{amount} {currency}* "
-                f"for *{payment.get_payment_type_display()}*.\n\n"
-                f"Your transaction ID is: {payment.id}"
-            )
+            if is_manual_payment:
+                ref_text = f" using reference: *{transaction_ref}*" if transaction_ref else ""
+                confirmation_message_text = (
+                    f"Thank you for your pledge! 🙏\n\n"
+                    f"We have recorded your pending contribution of *{amount} {currency}* for *{payment.get_payment_type_display()}*{ref_text}.\n\n"
+                    f"Our bookkeeper will confirm your payment shortly. You will receive a final confirmation once it's processed."
+                )
+            else:
+                confirmation_message_text = (
+                    f"Thank you for your contribution! 🙏\n\n"
+                    f"We have successfully recorded your payment of *{amount} {currency}* for *{payment.get_payment_type_display()}*.\n\n"
+                    f"Your transaction ID is: {payment.id}"
+                )
             
             confirmation_action = {
                 'type': 'send_whatsapp_message',
@@ -75,7 +90,7 @@ def record_payment(
                 'data': {'body': confirmation_message_text}
             }
 
-            logger.info(f"Successfully recorded payment {payment.id} of {amount} {currency} for contact {contact.id}.")
+            logger.info(f"Successfully recorded payment {payment.id} of {amount} {currency} for contact {contact.id}. Status: {payment_status}")
             return payment, confirmation_action
     except Exception as e:
         logger.error(f"Failed to record payment for contact {contact.id}. Error: {e}", exc_info=True)

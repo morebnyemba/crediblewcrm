@@ -101,8 +101,35 @@ GIVING_FLOW = {
             },
             "transitions": [
                 {"to_step": "record_payment_action", "priority": 10, "condition_config": {"type": "interactive_reply_id_equals", "value": "ecocash"}},
-                {"to_step": "record_payment_action", "priority": 10, "condition_config": {"type": "interactive_reply_id_equals", "value": "manual_payment"}},
+                {"to_step": "ask_for_transaction_ref", "priority": 10, "condition_config": {"type": "interactive_reply_id_equals", "value": "manual_payment"}},
                 {"to_step": "handle_coming_soon", "priority": 20, "condition_config": {"type": "always_true"}}
+            ]
+        },
+
+        # 4a. Ask for transaction reference for manual payments
+        {
+            "name": "ask_for_transaction_ref",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "text",
+                    "text": {
+                        "body": "You've selected a manual payment. Please enter the transaction ID or receipt number for your contribution."
+                    }
+                },
+                "reply_config": {
+                    "save_to_variable": "transaction_ref",
+                    "expected_type": "text"
+                },
+                "fallback_config": {
+                    "action": "re_prompt",
+                    "max_retries": 2,
+                    "re_prompt_message_text": "Sorry, I didn't get that. Please enter the transaction reference number.",
+                    "fallback_message_text": "Sorry, we couldn't process that. Please type 'give' to try again."
+                }
+            },
+            "transitions": [
+                {"to_step": "record_payment_action", "condition_config": {"type": "always_true"}}
             ]
         },
 
@@ -114,7 +141,7 @@ GIVING_FLOW = {
             "transitions": [{"to_step": "ask_payment_method", "condition_config": {"type": "always_true"}}]
         },
 
-        # 4b. Record the payment using the action
+        # 4b. Record the payment using the action (for ALL valid methods)
         {
             "name": "record_payment_action",
             "type": "action",
@@ -124,6 +151,7 @@ GIVING_FLOW = {
                     "amount_template": "{{ context.giving_amount }}",
                     "payment_type_template": "{{ context.payment_type }}",
                     "payment_method_template": "{{ context.payment_method }}",
+                    "transaction_ref_template": "{{ context.transaction_ref }}",
                     "currency_template": "USD",
                     "notes_template": "Online giving via WhatsApp flow."
                 }]
