@@ -743,15 +743,22 @@ def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dic
     return actions_to_perform
 
 
-def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj: Message) -> List[Dict[str, Any]]:
-    actions_to_perform = [] # Renamed from 'actions'
-    initial_flow_context = {} 
+def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj: Message) -> bool:
+    """
+    Finds and sets up the initial state for a new flow based on a trigger keyword.
+    This function does NOT execute the first step; it only creates the state.
+    The main processing loop is responsible for all step executions.
+
+    Returns:
+        True if a flow was triggered, False otherwise.
+    """
     message_text_body = None
     if message_data.get('type') == 'text':
         message_text_body = message_data.get('text', {}).get('body', '').lower().strip()
     
+
     triggered_flow = None
-    active_flows = Flow.objects.filter(is_active=True).order_by('name') 
+    active_flows = Flow.objects.filter(is_active=True).order_by('name')
 
     if message_text_body: # Only attempt keyword trigger if there's text
         for flow_candidate in active_flows:
