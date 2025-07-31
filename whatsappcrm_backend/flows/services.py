@@ -755,12 +755,11 @@ def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj
     message_text_body = None
     if message_data.get('type') == 'text':
         message_text_body = message_data.get('text', {}).get('body', '').lower().strip()
-    
 
     triggered_flow = None
     active_flows = Flow.objects.filter(is_active=True).order_by('name')
 
-    if message_text_body: # Only attempt keyword trigger if there's text
+    if message_text_body:  # Only attempt keyword trigger if there's text
         for flow_candidate in active_flows:
             if isinstance(flow_candidate.trigger_keywords, list):
                 for keyword in flow_candidate.trigger_keywords:
@@ -771,39 +770,29 @@ def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj
                         break
             if triggered_flow:
                 break
-    
+
     if triggered_flow:
         entry_point_step = FlowStep.objects.filter(flow=triggered_flow, is_entry_point=True).first()
         if entry_point_step:
-            logger.info(f"Starting flow '{triggered_flow.name}' for contact {contact.whatsapp_id} at entry step '{entry_point_step.name}'.")
-            
+            logger.info(f"Setting up new flow '{triggered_flow.name}' for contact {contact.whatsapp_id} at entry step '{entry_point_step.name}'.")
+
             # Clear any existing flow state before starting a new one by keyword
             _clear_contact_flow_state(contact)
 
-            contact_flow_state = ContactFlowState.objects.create(
+            ContactFlowState.objects.create(
                 contact=contact,
                 current_flow=triggered_flow,
                 current_step=entry_point_step,
-                flow_context_data=initial_flow_context, # Starts empty or with passed context
+                flow_context_data={},  # Always start with an empty context
                 started_at=timezone.now()
-                # last_updated_at is auto_now=True
             )
-            
-            step_actions, updated_flow_context = _execute_step_actions(entry_point_step, contact, initial_flow_context.copy())
-            actions_to_perform.extend(step_actions)
-            
-            # Save context after first step execution
-            if contact_flow_state.flow_context_data != updated_flow_context: # Check if context actually changed
-                contact_flow_state.flow_context_data = updated_flow_context
-                contact_flow_state.save(update_fields=['flow_context_data', 'last_updated_at'])
+            return True  # Successfully triggered
         else:
             logger.error(f"Flow '{triggered_flow.name}' is active but has no entry point step defined.")
+            return False  # Failed to trigger
     else:
         logger.info(f"No active flow triggered for contact {contact.whatsapp_id} with message: {message_text_body[:100] if message_text_body else message_data.get('type')}")
-        # Optionally send a default "I don't understand" message if no flow is triggered
-        # actions_to_perform.append({'type': 'send_whatsapp_message', ... 'body': "Sorry, I didn't understand. Type 'help' for options."})
-
-    return actions_to_perform
+        return False # No flow triggered
 
 
 def _evaluate_transition_condition(transition: FlowTransition, contact: Contact, message_data: dict, flow_context: dict, incoming_message_obj: Message) -> bool:
@@ -1142,14 +1131,16 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
 
             if not contact_flow_state:
                 logger.info(f"No active flow state for contact {contact.whatsapp_id}. Attempting to trigger a new flow.")
-                actions_to_perform.extend(_trigger_new_flow(contact, message_data, incoming_message_obj))
-                # After attempting to trigger, if a new state was created, the loop will re-evaluate.
-                # If not, it will break on the next iteration's `if not contact_flow_state` check.
-                # We need to check again to see if a new flow was started.
-                if not ContactFlowState.objects.filter(contact=contact).exists():
-                    break # Exit loop if no new flow was triggered.
+                
+                # _trigger_new_flow now returns a boolean and handles state creation.
+                flow_was_triggered = _trigger_new_flow(contact, message_data, incoming_message_obj)
+                
+                if flow_was_triggered:
+                    # A new flow was started, re-run the loop to process its first step.
+                    continue 
                 else:
-                    continue # A new flow was started, re-run the loop.
+                    # No flow was triggered, so we are done.
+                    break 
 
             current_step = contact_flow_state.current_step
             flow_context = contact_flow_state.flow_context_data if contact_flow_state.flow_context_data is not None else {}
@@ -1234,10 +1225,6 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
             # For subsequent automatic "fall-through" steps, we use an empty message_data.
             message_data = {'type': 'internal_fallthrough'}
             incoming_message_obj = None
-
-    except ContactFlowState.DoesNotExist:
-        logger.info(f"No active flow state for contact {contact.whatsapp_id}. Attempting to trigger a new flow.")
-        actions_to_perform = _trigger_new_flow(contact, message_data, incoming_message_obj)
     except Exception as e:
         logger.error(f"Critical error in process_message_for_flow for contact {contact.whatsapp_id}: {e}", exc_info=True)
         # Clear state on unhandled error to prevent loops and allow re-triggering or human intervention
