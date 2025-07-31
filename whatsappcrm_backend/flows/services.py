@@ -1037,6 +1037,9 @@ def _transition_to_step(contact_flow_state: ContactFlowState, next_step: FlowSte
     # This ensures the contact is officially at the new step before we execute its actions.
     contact_flow_state.current_step = next_step
     contact_flow_state.flow_context_data = current_flow_context
+    # Use transaction.atomic to ensure that the state update and subsequent actions
+    # are treated as a single unit of work where possible.
+    # The save() here commits the move to the new step.
     contact_flow_state.save()
 
     actions_from_new_step, context_after_new_step_execution = _execute_step_actions(
@@ -1044,19 +1047,21 @@ def _transition_to_step(contact_flow_state: ContactFlowState, next_step: FlowSte
     )
     
     # Re-fetch state to see if it was cleared or changed by _execute_step_actions (e.g., by end_flow, human_handover, switch_flow)
-    current_db_state = ContactFlowState.objects.filter(contact=contact).first()
+    # This is a critical check for robustness.
+    with transaction.atomic():
+        current_db_state = ContactFlowState.objects.select_for_update().filter(contact=contact).first()
 
-    if current_db_state and current_db_state.pk == contact_flow_state.pk:
-        # If the state still exists and belongs to this flow, then save the context
-        # that resulted from executing this 'next_step'.
-        if current_db_state.flow_context_data != context_after_new_step_execution:
-            current_db_state.flow_context_data = context_after_new_step_execution
-            current_db_state.save(update_fields=['flow_context_data', 'last_updated_at'])
-            logger.debug(f"Saved updated context for contact {contact.whatsapp_id} after executing step '{next_step.name}'.")
-    elif not current_db_state:
-        logger.info(f"ContactFlowState for contact {contact.whatsapp_id} was cleared during execution of step '{next_step.name}'.")
-    else: # State exists but is different (e.g., switched flow)
-        logger.info(f"ContactFlowState for contact {contact.whatsapp_id} changed during execution of step '{next_step.name}'. New state: {current_db_state}")
+        if current_db_state and current_db_state.pk == contact_flow_state.pk:
+            # If the state still exists and belongs to this flow, then save the context
+            # that resulted from executing this 'next_step'.
+            if current_db_state.flow_context_data != context_after_new_step_execution:
+                current_db_state.flow_context_data = context_after_new_step_execution
+                current_db_state.save(update_fields=['flow_context_data', 'last_updated_at'])
+                logger.debug(f"Saved updated context for contact {contact.whatsapp_id} after executing step '{next_step.name}'.")
+        elif not current_db_state:
+            logger.info(f"ContactFlowState for contact {contact.whatsapp_id} was cleared during execution of step '{next_step.name}'. No final context to save.")
+        else: # State exists but is different (e.g., switched flow)
+            logger.info(f"ContactFlowState for contact {contact.whatsapp_id} changed during execution of step '{next_step.name}'. New state: {current_db_state}")
         
     return actions_from_new_step, context_after_new_step_execution
 
@@ -1066,6 +1071,7 @@ def _update_contact_data(contact: Contact, field_path: str, value_to_set: Any):
         logger.warning("Empty field_path provided for _update_contact_data.")
         return
     
+    # This logic is simple, but could be expanded to handle nested JSON fields on Contact if needed.
     parts = field_path.split('.')
     target_object = contact
     field_to_update_on_object = None
@@ -1075,12 +1081,16 @@ def _update_contact_data(contact: Contact, field_path: str, value_to_set: Any):
         if field_name.lower() in ['id', 'pk', 'whatsapp_id']: # Protected fields
             logger.warning(f"Attempt to update protected Contact field '{field_name}' denied.")
             return
-        if hasattr(contact, field_name):
-            setattr(contact, field_name, value_to_set)
-            contact.save(update_fields=[field_name])
-            logger.info(f"Updated Contact {contact.whatsapp_id} field '{field_name}' to '{value_to_set}'.")
-        else:
-            logger.warning(f"Contact field '{field_name}' not found.")
+        try:
+            if hasattr(contact, field_name):
+                setattr(contact, field_name, value_to_set)
+                contact.save(update_fields=[field_name])
+                logger.info(f"Updated Contact {contact.whatsapp_id} field '{field_name}' to '{value_to_set}'.")
+            else:
+                logger.warning(f"Contact field '{field_name}' not found.")
+        except (DjangoValidationError, TypeError) as e:
+            logger.error(f"Failed to update Contact field '{field_name}' for contact {contact.id} with value '{value_to_set}'. Error: {e}", exc_info=False)
+
             
     elif parts[0] == 'custom_fields': # Handling nested updates in JSONField 'custom_fields'
         if not isinstance(contact.custom_fields, dict):
@@ -1114,6 +1124,7 @@ def _update_member_profile_data(contact: Contact, fields_to_update_config: Dict[
         logger.warning("_update_member_profile_data called with invalid fields_to_update_config.")
         return
 
+    # get_or_create is atomic and safe for concurrent requests.
     profile, created = MemberProfile.objects.get_or_create(contact=contact)
     if created: 
         logger.info(f"Created MemberProfile for contact {contact.whatsapp_id}")
@@ -1123,48 +1134,47 @@ def _update_member_profile_data(contact: Contact, fields_to_update_config: Dict[
         resolved_value = _resolve_value(value_template, flow_context, contact) # Resolve value using context
         
         parts = field_path.split('.')
-        try:
-            if len(parts) == 1: # Direct attribute on MemberProfile model
-                field_name = parts[0]
-                # Prevent updating protected/internal fields
-                if hasattr(profile, field_name) and field_name.lower() not in ['id', 'pk', 'contact', 'contact_id', 'created_at', 'updated_at', 'last_updated_from_conversation']:
-                    # Get the model field to check its type
+        if len(parts) == 1: # Direct attribute on MemberProfile model
+            field_name = parts[0]
+            # Prevent updating protected/internal fields
+            if hasattr(profile, field_name) and field_name.lower() not in ['id', 'pk', 'contact', 'contact_id', 'created_at', 'updated_at', 'last_updated_from_conversation']:
+                try:
                     field_object = profile._meta.get_field(field_name)
-                    
-                    # If the field is a DateField and the resolved value is an empty string,
-                    # convert it to None to avoid a ValidationError.
+                    # Robustness: Coerce empty strings to None for nullable fields to prevent validation errors.
                     if isinstance(field_object, models.DateField) and resolved_value == '':
                         resolved_value = None
 
                     setattr(profile, field_name, resolved_value)
                     if field_name not in changed_fields: 
                         changed_fields.append(field_name)
-                else:
-                    logger.warning(f"MemberProfile field '{field_name}' not found or is protected.")
-            elif parts[0] in ['preferences', 'custom_attributes'] and len(parts) > 1: # JSONFields
-                json_field_name = parts[0]
-                json_data = getattr(profile, json_field_name)
-                if not isinstance(json_data, dict): 
-                    json_data = {} # Initialize if None or not a dict
-                
-                current_level = json_data
-                for key in parts[1:-1]: # Navigate to the second to last key
-                    current_level = current_level.setdefault(key, {})
-                    if not isinstance(current_level, dict):
-                        logger.warning(f"Path error in MemberProfile.{json_field_name} at '{key}'. Expected dict, found {type(current_level)}.")
-                        current_level = None # Stop further processing for this path
-                        break
-                
-                if current_level is not None:
-                    final_key = parts[-1]
-                    current_level[final_key] = resolved_value
-                    setattr(profile, json_field_name, json_data) # Assign the modified dict back
-                    if json_field_name not in changed_fields:
-                        changed_fields.append(json_field_name)
+                except (DjangoValidationError, TypeError, ValueError) as e:
+                    logger.error(f"Validation/Type error updating MemberProfile field '{field_name}' for contact {contact.id} with value '{resolved_value}'. Error: {e}", exc_info=False)
+                    # Continue to next field, do not add to changed_fields
+                    continue
             else:
-                logger.warning(f"Unsupported field path for MemberProfile: {field_path}")
-        except Exception as e:
-            logger.error(f"Error updating MemberProfile field '{field_path}' for contact {contact.id}: {e}", exc_info=True)
+                logger.warning(f"MemberProfile field '{field_name}' not found or is protected.")
+        elif parts[0] in ['preferences', 'custom_attributes'] and len(parts) > 1: # JSONFields
+            json_field_name = parts[0]
+            json_data = getattr(profile, json_field_name)
+            if not isinstance(json_data, dict): 
+                json_data = {} # Initialize if None or not a dict
+            
+            current_level = json_data
+            for key in parts[1:-1]: # Navigate to the second to last key
+                current_level = current_level.setdefault(key, {})
+                if not isinstance(current_level, dict):
+                    logger.warning(f"Path error in MemberProfile.{json_field_name} at '{key}'. Expected dict, found {type(current_level)}.")
+                    current_level = None # Stop further processing for this path
+                    break
+            
+            if current_level is not None:
+                final_key = parts[-1]
+                current_level[final_key] = resolved_value
+                setattr(profile, json_field_name, json_data) # Assign the modified dict back
+                if json_field_name not in changed_fields:
+                    changed_fields.append(json_field_name)
+        else:
+            logger.warning(f"Unsupported field path for MemberProfile: {field_path}")
 
     if changed_fields:
         profile.last_updated_from_conversation = timezone.now()
@@ -1175,6 +1185,7 @@ def _update_member_profile_data(contact: Contact, fields_to_update_config: Dict[
     elif created: # If only created and no specific fields changed by the action, still update timestamp
         profile.last_updated_from_conversation = timezone.now()
         profile.save(update_fields=['last_updated_from_conversation'])
+
 
 
 # --- Main Service Function (process_message_for_flow) ---
@@ -1225,56 +1236,57 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
     final_actions_for_meta_view = []
     for action in actions_to_perform: # actions_to_perform could be modified by switch_flow
         if action.get('type') == '_internal_command_clear_flow_state':
-            # This command was already handled by _clear_contact_flow_state if called directly,
-            # or its effect is that contact_flow_state will be None. No message to send.
-            logger.debug(f"Contact {contact.id}: Internal command processed to clear flow state.")
+            # This command is a signal to end the flow. The state is already cleared by
+            # the step that generated it (e.g., 'end_flow', 'human_handover').
+            # No further action is needed here.
+            logger.debug(f"Contact {contact.id}: Processed internal command to end flow.")
         elif action.get('type') == '_internal_command_switch_flow':
             logger.info(f"Contact {contact.id}: Processing internal command to switch flow.")
-            _clear_contact_flow_state(contact) # Ensure old state is gone
-
-            new_flow_name = action.get('target_flow_name')
-            initial_context_for_new_flow = action.get('initial_context', {})
-
+            
+            # Robustness: Wrap the entire flow switch in a try/except block.
+            # If switching fails, the user is not left in a broken state.
             try:
+                _clear_contact_flow_state(contact) # Ensure old state is gone before starting new one.
+
+                new_flow_name = action.get('target_flow_name')
+                initial_context_for_new_flow = action.get('initial_context', {})
+
                 # Directly find and start the new flow
                 target_flow = Flow.objects.get(name=new_flow_name, is_active=True)
                 entry_point_step = FlowStep.objects.filter(flow=target_flow, is_entry_point=True).first()
 
-                if entry_point_step:
-                    logger.info(f"Contact {contact.id}: Switching to flow '{target_flow.name}' (ID: {target_flow.id}) at entry step '{entry_point_step.name}' (ID: {entry_point_step.id}).")
-                    
-                    # Create the new state with the initial context from the action
-                    new_contact_flow_state = ContactFlowState.objects.create(
-                        contact=contact,
-                        current_flow=target_flow,
-                        current_step=entry_point_step,
-                        flow_context_data=initial_context_for_new_flow,
-                        started_at=timezone.now()
-                    )
-
-                    # Execute the first step of the new flow
-                    step_actions, updated_flow_context = _execute_step_actions(
-                        entry_point_step, contact, initial_context_for_new_flow.copy()
-                    )
-                    final_actions_for_meta_view.extend(step_actions)
-
-                    # Save the context after the first step's execution
-                    # Re-fetch to ensure the state wasn't cleared again by the first step
-                    current_state = ContactFlowState.objects.filter(pk=new_contact_flow_state.pk).first()
-                    if current_state:
-                        current_state.flow_context_data = updated_flow_context
-                        current_state.save(update_fields=['flow_context_data', 'last_updated_at'])
-                        logger.debug(f"Contact {contact.id}: Saved context after executing first step of switched flow.")
-
-                else:
+                if not entry_point_step:
                     # This is a configuration error. The flow exists and is active, but has no entry point.
-                    logger.error(f"Contact {contact.id}: Failed to switch flow. Flow '{new_flow_name}' is active but has no entry point step defined.")
-                    final_actions_for_meta_view.append({
-                        'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text',
-                        'data': {'body': 'I seem to be having some technical difficulties. Please try again in a moment.'}
-                    })
-            except Flow.DoesNotExist:
-                logger.error(f"Contact {contact.id}: Failed to switch flow. Target flow '{new_flow_name}' not found or is not active.")
+                    raise ValueError(f"Flow '{new_flow_name}' is active but has no entry point step defined.")
+
+                logger.info(f"Contact {contact.id}: Switching to flow '{target_flow.name}' at entry step '{entry_point_step.name}'.")
+                
+                # Create the new state with the initial context from the action
+                new_contact_flow_state = ContactFlowState.objects.create(
+                    contact=contact,
+                    current_flow=target_flow,
+                    current_step=entry_point_step,
+                    flow_context_data=initial_context_for_new_flow,
+                    started_at=timezone.now()
+                )
+
+                # Execute the first step of the new flow
+                step_actions, updated_flow_context = _execute_step_actions(
+                    entry_point_step, contact, initial_context_for_new_flow.copy()
+                )
+                final_actions_for_meta_view.extend(step_actions)
+
+                # Save the context after the first step's execution
+                # Re-fetch to ensure the state wasn't cleared again by the first step
+                current_state = ContactFlowState.objects.filter(pk=new_contact_flow_state.pk).first()
+                if current_state:
+                    current_state.flow_context_data = updated_flow_context
+                    current_state.save(update_fields=['flow_context_data', 'last_updated_at'])
+                    logger.debug(f"Contact {contact.id}: Saved context after executing first step of switched flow.")
+
+            except (Flow.DoesNotExist, ValueError) as e:
+                logger.error(f"Contact {contact.id}: Failed to switch flow to '{action.get('target_flow_name')}'. Error: {e}", exc_info=True)
+                _clear_contact_flow_state(contact, error=True) # Ensure state is cleared on failure
                 final_actions_for_meta_view.append({
                     'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text',
                     'data': {'body': 'I seem to be having some technical difficulties. Please try again in a moment.'}
