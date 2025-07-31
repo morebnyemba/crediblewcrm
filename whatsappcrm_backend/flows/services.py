@@ -8,11 +8,12 @@ from typing import List, Dict, Any, Optional, Union, Literal # For Pydantic type
 from django.utils import timezone
 from django.db import transaction
 from pydantic import BaseModel, ValidationError, field_validator, model_validator, Field
+from django.conf import settings
 
 from conversations.models import Contact, Message
 from .models import Flow, FlowStep, FlowTransition, ContactFlowState
 from customer_data.models import MemberProfile
-from customer_data.utils import record_payment
+from customer_data.utils import record_payment, record_prayer_request
 try:
     from media_manager.models import MediaAsset # For asset_pk lookup
     MEDIA_ASSET_ENABLED = True
@@ -257,7 +258,7 @@ class StepConfigQuestion(BasePydanticConfig):
     fallback_config: Optional[FallbackConfig] = None
 
 class ActionItemConfig(BasePydanticConfig):
-    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow", "record_payment"]
+    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow", "record_payment", "record_prayer_request", "send_admin_notification"]
     variable_name: Optional[str] = None
     value_template: Optional[Any] = None
     field_path: Optional[str] = None
@@ -271,6 +272,12 @@ class ActionItemConfig(BasePydanticConfig):
     currency_template: Optional[str] = None
     notes_template: Optional[str] = None
     transaction_ref_template: Optional[str] = None
+    # Fields for 'record_prayer_request'
+    request_text_template: Optional[str] = None
+    category_template: Optional[str] = None
+    is_anonymous_template: Optional[Any] = None
+    # Fields for 'send_admin_notification'
+    message_template: Optional[str] = None
 
     @model_validator(mode='after')
     def check_action_fields(self):
@@ -290,6 +297,12 @@ class ActionItemConfig(BasePydanticConfig):
         elif action_type == 'record_payment':
             if self.amount_template is None or self.payment_type_template is None:
                 raise ValueError("For record_payment, 'amount_template' and 'payment_type_template' are required.")
+        elif action_type == 'record_prayer_request':
+            if self.request_text_template is None:
+                raise ValueError("For record_prayer_request, 'request_text_template' is required.")
+        elif action_type == 'send_admin_notification':
+            if self.message_template is None:
+                raise ValueError("For send_admin_notification, 'message_template' is required.")
         return self
 
 class StepConfigAction(BasePydanticConfig):
@@ -588,6 +601,42 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                             actions_to_perform.append(confirmation_action)
                     else:
                         logger.error(f"Contact {contact.id}: Action in step {step.id} failed to record payment for amount '{amount_str}'.")
+                elif action_type == 'record_prayer_request':
+                    request_text = _resolve_value(action_item_conf.request_text_template, current_step_context, contact)
+                    category = _resolve_value(action_item_conf.category_template, current_step_context, contact)
+                    is_anonymous_val = _resolve_value(action_item_conf.is_anonymous_template, current_step_context, contact)
+
+                    # Coerce resolved value to boolean
+                    is_anonymous = str(is_anonymous_val).lower() in ['true', '1', 'yes'] if is_anonymous_val is not None else False
+
+                    prayer_request_obj = record_prayer_request(
+                        contact=contact,
+                        request_text=str(request_text) if request_text else "",
+                        category=str(category) if category else "other",
+                        is_anonymous=is_anonymous
+                    )
+                    if prayer_request_obj:
+                        current_step_context['last_prayer_request_id'] = str(prayer_request_obj.id)
+                        logger.info(f"Contact {contact.id}: Action in step {step.id} recorded prayer request {prayer_request_obj.id}.")
+                    else:
+                        logger.error(f"Contact {contact.id}: Action in step {step.id} failed to record prayer request for text '{str(request_text)[:50]}...'.")
+                elif action_type == 'send_admin_notification':
+                    admin_number = settings.ADMIN_WHATSAPP_NUMBER
+                    if not admin_number:
+                        logger.warning(f"Contact {contact.id}: 'send_admin_notification' action used, but ADMIN_WHATSAPP_NUMBER is not set in settings. Skipping.")
+                        continue
+
+                    message_body = _resolve_value(action_item_conf.message_template, current_step_context, contact)
+                    if not message_body:
+                        logger.warning(f"Contact {contact.id}: 'send_admin_notification' message_template resolved to an empty string. Skipping.")
+                        continue
+                    
+                    notification_action = {
+                        'type': 'send_whatsapp_message', 'recipient_wa_id': admin_number,
+                        'message_type': 'text', 'data': {'body': message_body}
+                    }
+                    actions_to_perform.append(notification_action)
+                    logger.info(f"Contact {contact.id}: Queued admin notification to {admin_number}.")
                 else:
                     logger.warning(f"Contact {contact.id}: Unknown or misconfigured action_type '{action_type}' in step '{step.name}' (ID: {step.id}).")
         except ValidationError as e:

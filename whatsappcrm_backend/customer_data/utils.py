@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from conversations.models import Contact
-from .models import MemberProfile, Payment, PaymentHistory
+from .models import MemberProfile, Payment, PaymentHistory, PrayerRequest
 
 logger = logging.getLogger(__name__)
 
@@ -95,3 +95,44 @@ def record_payment(
     except Exception as e:
         logger.error(f"Failed to record payment for contact {contact.id}. Error: {e}", exc_info=True)
         return None, None
+
+def record_prayer_request(
+    contact: Contact,
+    request_text: str,
+    category: str,
+    is_anonymous: bool
+) -> PrayerRequest | None:
+    """
+    Creates a PrayerRequest record for a contact.
+
+    Args:
+        contact: The Contact object submitting the request.
+        request_text: The text content of the prayer request.
+        category: The category of the prayer request.
+        is_anonymous: Boolean indicating if the request is anonymous.
+
+    Returns:
+        The created PrayerRequest object, or None if an error occurred.
+    """
+    if not request_text or not request_text.strip():
+        logger.warning(f"Attempted to record an empty prayer request for contact {contact.id}. Aborting.")
+        return None
+
+    valid_categories = [choice[0] for choice in PrayerRequest.REQUEST_CATEGORY_CHOICES]
+    if category not in valid_categories:
+        logger.warning(f"Invalid prayer request category '{category}' for contact {contact.id}. Setting to 'other'.")
+        category = 'other'
+
+    try:
+        with transaction.atomic():
+            member_profile = MemberProfile.objects.filter(contact=contact).first()
+            
+            prayer_request = PrayerRequest.objects.create(
+                contact=contact, member=member_profile, request_text=request_text,
+                category=category, is_anonymous=is_anonymous, status='submitted'
+            )
+            logger.info(f"Successfully recorded prayer request {prayer_request.id} for contact {contact.id}.")
+            return prayer_request
+    except Exception as e:
+        logger.error(f"Failed to record prayer request for contact {contact.id}. Error: {e}", exc_info=True)
+        return None

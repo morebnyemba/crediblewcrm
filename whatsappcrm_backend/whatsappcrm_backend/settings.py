@@ -208,6 +208,7 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 # --- Application-Specific Settings ---
 CONVERSATION_EXPIRY_DAYS = int(os.getenv('CONVERSATION_EXPIRY_DAYS', '60'))
+ADMIN_WHATSAPP_NUMBER = os.getenv('ADMIN_WHATSAPP_NUMBER', None) # e.g., '15551234567'
 
 print("--- DEBUGGING ENVIRONMENT VARIABLES ---")
 celery_log_level_env = os.getenv('CELERY_LOG_LEVEL')
@@ -306,5 +307,6 @@ JAZZMIN_UI_TWEAKS = {
 # DB_HOST="localhost"
 # DB_PORT="5432"
 # CONVERSATION_EXPIRY_DAYS="60"
+# ADMIN_WHATSAPP_NUMBER="your_admin_whatsapp_number"
 # JWT_ACCESS_TOKEN_LIFETIME_MINUTES="60"
 # JWT_REFRESH_TOKEN_LIFETIME_DAYS="7"

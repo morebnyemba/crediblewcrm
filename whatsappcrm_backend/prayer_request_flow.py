@@ -129,9 +129,21 @@ PRAYER_REQUEST_FLOW = {
                     "is_anonymous_template": "{{ context.is_anonymous }}"
                 }]
             },
+            "transitions": [{"to_step": "notify_admin_of_request", "condition_config": {"type": "always_true"}}]
+        },
+        # 6. Notify Admin
+        {
+            "name": "notify_admin_of_request",
+            "type": "action",
+            "config": {
+                "actions_to_run": [{
+                    "action_type": "send_admin_notification",
+                    "message_template": "New Prayer Request Received:\n\nFrom: {{ contact.name }} ({{ contact.whatsapp_id }})\nAnonymous: {{ context.is_anonymous }}\nCategory: {{ context.prayer_category }}\n\nRequest:\n\"{{ context.prayer_request_text }}\""
+                }]
+            },
             "transitions": [{"to_step": "end_prayer_request", "condition_config": {"type": "always_true"}}]
         },
-        # 6. End the flow with a confirmation
+        # 7. End the flow with a confirmation
         {
             "name": "end_prayer_request",
             "type": "end_flow",
