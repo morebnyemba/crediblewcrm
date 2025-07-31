@@ -318,7 +318,7 @@ REGISTRATION_FLOW = {
                         "type": "button",
                         "header": {"type": "text", "text": "Confirm Your Details"},
                         "body": {
-                            "text": "Great, thank you! Please review your information:\n\n*Full Name:* {{ context.first_name }} {{ context.last_name }}\n*Gender:* {{ context.gender }}\n*Marital Status:* {{ context.marital_status }}\n*Date of Birth:* {{ context.date_of_birth }}\n*Email:* {{ context.email }}\n*City:* {{ context.city }}\n\nDoes this look correct?"
+                            "text": "Great, thank you! Please review your information:\n\n*Full Name:* {{ first_name }} {{ last_name }}\n*Gender:* {{ gender }}\n*Marital Status:* {{ marital_status }}\n*Date of Birth:* {{ date_of_birth }}\n*Email:* {{ email }}\n*City:* {{ city }}\n\nDoes this look correct?"
                         },
                         "action": {
                             "buttons": [
@@ -352,19 +352,19 @@ REGISTRATION_FLOW = {
                     {
                         "action_type": "update_member_profile",
                         "fields_to_update": {
-                            "first_name": "{{ context.first_name }}",
-                            "last_name": "{{ context.last_name }}",
-                            "gender": "{{ context.gender }}",
-                            "marital_status": "{{ context.marital_status }}",
-                            "date_of_birth": "{{ context.date_of_birth }}",
-                            "email": "{{ context.email }}",
-                            "city": "{{ context.city }}"
+                            "first_name": "{{ first_name }}",
+                            "last_name": "{{ last_name }}",
+                            "gender": "{{ gender }}",
+                            "marital_status": "{{ marital_status }}",
+                            "date_of_birth": "{{ date_of_birth }}",
+                            "email": "{{ email }}",
+                            "city": "{{ city }}"
                         }
                     },
                     {
                         "action_type": "update_contact_field",
                         "field_path": "name",
-                        "value_template": "{{ context.first_name }} {{ context.last_name }}"
+                        "value_template": "{{ first_name }} {{ last_name }}"
                     }
                 ]
             },
@@ -380,7 +380,7 @@ REGISTRATION_FLOW = {
             "config": {
                 "message_config": {
                     "message_type": "text",
-                    "text": {"body": "Thank you, {{ context.first_name }}! Your profile has been saved. Welcome to the community! 🙏"}
+                    "text": {"body": "Thank you, {{ first_name }}! Your profile has been saved. Welcome to the community! 🙏"}
                 }
             },
             "transitions": []

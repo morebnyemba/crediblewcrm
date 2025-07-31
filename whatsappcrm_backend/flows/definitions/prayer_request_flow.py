@@ -134,7 +134,7 @@ PRAYER_REQUEST_FLOW = {
                         "type": "button",
                         "header": {"type": "text", "text": "Confirm Your Request"},
                         "body": {
-                            "text": "Please review your prayer request:\n\n*Category:* {{ context.prayer_category|title }}\n*Anonymous:* {{ context.is_anonymous }}\n\n*Request:*\n\"{{ context.prayer_request_text }}\"\n\nDoes this look correct?"
+                            "text": "Please review your prayer request:\n\n*Category:* {{ prayer_category|title }}\n*Anonymous:* {{ is_anonymous }}\n\n*Request:*\n\"{{ prayer_request_text }}\"\n\nDoes this look correct?"
                         },
                         "action": {
                             "buttons": [
@@ -158,9 +158,9 @@ PRAYER_REQUEST_FLOW = {
             "config": {
                 "actions_to_run": [{
                     "action_type": "record_prayer_request",
-                    "request_text_template": "{{ context.prayer_request_text }}",
-                    "category_template": "{{ context.prayer_category }}",
-                    "is_anonymous_template": "{{ context.is_anonymous }}"
+                    "request_text_template": "{{ prayer_request_text }}",
+                    "category_template": "{{ prayer_category }}",
+                    "is_anonymous_template": "{{ is_anonymous }}"
                 }]
             },
             "transitions": [{"to_step": "notify_admin_of_request", "condition_config": {"type": "always_true"}}]
@@ -172,7 +172,7 @@ PRAYER_REQUEST_FLOW = {
             "config": {
                 "actions_to_run": [{
                     "action_type": "send_admin_notification",
-                    "message_template": "New Prayer Request Received:\n\nFrom: {{ contact.name }} ({{ contact.whatsapp_id }})\nAnonymous: {{ context.is_anonymous }}\nCategory: {{ context.prayer_category }}\n\nRequest:\n\"{{ context.prayer_request_text }}\""
+                    "message_template": "New Prayer Request Received:\n\nFrom: {{ contact.name }} ({{ contact.whatsapp_id }})\nAnonymous: {{ is_anonymous }}\nCategory: {{ prayer_category }}\n\nRequest:\n\"{{ prayer_request_text }}\""
                 }]
             },
             "transitions": [{"to_step": "end_prayer_request", "condition_config": {"type": "always_true"}}]
