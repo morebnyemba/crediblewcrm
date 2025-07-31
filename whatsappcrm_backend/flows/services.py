@@ -684,6 +684,63 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
     return actions_to_perform, current_step_context
 
 
+def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dict, contact_flow_state: ContactFlowState) -> List[Dict[str, Any]]:
+    """
+    Handles the logic when no transition condition is met from a step.
+    This can be due to an invalid user reply to a question, or a logical dead-end in the flow.
+    """
+    actions_to_perform = []
+    updated_context = flow_context.copy()
+    fallback_config = current_step.config.get('fallback_config', {}) if isinstance(current_step.config, dict) else {}
+
+    # Scenario 1: The step was a question, and the user's reply was invalid. Attempt to re-prompt.
+    if current_step.step_type == 'question':
+        max_retries = fallback_config.get('max_retries', 1)
+        current_fallback_count = updated_context.get('_fallback_count', 0)
+
+        if fallback_config.get('action') == 're_prompt' and current_fallback_count < max_retries:
+            logger.info(f"Fallback: Re-prompting question step '{current_step.name}' for contact {contact.id} (Attempt {current_fallback_count + 1}/{max_retries}).")
+            updated_context['_fallback_count'] = current_fallback_count + 1
+            
+            re_prompt_message_text = fallback_config.get('re_prompt_message_text')
+            if re_prompt_message_text:
+                resolved_re_prompt_text = _resolve_value(re_prompt_message_text, updated_context, contact)
+                actions_to_perform.append({
+                    'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id,
+                    'message_type': 'text', 'data': {'body': resolved_re_prompt_text}
+                })
+            else:  # Re-execute the original question's message_config if no specific re-prompt text
+                step_actions, re_executed_context = _execute_step_actions(current_step, contact, updated_context, is_re_execution=True)
+                actions_to_perform.extend(step_actions)
+                updated_context = re_executed_context
+            
+            # Save the updated context (with incremented fallback_count) and keep the user in the step
+            contact_flow_state.flow_context_data = updated_context
+            contact_flow_state.save(update_fields=['flow_context_data', 'last_updated_at'])
+            return actions_to_perform
+
+    # Scenario 2: Retries are exhausted for a question, or it's a non-question step with no valid transition (a "dead end").
+    if current_step.step_type != 'question':
+        logger.error(
+            f"CRITICAL: Flow for contact {contact.id} reached a dead end at step '{current_step.name}' (type: {current_step.step_type}). "
+            "No valid transition was found. This indicates a flow design issue. Initiating human handover."
+        )
+        final_message_text = "Apologies, I've encountered a technical issue and can't continue. I'm alerting a team member to assist you shortly."
+    else:  # This is for a question step where retries are exhausted.
+        logger.warning(f"Fallback: Max retries reached for question step '{current_step.name}' for contact {contact.id}. Initiating final fallback.")
+        final_message_text = fallback_config.get('fallback_message_text', "I'm sorry, I'm having trouble understanding. Let me connect you with someone who can help.")
+
+    resolved_final_text = _resolve_value(final_message_text, updated_context, contact)
+    actions_to_perform.append({'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text', 'data': {'body': resolved_final_text}})
+
+    contact.needs_human_intervention = True
+    contact.intervention_requested_at = timezone.now()
+    contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at'])
+    logger.info(f"Contact {contact.id} ({contact.whatsapp_id}) flagged for human intervention due to flow fallback.")
+    actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
+    
+    return actions_to_perform
+
 def _handle_active_flow_step(contact_flow_state: ContactFlowState, contact: Contact, message_data: dict, incoming_message_obj: Message) -> List[Dict[str, Any]]:
     current_step = contact_flow_state.current_step
     flow_context = contact_flow_state.flow_context_data if contact_flow_state.flow_context_data is not None else {}
@@ -759,67 +816,10 @@ def _handle_active_flow_step(contact_flow_state: ContactFlowState, contact: Cont
             contact_flow_state, next_step_to_transition_to, flow_context, contact, message_data
         )
         actions_to_perform.extend(actions)
-    else: # No transition condition met - Fallback logic for the current step
-        fallback_config = current_step.config.get('fallback_config', {}) if isinstance(current_step.config, dict) else {}
-        max_fallbacks = fallback_config.get('max_retries', 1) # Default to 1 retry for re-prompt
-        current_fallback_count = flow_context.get('_fallback_count', 0)
-
-        # Only re-prompt if the step is a question and max_fallbacks not reached
-        if current_step.step_type == 'question' and \
-           fallback_config.get('action') == 're_prompt' and \
-           current_fallback_count < max_fallbacks:
-            
-            logger.info(f"Re-prompting question step '{current_step.name}' (Attempt {current_fallback_count + 1}/{max_fallbacks}).")
-            flow_context['_fallback_count'] = current_fallback_count + 1
-            
-            re_prompt_message_text = fallback_config.get('re_prompt_message_text')
-            if re_prompt_message_text: # Send custom re-prompt message
-                resolved_re_prompt_text = _resolve_value(re_prompt_message_text, flow_context, contact)
-                actions_to_perform.append({
-                    'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id,
-                    'message_type': 'text', 'data': {'body': resolved_re_prompt_text}
-                })
-            else: # Re-execute the original question's message_config
-                step_actions, updated_context = _execute_step_actions(current_step, contact, flow_context.copy(), is_re_execution=True)
-                actions_to_perform.extend(step_actions)
-                flow_context = updated_context # Update context with changes from re-execution (e.g. if _question_awaiting_reply_for was re-set)
-            
-            # Save the updated context (with incremented fallback_count)
-            contact_flow_state.flow_context_data = flow_context
-            contact_flow_state.save(update_fields=['flow_context_data', 'last_updated_at'])
-
-        elif fallback_config.get('fallback_message_text'): # General fallback message
-            resolved_fallback_text = _resolve_value(fallback_config['fallback_message_text'], flow_context, contact)
-            actions_to_perform.append({
-                'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id,
-                'message_type': 'text', 'data': {'body': resolved_fallback_text}
-            })
-            if fallback_config.get('handover_after_message', False) or \
-               (current_step.step_type == 'question' and current_fallback_count >= max_fallbacks):
-                logger.info(f"Fallback: Initiating human handover after fallback message or max retries for {contact.whatsapp_id}.")
-                actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
-                contact.needs_human_intervention = True
-                contact.intervention_requested_at = timezone.now()
-                contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at'])
-        
-        elif fallback_config.get('action') == 'human_handover' or \
-             (current_step.step_type == 'question' and current_fallback_count >= max_fallbacks): # Fallback to human handover
-            logger.info(f"Fallback: Initiating human handover directly or after max retries for {contact.whatsapp_id}.")
-            pre_handover_msg = fallback_config.get('pre_handover_message_text', "I'm having a bit of trouble. Let me connect you to a human agent.")
-            resolved_msg = _resolve_value(pre_handover_msg, flow_context, contact)
-            actions_to_perform.append({'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text', 'data': {'body': resolved_msg}})
-            actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
-            contact.needs_human_intervention = True
-            contact.intervention_requested_at = timezone.now()
-            contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at'])
-        else:
-            logger.info(f"No transition met for step '{current_step.name}' and no specific fallback action taken for {contact.whatsapp_id}.")
-            # Generic "I don't understand" if truly no other path
-            if not actions_to_perform: # Only if no other fallback action produced a message
-                actions_to_perform.append({
-                    'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id,
-                    'message_type': 'text', 'data': {'body': "Sorry, I'm not sure how to proceed with that. Can you try something else?"}
-                })
+    else:  # No transition condition met - delegate to centralized fallback handler
+        logger.info(f"No transition met for step '{current_step.name}'. Engaging fallback logic for contact {contact.id}.")
+        fallback_actions = _handle_fallback(current_step, contact, flow_context, contact_flow_state)
+        actions_to_perform.extend(fallback_actions)
 
     return actions_to_perform
 
@@ -1185,6 +1185,16 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
     Main entry point to process an incoming message for a contact against flows.
     Determines if the contact is in an active flow or if a new flow should be triggered.
     """
+    # --- Performance Optimization ---
+    # Eagerly load the related member_profile to prevent N+1 queries during template/condition resolution.
+    # This is a safe way to ensure the profile is available without modifying the calling view.
+    try:
+        contact = Contact.objects.select_related('member_profile').get(pk=contact.pk)
+    except Contact.DoesNotExist:
+        # This should theoretically not happen if the contact was just created/retrieved, but it's a safe guard.
+        logger.error(f"Contact with pk={contact.pk} not found at start of flow processing. Aborting.")
+        return []
+
     actions_to_perform = []
     try:
         # Attempt to get the current flow state for the contact

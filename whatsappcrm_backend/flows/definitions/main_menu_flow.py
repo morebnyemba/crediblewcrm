@@ -10,26 +10,96 @@ MAIN_MENU_FLOW = {
     "trigger_keywords": ["menu", "help", "options", "hi", "hello"],
     "is_active": True,
     "steps": [
-        # 1. Show the main menu as an interactive list
+        # 1. Check if user is registered to show the correct menu
         {
-            "name": "show_main_menu",
+            "name": "check_if_registered_for_menu",
             "is_entry_point": True,
+            "type": "action",
+            "config": {"actions_to_run": []},
+            "transitions": [
+                {"to_step": "show_main_menu_registered", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "member_profile.first_name"}},
+                {"to_step": "show_main_menu_visitor", "priority": 20, "condition_config": {"type": "always_true"}}
+            ]
+        },
+
+        # 2a. Show menu for REGISTERED users
+        {
+            "name": "show_main_menu_registered",
             "type": "question",
             "config": {
                 "message_config": {
                     "message_type": "interactive",
                     "interactive": {
                         "type": "list",
-                        "header": {
-                            "type": "text",
-                            "text": "Church Main Menu"
-                        },
-                        "body": {
-                            "text": "Hello {{ contact.name }}! 🙏\n\nWelcome to our digital church home. How can we serve you today? Please choose an option from our main menu below."
-                        },
-                        "footer": {
-                            "text": "Powered by Credible Brands(credible.co.zw)"
-                        },
+                        "header": {"type": "text", "text": "Church Main Menu"},
+                        "body": {"text": "Welcome back, {{ member_profile.first_name }}! 🙏\n\nHow can we serve you today?"},
+                        "footer": {"text": "Powered by Credible Brands(credible.co.zw)"},
+                        "action": {
+                            "button": "Show Menu",
+                            "sections": [
+                                {
+                                    "title": "My Profile & Giving",
+                                    "rows": [
+                                        {"id": "go_to_profile_summary", "title": "Check My Profile", "description": "View your current information."},
+                                        {"id": "trigger_registration_flow", "title": "Update My Profile", "description": "Change your registration details."},
+                                        {"id": "give_online", "title": "Give Online", "description": "Support our ministry through tithes & offerings."}
+                                    ]
+                                },
+                                {
+                                    "title": "Spiritual Growth",
+                                    "rows": [
+                                        {"id": "watch_recent_sermons", "title": "Recent Sermons", "description": "Catch up on the latest messages."},
+                                        {"id": "submit_prayer_request", "title": "Submit a Prayer Request", "description": "Let us know how we can pray for you."}
+                                    ]
+                                },
+                                {
+                                    "title": "Get Involved",
+                                    "rows": [
+                                        {"id": "view_upcoming_events", "title": "Upcoming Events", "description": "See what's happening at our church."},
+                                        {"id": "explore_ministries", "title": "Ministries & Groups", "description": "Find a group to connect with."}
+                                    ]
+                                },
+                                {
+                                    "title": "Support",
+                                    "rows": [
+                                        {"id": "talk_to_pastor", "title": "Talk to a Pastor", "description": "Request a conversation with our leadership."}
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {"save_to_variable": "selected_menu_option", "expected_type": "interactive_id"},
+                "fallback_config": {
+                    "action": "re_prompt", "max_retries": 1,
+                    "re_prompt_message_text": "Sorry, that's not a valid selection. Please choose an option from the menu.",
+                    "fallback_message_text": "If you need help, just type 'menu' to see the options again."
+                }
+            },
+            "transitions": [
+                {"to_step": "switch_to_registration", "condition_config": {"type": "interactive_reply_id_equals", "value": "trigger_registration_flow"}},
+                {"to_step": "switch_to_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "submit_prayer_request"}},
+                {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
+                {"to_step": "initiate_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
+                {"to_step": "check_profile_exists", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
+                {"to_step": "set_coming_soon_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
+                {"to_step": "set_coming_soon_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
+                {"to_step": "set_coming_soon_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
+            ]
+        },
+
+        # 2b. Show menu for GUEST users
+        {
+            "name": "show_main_menu_visitor",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "list",
+                        "header": {"type": "text", "text": "Church Main Menu"},
+                        "body": {"text": "Hello {{ contact.name }}! 🙏\n\nWelcome to our digital church home. How can we serve you today? Please choose an option from our main menu below."},
+                        "footer": {"text": "Powered by Credible Brands(credible.co.zw)"},
                         "action": {
                             "button": "Show Menu",
                             "sections": [
@@ -65,27 +135,18 @@ MAIN_MENU_FLOW = {
                         }
                     }
                 },
-                "reply_config": {
-                    "save_to_variable": "selected_menu_option",
-                    "expected_type": "interactive_id"
-                },
+                "reply_config": {"save_to_variable": "selected_menu_option", "expected_type": "interactive_id"},
                 "fallback_config": {
-                    "action": "re_prompt",
-                    "max_retries": 1,
+                    "action": "re_prompt", "max_retries": 1,
                     "re_prompt_message_text": "Sorry, that's not a valid selection. Please choose an option from the menu.",
                     "fallback_message_text": "If you need help, just type 'menu' to see the options again."
                 }
             },
             "transitions": [
-                # --- Direct Flow Switches ---
                 {"to_step": "switch_to_registration", "condition_config": {"type": "interactive_reply_id_equals", "value": "trigger_registration_flow"}},
                 {"to_step": "switch_to_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "submit_prayer_request"}},
                 {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
-                
-                # --- Handover ---
                 {"to_step": "initiate_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
-
-                # --- Conditional & Informational Paths ---
                 {"to_step": "check_profile_exists", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
                 {"to_step": "set_coming_soon_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
                 {"to_step": "set_coming_soon_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
@@ -93,7 +154,7 @@ MAIN_MENU_FLOW = {
             ]
         },
 
-        # --- Steps for Switching Flows ---
+        # --- Steps for Switching Flows (Unchanged) ---
         {
             "name": "switch_to_registration",
             "type": "action",
@@ -113,7 +174,7 @@ MAIN_MENU_FLOW = {
             "transitions": []
         },
 
-        # --- Step for Human Handover ---
+        # --- Step for Human Handover (Unchanged) ---
         {
             "name": "initiate_pastor_handover",
             "type": "human_handover",
@@ -121,7 +182,7 @@ MAIN_MENU_FLOW = {
             "transitions": []
         },
 
-        # --- Profile Summary Path (Improved) ---
+        # --- Profile Summary Path (Unchanged) ---
         {
             "name": "check_profile_exists",
             "type": "action",
@@ -144,7 +205,7 @@ MAIN_MENU_FLOW = {
             "transitions": [{"to_step": "end_flow_silently", "condition_config": {"type": "always_true"}}]
         },
 
-        # --- "Coming Soon" Path (Refactored) ---
+        # --- "Coming Soon" Path (Unchanged) ---
         {
             "name": "set_coming_soon_events",
             "type": "action",
@@ -170,7 +231,7 @@ MAIN_MENU_FLOW = {
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
 
-        # --- Looping and Ending (Improved) ---
+        # --- Looping and Ending (Loopback point updated) ---
         {
             "name": "offer_return_to_menu",
             "type": "question",
@@ -191,7 +252,7 @@ MAIN_MENU_FLOW = {
                 "reply_config": {"save_to_variable": "return_choice", "expected_type": "interactive_id"}
             },
             "transitions": [
-                {"to_step": "show_main_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}},
+                {"to_step": "check_if_registered_for_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}},
                 {"to_step": "say_goodbye", "condition_config": {"type": "interactive_reply_id_equals", "value": "end_conversation"}}
             ]
         },
