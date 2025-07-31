@@ -742,88 +742,6 @@ def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dic
     
     return actions_to_perform
 
-def _handle_active_flow_step(contact_flow_state: ContactFlowState, contact: Contact, message_data: dict, incoming_message_obj: Message) -> List[Dict[str, Any]]:
-    current_step = contact_flow_state.current_step
-    flow_context = contact_flow_state.flow_context_data if contact_flow_state.flow_context_data is not None else {}
-    actions_to_perform = [] # Renamed from 'actions' to avoid confusion with 'step.config.actions_to_run'
-
-    logger.debug(f"Handling active flow. Contact: {contact.whatsapp_id}, Current Step: '{current_step.name}' (Type: {current_step.step_type}). Context: {flow_context}")
-
-    # If current step is a question, process the incoming message as a potential reply
-    if current_step.step_type == 'question' and '_question_awaiting_reply_for' in flow_context:
-        question_expectation = flow_context['_question_awaiting_reply_for']
-        variable_to_save_name = question_expectation.get('variable_name')
-        expected_reply_type = question_expectation.get('expected_type')
-        validation_regex_ctx = question_expectation.get('validation_regex')
-        
-        user_text = message_data.get('text', {}).get('body', '').strip() if message_data.get('type') == 'text' else None
-        interactive_reply_id = None
-        if message_data.get('type') == 'interactive':
-            interactive_payload = message_data.get('interactive', {})
-            interactive_type = interactive_payload.get('type')
-            if interactive_type == 'button_reply':
-                interactive_reply_id = interactive_payload.get('button_reply', {}).get('id')
-            elif interactive_type == 'list_reply':
-                interactive_reply_id = interactive_payload.get('list_reply', {}).get('id')
-
-        reply_is_valid = False
-        value_to_save = None
-
-        if expected_reply_type == 'text' and user_text:
-            value_to_save = user_text; reply_is_valid = True
-        elif expected_reply_type == 'email':
-            email_r = validation_regex_ctx or r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-            if user_text and re.match(email_r, user_text):
-                value_to_save = user_text; reply_is_valid = True
-        elif expected_reply_type == 'number' and user_text:
-            try:
-                value_to_save = float(user_text) if '.' in user_text or (validation_regex_ctx and '.' in validation_regex_ctx) else int(user_text)
-                reply_is_valid = True
-                # Apply regex validation if present, even after type conversion
-                if validation_regex_ctx and not re.match(validation_regex_ctx, str(value_to_save)): # Convert back to str for regex
-                    reply_is_valid = False; value_to_save = None
-            except ValueError: pass
-        elif expected_reply_type == 'interactive_id' and interactive_reply_id:
-            value_to_save = interactive_reply_id; reply_is_valid = True
-        
-        # Apply custom regex if type validation didn't make it valid, or for further refinement
-        if validation_regex_ctx and not reply_is_valid and user_text and expected_reply_type == 'text': # Only apply if type was 'text' and it wasn't valid by simple presence
-            if re.match(validation_regex_ctx, user_text):
-                value_to_save = user_text; reply_is_valid = True
-        
-        if reply_is_valid and variable_to_save_name:
-            flow_context[variable_to_save_name] = value_to_save
-            logger.info(f"Saved valid reply for '{variable_to_save_name}' in question step '{current_step.name}': {value_to_save}")
-            # No longer awaiting reply for this specific question config after successful save
-            flow_context.pop('_question_awaiting_reply_for', None)
-            flow_context.pop('_fallback_count', None) # Reset fallback count
-        else: # Reply was not valid for the question
-            logger.info(f"Reply for question step '{current_step.name}' was not valid or no variable to save. Expected: {expected_reply_type}")
-            # Fallback logic will be handled below by transition evaluation or specific fallback config for the question step
-            pass # Let transition logic handle it, or fallback logic below if no transition fires
-
-    # Evaluate transitions from the current step
-    transitions = FlowTransition.objects.filter(current_step=current_step).select_related('next_step').order_by('priority')
-    next_step_to_transition_to = None
-    for transition in transitions:
-        if _evaluate_transition_condition(transition, contact, message_data, flow_context, incoming_message_obj):
-            next_step_to_transition_to = transition.next_step
-            logger.info(f"Transition condition met: From '{current_step.name}' to '{next_step_to_transition_to.name}'.")
-            break
-    
-    if next_step_to_transition_to:
-        # _transition_to_step handles saving the potentially updated flow_context
-        actions, _ = _transition_to_step(
-            contact_flow_state, next_step_to_transition_to, flow_context, contact, message_data
-        )
-        actions_to_perform.extend(actions)
-    else:  # No transition condition met - delegate to centralized fallback handler
-        logger.info(f"No transition met for step '{current_step.name}'. Engaging fallback logic for contact {contact.id}.")
-        fallback_actions = _handle_fallback(current_step, contact, flow_context, contact_flow_state)
-        actions_to_perform.extend(fallback_actions)
-
-    return actions_to_perform
-
 
 def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj: Message) -> List[Dict[str, Any]]:
     actions_to_perform = [] # Renamed from 'actions'
@@ -1209,15 +1127,107 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
 
     actions_to_perform = []
     try:
-        # Attempt to get the current flow state for the contact
-        contact_flow_state = ContactFlowState.objects.select_related('current_flow', 'current_step').get(contact=contact)
-        logger.info(
-            f"Contact {contact.whatsapp_id} is currently in flow '{contact_flow_state.current_flow.name}', "
-            f"step '{contact_flow_state.current_step.name}'."
-        )
-        actions_to_perform = _handle_active_flow_step(
-            contact_flow_state, contact, message_data, incoming_message_obj
-        )
+        # --- Start of Main Flow Processing Loop ---
+        # This loop will continue as long as the contact is in an active flow state.
+        # It allows for "fall-through" steps (like 'action' steps) to be processed immediately.
+        while True:
+            contact_flow_state = ContactFlowState.objects.select_related('current_flow', 'current_step').filter(contact=contact).first()
+
+            if not contact_flow_state:
+                logger.info(f"No active flow state for contact {contact.whatsapp_id}. Attempting to trigger a new flow.")
+                actions_to_perform.extend(_trigger_new_flow(contact, message_data, incoming_message_obj))
+                # After attempting to trigger, if a new state was created, the loop will re-evaluate.
+                # If not, it will break on the next iteration's `if not contact_flow_state` check.
+                # We need to check again to see if a new flow was started.
+                if not ContactFlowState.objects.filter(contact=contact).exists():
+                    break # Exit loop if no new flow was triggered.
+                else:
+                    continue # A new flow was started, re-run the loop.
+
+            current_step = contact_flow_state.current_step
+            flow_context = contact_flow_state.flow_context_data if contact_flow_state.flow_context_data is not None else {}
+
+            logger.debug(f"Handling active flow. Contact: {contact.whatsapp_id}, Current Step: '{current_step.name}' (Type: {current_step.step_type}). Context: {flow_context}")
+
+            # --- Step 1: Process incoming message if the current step is a question ---
+            is_pass_through_step = True # Assume step is pass-through unless it's a question
+            if current_step.step_type == 'question' and '_question_awaiting_reply_for' in flow_context:
+                is_pass_through_step = False # A question is NOT a pass-through step; it must wait for a reply.
+                question_expectation = flow_context['_question_awaiting_reply_for']
+                variable_to_save_name = question_expectation.get('variable_name')
+                expected_reply_type = question_expectation.get('expected_type')
+                validation_regex_ctx = question_expectation.get('validation_regex')
+                
+                user_text = message_data.get('text', {}).get('body', '').strip() if message_data.get('type') == 'text' else None
+                interactive_reply_id = None
+                if message_data.get('type') == 'interactive':
+                    interactive_payload = message_data.get('interactive', {})
+                    interactive_type = interactive_payload.get('type')
+                    if interactive_type == 'button_reply':
+                        interactive_reply_id = interactive_payload.get('button_reply', {}).get('id')
+                    elif interactive_type == 'list_reply':
+                        interactive_reply_id = interactive_payload.get('list_reply', {}).get('id')
+
+                reply_is_valid = False
+                value_to_save = None
+
+                if expected_reply_type == 'text' and user_text:
+                    value_to_save = user_text; reply_is_valid = True
+                elif expected_reply_type == 'email':
+                    email_r = validation_regex_ctx or r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+                    if user_text and re.match(email_r, user_text):
+                        value_to_save = user_text; reply_is_valid = True
+                elif expected_reply_type == 'number' and user_text:
+                    try:
+                        value_to_save = float(user_text) if '.' in user_text or (validation_regex_ctx and '.' in validation_regex_ctx) else int(user_text)
+                        reply_is_valid = True
+                        if validation_regex_ctx and not re.match(validation_regex_ctx, str(value_to_save)):
+                            reply_is_valid = False; value_to_save = None
+                    except ValueError: pass
+                elif expected_reply_type == 'interactive_id' and interactive_reply_id:
+                    value_to_save = interactive_reply_id; reply_is_valid = True
+                
+                if validation_regex_ctx and not reply_is_valid and user_text and expected_reply_type == 'text':
+                    if re.match(validation_regex_ctx, user_text):
+                        value_to_save = user_text; reply_is_valid = True
+                
+                if reply_is_valid and variable_to_save_name:
+                    flow_context[variable_to_save_name] = value_to_save
+                    logger.info(f"Saved valid reply for '{variable_to_save_name}' in question step '{current_step.name}': {value_to_save}")
+                    flow_context.pop('_question_awaiting_reply_for', None)
+                    flow_context.pop('_fallback_count', None)
+                else:
+                    logger.info(f"Reply for question step '{current_step.name}' was not valid. Expected: {expected_reply_type}")
+
+            # --- Step 2: Evaluate transitions from the current step ---
+            transitions = FlowTransition.objects.filter(current_step=current_step).select_related('next_step').order_by('priority')
+            next_step_to_transition_to = None
+            for transition in transitions:
+                if _evaluate_transition_condition(transition, contact, message_data, flow_context, incoming_message_obj):
+                    next_step_to_transition_to = transition.next_step
+                    logger.info(f"Transition condition met: From '{current_step.name}' to '{next_step_to_transition_to.name}'.")
+                    break
+            
+            if next_step_to_transition_to:
+                actions, flow_context = _transition_to_step(contact_flow_state, next_step_to_transition_to, flow_context, contact, message_data)
+                actions_to_perform.extend(actions)
+            else:
+                logger.info(f"No transition met for step '{current_step.name}'. Engaging fallback logic for contact {contact.id}.")
+                fallback_actions = _handle_fallback(current_step, contact, flow_context, contact_flow_state)
+                actions_to_perform.extend(fallback_actions)
+                break # Fallback always breaks the loop
+
+            # --- Step 3: Loop Control ---
+            # If the new step is a question, or if the flow state was cleared (e.g., end_flow), break the loop.
+            new_state = ContactFlowState.objects.filter(contact=contact).first()
+            if not new_state or new_state.current_step.step_type in ['question', 'end_flow', 'human_handover']:
+                break
+            
+            # The message_data is "consumed" by the first step that uses it (the question step).
+            # For subsequent automatic "fall-through" steps, we use an empty message_data.
+            message_data = {'type': 'internal_fallthrough'}
+            incoming_message_obj = None
+
     except ContactFlowState.DoesNotExist:
         logger.info(f"No active flow state for contact {contact.whatsapp_id}. Attempting to trigger a new flow.")
         actions_to_perform = _trigger_new_flow(contact, message_data, incoming_message_obj)
