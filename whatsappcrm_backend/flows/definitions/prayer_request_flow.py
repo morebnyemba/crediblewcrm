@@ -69,6 +69,11 @@ PRAYER_REQUEST_FLOW = {
                 "reply_config": {
                     "save_to_variable": "prayer_category",
                     "expected_type": "interactive_id"
+                },
+                "fallback_config": {
+                    "action": "re_prompt",
+                    "max_retries": 2,
+                    "re_prompt_message_text": "Please make a selection from the list to continue."
                 }
             },
             "transitions": [
@@ -144,7 +149,12 @@ PRAYER_REQUEST_FLOW = {
                         }
                     }
                 },
-                "reply_config": {"save_to_variable": "confirmation_choice", "expected_type": "interactive_id"}
+                "reply_config": {"save_to_variable": "confirmation_choice", "expected_type": "interactive_id"},
+                "fallback_config": {
+                    "action": "re_prompt",
+                    "max_retries": 1,
+                    "re_prompt_message_text": "Please tap one of the buttons to confirm."
+                }
             },
             "transitions": [
                 {"to_step": "record_prayer_request_action", "condition_config": {"type": "interactive_reply_id_equals", "value": "confirm_submit"}},
@@ -197,7 +207,12 @@ PRAYER_REQUEST_FLOW = {
                         }
                     }
                 },
-                "reply_config": {"save_to_variable": "final_choice", "expected_type": "interactive_id"}
+                "reply_config": {"save_to_variable": "final_choice", "expected_type": "interactive_id"},
+                "fallback_config": {
+                    "action": "re_prompt",
+                    "max_retries": 1,
+                    "re_prompt_message_text": "Please choose one of the options to continue."
+                }
             },
             "transitions": [
                 {"to_step": "switch_to_main_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}},

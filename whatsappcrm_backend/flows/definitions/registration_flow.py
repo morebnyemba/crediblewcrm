@@ -112,7 +112,7 @@ REGISTRATION_FLOW = {
                 "message_config": {
                     "message_type": "text",
                     "text": {
-                        "body": "Great, {{ context.first_name }}! What is your last name?"
+                        "body": "Great, {{ first_name }}! What is your last name?"
                     }
                 },
                 "reply_config": {
@@ -318,7 +318,7 @@ REGISTRATION_FLOW = {
                         "type": "button",
                         "header": {"type": "text", "text": "Confirm Your Details"},
                         "body": {
-                            "text": "Great, thank you! Please review your information:\n\n*Full Name:* {{ first_name }} {{ last_name }}\n*Gender:* {{ gender }}\n*Marital Status:* {{ marital_status }}\n*Date of Birth:* {{ date_of_birth }}\n*Email:* {{ email }}\n*City:* {{ city }}\n\nDoes this look correct?"
+                            "text": "Great, thank you! Please review your information:\n\n*Full Name:* {{ first_name }} {{ last_name }}\n*Gender:* {{ gender|title }}\n*Marital Status:* {{ marital_status|title }}\n*Date of Birth:* {{ date_of_birth }}\n*Email:* {{ email }}\n*City:* {{ city }}\n\nDoes this look correct?"
                         },
                         "action": {
                             "buttons": [
