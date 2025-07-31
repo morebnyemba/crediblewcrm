@@ -108,16 +108,44 @@ PRAYER_REQUEST_FLOW = {
             "name": "set_anonymity_true",
             "type": "action",
             "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "is_anonymous", "value_template": True}]},
-            "transitions": [{"to_step": "record_prayer_request_action", "condition_config": {"type": "always_true"}}]
+            "transitions": [{"to_step": "confirm_prayer_request", "condition_config": {"type": "always_true"}}]
         },
         # 4b. Set anonymity to False
         {
             "name": "set_anonymity_false",
             "type": "action",
             "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "is_anonymous", "value_template": False}]},
-            "transitions": [{"to_step": "record_prayer_request_action", "condition_config": {"type": "always_true"}}]
+            "transitions": [{"to_step": "confirm_prayer_request", "condition_config": {"type": "always_true"}}]
         },
-        # 5. Record the prayer request
+        # 5. Ask user to confirm details before submitting
+        {
+            "name": "confirm_prayer_request",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "header": {"type": "text", "text": "Confirm Your Request"},
+                        "body": {
+                            "text": "Please review your prayer request:\n\n*Category:* {{ context.prayer_category|title }}\n*Anonymous:* {{ context.is_anonymous }}\n\n*Request:*\n\"{{ context.prayer_request_text }}\"\n\nDoes this look correct?"
+                        },
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": "confirm_submit", "title": "Yes, Submit"}},
+                                {"type": "reply", "reply": {"id": "restart_request", "title": "No, Start Over"}}
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {"save_to_variable": "confirmation_choice", "expected_type": "interactive_id"}
+            },
+            "transitions": [
+                {"to_step": "record_prayer_request_action", "condition_config": {"type": "interactive_reply_id_equals", "value": "confirm_submit"}},
+                {"to_step": "ask_for_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "restart_request"}}
+            ]
+        },
+        # 6. Record the prayer request after confirmation
         {
             "name": "record_prayer_request_action",
             "type": "action",
@@ -131,7 +159,7 @@ PRAYER_REQUEST_FLOW = {
             },
             "transitions": [{"to_step": "notify_admin_of_request", "condition_config": {"type": "always_true"}}]
         },
-        # 6. Notify Admin
+        # 7. Notify Admin
         {
             "name": "notify_admin_of_request",
             "type": "action",
@@ -143,16 +171,45 @@ PRAYER_REQUEST_FLOW = {
             },
             "transitions": [{"to_step": "end_prayer_request", "condition_config": {"type": "always_true"}}]
         },
-        # 7. End the flow with a confirmation
+        # 8. End the flow with a confirmation and offer next steps
         {
             "name": "end_prayer_request",
-            "type": "end_flow",
+            "type": "question",
             "config": {
                 "message_config": {
-                    "message_type": "text",
-                    "text": {"body": "Thank you for trusting us with your prayer request. Our prayer team will be lifting you up. Be blessed. 🙏"}
-                }
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {
+                            "text": "Thank you for trusting us with your prayer request. Our prayer team will be lifting you up. Be blessed. 🙏\n\nIs there anything else I can help you with?"
+                        },
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": "return_to_menu", "title": "Main Menu"}},
+                                {"type": "reply", "reply": {"id": "end_conversation", "title": "No, I'm Done"}}
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {"save_to_variable": "final_choice", "expected_type": "interactive_id"}
             },
+            "transitions": [
+                {"to_step": "switch_to_main_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}},
+                {"to_step": "end_flow_goodbye", "condition_config": {"type": "interactive_reply_id_equals", "value": "end_conversation"}}
+            ]
+        },
+        # 9a. Switch back to the main menu
+        {
+            "name": "switch_to_main_menu",
+            "type": "action",
+            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "main_menu"}]},
+            "transitions": []
+        },
+        # 9b. End the flow with a simple goodbye
+        {
+            "name": "end_flow_goodbye",
+            "type": "end_flow",
+            "config": {"message_config": {"message_type": "text", "text": {"body": "You're welcome! Have a blessed day."}}},
             "transitions": []
         }
     ]
