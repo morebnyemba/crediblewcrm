@@ -33,7 +33,7 @@ MAIN_MENU_FLOW = {
                         "type": "list",
                         "header": {"type": "text", "text": "Church Main Menu"},
                         "body": {"text": "Welcome back, {{ member_profile.first_name }}! 🙏\n\nHow can we serve you today?"},
-                        "footer": {"text": "Powered by Credible Brands(credible.co.zw)"},
+                        "footer": {"text": "Powered by crediblebrands.co.zw"},
                         "action": {
                             "button": "Show Menu",
                             "sections": [
@@ -64,6 +64,12 @@ MAIN_MENU_FLOW = {
                                     "rows": [
                                         {"id": "talk_to_pastor", "title": "Talk to a Pastor", "description": "Request a conversation with our leadership."}
                                     ]
+                                },
+                                {
+                                    "title": "About This Service",
+                                    "rows": [
+                                        {"id": "show_dev_info", "title": "Development Info", "description": "Learn more about the creators of this service."}
+                                    ]
                                 }
                             ]
                         }
@@ -85,6 +91,7 @@ MAIN_MENU_FLOW = {
                 {"to_step": "set_coming_soon_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
                 {"to_step": "set_coming_soon_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
                 {"to_step": "set_coming_soon_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
+                {"to_step": "display_dev_info", "condition_config": {"type": "interactive_reply_id_equals", "value": "show_dev_info"}},
             ]
         },
 
@@ -99,7 +106,7 @@ MAIN_MENU_FLOW = {
                         "type": "list",
                         "header": {"type": "text", "text": "Church Main Menu"},
                         "body": {"text": "Hello {{ contact.name }}! 🙏\n\nWelcome to our digital church home. How can we serve you today? Please choose an option from our main menu below."},
-                        "footer": {"text": "Powered by Credible Brands(credible.co.zw)"},
+                        "footer": {"text": "Powered by crediblebrands.co.zw"},
                         "action": {
                             "button": "Show Menu",
                             "sections": [
@@ -130,6 +137,12 @@ MAIN_MENU_FLOW = {
                                     "rows": [
                                         {"id": "go_to_profile_summary", "title": "Check My Profile", "description": "View your current information."}
                                     ]
+                                },
+                                {
+                                    "title": "About This Service",
+                                    "rows": [
+                                        {"id": "show_dev_info", "title": "Development Info", "description": "Learn more about the creators of this service."}
+                                    ]
                                 }
                             ]
                         }
@@ -151,6 +164,7 @@ MAIN_MENU_FLOW = {
                 {"to_step": "set_coming_soon_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
                 {"to_step": "set_coming_soon_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
                 {"to_step": "set_coming_soon_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
+                {"to_step": "display_dev_info", "condition_config": {"type": "interactive_reply_id_equals", "value": "show_dev_info"}},
             ]
         },
 
@@ -228,6 +242,20 @@ MAIN_MENU_FLOW = {
             "name": "show_coming_soon_message",
             "type": "send_message",
             "config": {"message_type": "text", "text": {"body": "The '{{ flow_context.feature_name }}' feature is coming soon! We're working hard to bring it to you.\n\nType 'menu' to return to the main menu."}},
+            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+        },
+
+        # --- New step for Development Info ---
+        {
+            "name": "display_dev_info",
+            "type": "send_message",
+            "config": {
+                "message_type": "text",
+                "text": {
+                    "body": "This system was proudly developed by Credible Brand's Partner, Slyker Tech Web Services.\n\n*Contact Us on WhatsApp:*\n*Credible Brands:* https://wa.me/263772519128?text=Hello%2C%20I'm%20inquiring%20about%20the%20AutoWhatsapp%20service.\n*Slyker Tech:* https://wa.me/263787211325?text=Hello%2C%20I'm%20inquiring%20about%20the%20AutoWhatsapp%20service.",
+                    "preview_url": True
+                }
+            },
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
 
