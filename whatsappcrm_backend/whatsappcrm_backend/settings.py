@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'conversations.apps.ConversationsConfig',
     'flows.apps.FlowsConfig',
     'customer_data.apps.CustomerDataConfig',
+    'church_services.apps.ChurchServicesConfig',
 ]
 
 MIDDLEWARE = [

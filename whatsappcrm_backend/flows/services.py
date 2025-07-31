@@ -7,6 +7,8 @@ from typing import List, Dict, Any, Optional, Union, Literal # For Pydantic type
 
 from django.utils import timezone
 from django.db import transaction
+from django.apps import apps
+from django.forms.models import model_to_dict
 from django.core.exceptions import ValidationError as DjangoValidationError
 from pydantic import BaseModel, ValidationError, field_validator, model_validator, Field
 from django.conf import settings
@@ -259,7 +261,7 @@ class StepConfigQuestion(BasePydanticConfig):
     fallback_config: Optional[FallbackConfig] = None
 
 class ActionItemConfig(BasePydanticConfig):
-    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow", "record_payment", "record_prayer_request", "send_admin_notification"]
+    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow", "record_payment", "record_prayer_request", "send_admin_notification", "query_model"]
     variable_name: Optional[str] = None
     value_template: Optional[Any] = None
     field_path: Optional[str] = None
