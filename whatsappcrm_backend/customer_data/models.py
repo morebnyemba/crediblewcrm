@@ -251,3 +251,61 @@ class PaymentHistory(models.Model):
         verbose_name = _("Payment History")
         verbose_name_plural = _("Payment Histories")
         ordering = ['-timestamp']
+
+class PrayerRequest(models.Model):
+    """
+    Stores a prayer request submitted by a member or contact.
+    """
+    REQUEST_CATEGORY_CHOICES = [
+        ('healing', _('Healing')),
+        ('family', _('Family & Relationships')),
+        ('guidance', _('Guidance & Wisdom')),
+        ('thanksgiving', _('Thanksgiving')),
+        ('financial', _('Financial Provision')),
+        ('other', _('Other')),
+    ]
+    STATUS_CHOICES = [
+        ('submitted', _('Submitted')),
+        ('in_prayer', _('In Prayer')),
+        ('answered', _('Answered')),
+        ('closed', _('Closed')),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    member = models.ForeignKey(
+        MemberProfile,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='prayer_requests',
+        help_text=_("The member profile associated with this prayer request, if available.")
+    )
+    contact = models.ForeignKey(
+        Contact,
+        on_delete=models.CASCADE,
+        related_name='prayer_requests',
+        help_text=_("The contact who submitted the prayer request.")
+    )
+    request_text = models.TextField(_("Prayer Request"), help_text=_("The content of the prayer request."))
+    category = models.CharField(
+        _("Category"), max_length=50, choices=REQUEST_CATEGORY_CHOICES, blank=True, null=True
+    )
+    is_anonymous = models.BooleanField(
+        _("Submit Anonymously"),
+        default=False,
+        help_text=_("If true, the submitter's name will not be shared publicly.")
+    )
+    status = models.CharField(
+        _("Status"), max_length=20, choices=STATUS_CHOICES, default='submitted'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        submitter = "Anonymous" if self.is_anonymous else (self.member.get_full_name() if self.member and self.member.get_full_name() else str(self.contact))
+        return f"Prayer Request from {submitter} ({self.get_category_display() or 'General'})"
+
+    class Meta:
+        verbose_name = _("Prayer Request")
+        verbose_name_plural = _("Prayer Requests")
+        ordering = ['-created_at']

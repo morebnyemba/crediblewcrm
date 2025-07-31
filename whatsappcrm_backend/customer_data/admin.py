@@ -1,7 +1,7 @@
 # whatsappcrm_backend/customer_data/admin.py
 
 from django.contrib import admin
-from .models import Family, MemberProfile, Payment, PaymentHistory
+from .models import Family, MemberProfile, Payment, PaymentHistory, PrayerRequest
 
 
 @admin.register(Family)
@@ -78,3 +78,17 @@ class PaymentHistoryAdmin(admin.ModelAdmin):
     list_filter = ('status',)
     search_fields = ('payment__id',)
     readonly_fields = ('payment', 'status', 'timestamp', 'notes')
+
+
+@admin.register(PrayerRequest)
+class PrayerRequestAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'contact', 'category', 'status', 'is_anonymous', 'created_at')
+    list_filter = ('status', 'category', 'is_anonymous', 'created_at')
+    search_fields = ('request_text', 'contact__whatsapp_id', 'member__first_name', 'member__last_name')
+    readonly_fields = ('id', 'created_at', 'updated_at')
+    list_per_page = 30
+    fieldsets = (
+        ('Request Details', {'fields': ('id', 'status', 'category', 'request_text')}),
+        ('Submitter', {'fields': ('contact', 'member', 'is_anonymous')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
+    )
