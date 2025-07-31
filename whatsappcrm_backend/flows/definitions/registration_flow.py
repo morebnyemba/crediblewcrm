@@ -43,15 +43,37 @@ REGISTRATION_FLOW = {
                         }
                     }
                 },
-                "reply_config": {"save_to_variable": "update_choice", "expected_type": "interactive_id"}
+                "reply_config": {"save_to_variable": "update_choice", "expected_type": "interactive_id"},
+                "fallback_config": {
+                    "action": "re_prompt", "max_retries": 1,
+                    "re_prompt_message_text": "Please tap one of the buttons to continue."
+                }
             },
             "transitions": [
-                {"to_step": "start_registration", "condition_config": {"type": "interactive_reply_id_equals", "value": "start_update"}},
+                {"to_step": "load_existing_profile_to_context", "condition_config": {"type": "interactive_reply_id_equals", "value": "start_update"}},
                 {"to_step": "end_flow_cancelled", "condition_config": {"type": "interactive_reply_id_equals", "value": "cancel_update"}}
             ]
         },
 
-        # 2b. Start the registration/update process.
+        # NEW: Load existing data into context for a smoother update experience
+        {
+            "name": "load_existing_profile_to_context",
+            "type": "action",
+            "config": {
+                "actions_to_run": [
+                    {"action_type": "set_context_variable", "variable_name": "first_name", "value_template": "{{ member_profile.first_name }}"},
+                    {"action_type": "set_context_variable", "variable_name": "last_name", "value_template": "{{ member_profile.last_name }}"},
+                    {"action_type": "set_context_variable", "variable_name": "gender", "value_template": "{{ member_profile.gender }}"},
+                    {"action_type": "set_context_variable", "variable_name": "marital_status", "value_template": "{{ member_profile.marital_status }}"},
+                    {"action_type": "set_context_variable", "variable_name": "date_of_birth", "value_template": "{{ member_profile.date_of_birth }}"},
+                    {"action_type": "set_context_variable", "variable_name": "email", "value_template": "{{ member_profile.email }}"},
+                    {"action_type": "set_context_variable", "variable_name": "city", "value_template": "{{ member_profile.city }}"}
+                ]
+            },
+            "transitions": [{"to_step": "start_registration", "condition_config": {"type": "always_true"}}]
+        },
+
+        # 3. Start the registration/update process.
         {
             "name": "start_registration",
             "type": "question",
@@ -69,8 +91,7 @@ REGISTRATION_FLOW = {
                 "fallback_config": {
                     "action": "re_prompt",
                     "max_retries": 2,
-                    "re_prompt_message_text": "I didn't quite get that. Please enter your first name.",
-                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
+                    "re_prompt_message_text": "I didn't quite get that. Please enter your first name."
                 }
             },
             "transitions": [
@@ -83,7 +104,7 @@ REGISTRATION_FLOW = {
                 }
             ]
         },
-        # Subsequent data collection steps remain largely the same...
+        # 4. Subsequent data collection steps...
         {
             "name": "ask_last_name",
             "type": "question",
@@ -101,8 +122,7 @@ REGISTRATION_FLOW = {
                 "fallback_config": {
                     "action": "re_prompt",
                     "max_retries": 2,
-                    "re_prompt_message_text": "Sorry, I didn't catch that. Please enter your last name.",
-                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
+                    "re_prompt_message_text": "Sorry, I didn't catch that. Please enter your last name."
                 }
             },
             "transitions": [
@@ -153,8 +173,7 @@ REGISTRATION_FLOW = {
                 "fallback_config": {
                     "action": "re_prompt",
                     "max_retries": 1,
-                    "re_prompt_message_text": "Please make a selection from the list to continue.",
-                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
+                    "re_prompt_message_text": "Please make a selection from the list to continue."
                 }
             },
             "transitions": [
@@ -198,8 +217,7 @@ REGISTRATION_FLOW = {
                 "fallback_config": {
                     "action": "re_prompt",
                     "max_retries": 1,
-                    "re_prompt_message_text": "Please make a selection from the list to continue.",
-                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
+                    "re_prompt_message_text": "Please make a selection from the list to continue."
                 }
             },
             "transitions": [
@@ -228,8 +246,7 @@ REGISTRATION_FLOW = {
                 "fallback_config": {
                     "action": "re_prompt",
                     "max_retries": 2,
-                    "re_prompt_message_text": "That doesn't look like a valid date format. Please use YYYY-MM-DD.",
-                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
+                    "re_prompt_message_text": "That doesn't look like a valid date format. Please use YYYY-MM-DD."
                 }
             },
             "transitions": [
@@ -257,8 +274,7 @@ REGISTRATION_FLOW = {
                 "fallback_config": {
                     "action": "re_prompt",
                     "max_retries": 2,
-                    "re_prompt_message_text": "That doesn't look like a valid email. Please enter a correct email address.",
-                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
+                    "re_prompt_message_text": "That doesn't look like a valid email. Please enter a correct email address."
                 }
             },
             "transitions": [
@@ -283,8 +299,7 @@ REGISTRATION_FLOW = {
                 "fallback_config": {
                     "action": "re_prompt",
                     "max_retries": 2,
-                    "re_prompt_message_text": "Sorry, I didn't get that. Please tell me which city you live in.",
-                    "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
+                    "re_prompt_message_text": "Sorry, I didn't get that. Please tell me which city you live in."
                 }
             },
             "transitions": [
@@ -292,7 +307,7 @@ REGISTRATION_FLOW = {
             ]
         },
 
-        # 3. Ask the user to confirm all the details they've entered.
+        # 5. Ask the user to confirm all the details they've entered.
         {
             "name": "confirm_details",
             "type": "question",
@@ -316,6 +331,10 @@ REGISTRATION_FLOW = {
                 "reply_config": {
                     "save_to_variable": "confirmation_choice",
                     "expected_type": "interactive_id"
+                },
+                "fallback_config": {
+                    "action": "re_prompt", "max_retries": 1,
+                    "re_prompt_message_text": "Please make a selection by tapping one of the buttons."
                 }
             },
             "transitions": [
@@ -324,7 +343,7 @@ REGISTRATION_FLOW = {
             ]
         },
 
-        # 4. Save the data to the database after confirmation.
+        # 6. Save the data to the database after confirmation.
         {
             "name": "save_profile_data",
             "type": "action",
@@ -354,7 +373,7 @@ REGISTRATION_FLOW = {
             ]
         },
 
-        # 5a. End the flow successfully.
+        # 7a. End the flow successfully.
         {
             "name": "end_registration",
             "type": "end_flow",
@@ -367,7 +386,7 @@ REGISTRATION_FLOW = {
             "transitions": []
         },
 
-        # 5b. End the flow if the user cancels.
+        # 7b. End the flow if the user cancels.
         {
             "name": "end_flow_cancelled",
             "type": "end_flow",
