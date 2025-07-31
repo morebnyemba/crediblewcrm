@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional, Union, Literal # For Pydantic type
 
 from django.utils import timezone
 from django.db import transaction
+from django.core.exceptions import ValidationError as DjangoValidationError
 from pydantic import BaseModel, ValidationError, field_validator, model_validator, Field
 from django.conf import settings
 

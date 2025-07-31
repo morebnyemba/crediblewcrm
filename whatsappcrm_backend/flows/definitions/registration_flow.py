@@ -13,15 +13,53 @@ REGISTRATION_FLOW = {
     "trigger_keywords": ["register", "join", "signup"],
     "is_active": True,
     "steps": [
+        # 1. Check if a profile already exists to decide whether to register or update.
+        {
+            "name": "check_existing_profile",
+            "is_entry_point": True,
+            "type": "action",
+            "config": {"actions_to_run": []},
+            "transitions": [
+                {"to_step": "confirm_update_profile", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "member_profile.first_name"}},
+                {"to_step": "start_registration", "priority": 20, "condition_config": {"type": "always_true"}}
+            ]
+        },
+
+        # 2a. If profile exists, ask the user if they want to update it.
+        {
+            "name": "confirm_update_profile",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {"text": "Hi {{ member_profile.first_name }}! It looks like you're already registered. Would you like to update your information now?"},
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": "start_update", "title": "Yes, update info"}},
+                                {"type": "reply", "reply": {"id": "cancel_update", "title": "No, cancel"}}
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {"save_to_variable": "update_choice", "expected_type": "interactive_id"}
+            },
+            "transitions": [
+                {"to_step": "start_registration", "condition_config": {"type": "interactive_reply_id_equals", "value": "start_update"}},
+                {"to_step": "end_flow_cancelled", "condition_config": {"type": "interactive_reply_id_equals", "value": "cancel_update"}}
+            ]
+        },
+
+        # 2b. Start the registration/update process.
         {
             "name": "start_registration",
-            "is_entry_point": True,
             "type": "question",
             "config": {
                 "message_config": {
                     "message_type": "text",
                     "text": {
-                        "body": "Welcome! To register you as a new member, I just need to ask a few quick questions.\n\nLet's start with your first name."
+                        "body": "Welcome! To register or update your profile, I just need to ask a few quick questions.\n\nLet's start with your first name."
                     }
                 },
                 "reply_config": {
@@ -31,7 +69,7 @@ REGISTRATION_FLOW = {
                 "fallback_config": {
                     "action": "re_prompt",
                     "max_retries": 2,
-                    "re_prompt_message_text": "Sorry, I didn't catch that. Please enter your first name.",
+                    "re_prompt_message_text": "I didn't quite get that. Please enter your first name.",
                     "fallback_message_text": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."
                 }
             },
@@ -45,6 +83,7 @@ REGISTRATION_FLOW = {
                 }
             ]
         },
+        # Subsequent data collection steps remain largely the same...
         {
             "name": "ask_last_name",
             "type": "question",
@@ -249,15 +288,43 @@ REGISTRATION_FLOW = {
                 }
             },
             "transitions": [
-                {
-                    "to_step": "save_profile_data",
-                    "priority": 10,
-                    "condition_config": {
-                        "type": "always_true"
-                    }
-                }
+                {"to_step": "confirm_details", "condition_config": {"type": "always_true"}}
             ]
         },
+
+        # 3. Ask the user to confirm all the details they've entered.
+        {
+            "name": "confirm_details",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "header": {"type": "text", "text": "Confirm Your Details"},
+                        "body": {
+                            "text": "Great, thank you! Please review your information:\n\n*Full Name:* {{ context.first_name }} {{ context.last_name }}\n*Gender:* {{ context.gender }}\n*Marital Status:* {{ context.marital_status }}\n*Date of Birth:* {{ context.date_of_birth }}\n*Email:* {{ context.email }}\n*City:* {{ context.city }}\n\nDoes this look correct?"
+                        },
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": "confirm_save", "title": "Yes, Save Profile"}},
+                                {"type": "reply", "reply": {"id": "restart_registration", "title": "No, Start Over"}}
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {
+                    "save_to_variable": "confirmation_choice",
+                    "expected_type": "interactive_id"
+                }
+            },
+            "transitions": [
+                {"to_step": "save_profile_data", "condition_config": {"type": "interactive_reply_id_equals", "value": "confirm_save"}},
+                {"to_step": "start_registration", "condition_config": {"type": "interactive_reply_id_equals", "value": "restart_registration"}}
+            ]
+        },
+
+        # 4. Save the data to the database after confirmation.
         {
             "name": "save_profile_data",
             "type": "action",
@@ -283,33 +350,31 @@ REGISTRATION_FLOW = {
                 ]
             },
             "transitions": [
-                {
-                    "to_step": "end_registration",
-                    "priority": 10,
-                    "condition_config": {
-                        "type": "always_true"
-                    }
-                }
+                {"to_step": "end_registration", "condition_config": {"type": "always_true"}}
             ]
         },
+
+        # 5a. End the flow successfully.
         {
             "name": "end_registration",
             "type": "end_flow",
             "config": {
                 "message_config": {
                     "message_type": "text",
-                    "text": {"body": "Thank you, {{ context.first_name }}! Your profile has been updated. Welcome to the community! 🙏"}
+                    "text": {"body": "Thank you, {{ context.first_name }}! Your profile has been saved. Welcome to the community! 🙏"}
                 }
             },
             "transitions": []
         },
+
+        # 5b. End the flow if the user cancels.
         {
-            "name": "end_registration_failed",
+            "name": "end_flow_cancelled",
             "type": "end_flow",
             "config": {
                 "message_config": {
                     "message_type": "text",
-                    "text": {"body": "Sorry, we couldn't complete your registration right now. Please type 'register' to try again later."}
+                    "text": {"body": "Okay, no changes have been made. Type 'menu' to return to the main menu."}
                 }
             },
             "transitions": []
