@@ -40,8 +40,7 @@ PRAYER_REQUEST_FLOW = {
         # 2. Ask for category
         {
 
-
-            "name": "ask_for_category",
+            "name": "ask_category",
             "type": "question",
             "config": {
                 "message_config": {
@@ -93,8 +92,8 @@ PRAYER_REQUEST_FLOW = {
                         "body": {"text": "Would you like this prayer request to be anonymous? Your name will not be shared with the prayer team."},
                         "action": {
                             "buttons": [
-                                {"type": "reply", "reply": {"id": "anonymous_yes", "title": "Yes, keep it anonymous"}},
-                                {"type": "reply", "reply": {"id": "anonymous_no", "title": "No, use my name"}}
+                                {"type": "reply", "reply": {"id": "anonymous_yes", "title": "Yes, Anonymous"}},
+                                {"type": "reply", "reply": {"id": "anonymous_no", "title": "No, Use My Name"}}
                             ]
                         }
                     }
@@ -209,8 +208,8 @@ PRAYER_REQUEST_FLOW = {
                         },
                         "action": {
                             "buttons": [
-                                {"type": "reply", "reply": {"id": "anonymous_yes", "title": "Yes, Anonymous"}},
-                                {"type": "reply", "reply": {"id": "anonymous_no", "title": "No, Use My Name"}}
+                                {"type": "reply", "reply": {"id": "return_to_menu", "title": "Main Menu"}},
+                                {"type": "reply", "reply": {"id": "end_conversation", "title": "No, I'm Done"}}
                             ]
                         }
                     }
