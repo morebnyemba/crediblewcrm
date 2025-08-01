@@ -15,11 +15,14 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from pydantic import BaseModel, ValidationError, field_validator, model_validator, Field
 from django.conf import settings
 from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 
 from conversations.models import Contact, Message
 from .models import Flow, FlowStep, FlowTransition, ContactFlowState
-from customer_data.models import MemberProfile
+from customer_data.models import MemberProfile, Payment
 from customer_data.utils import record_payment, record_prayer_request
+from paynow_integration.services import PaynowService
+from paynow_integration.tasks import poll_paynow_transaction_status
 try:
     from media_manager.models import MediaAsset # For asset_pk lookup
     MEDIA_ASSET_ENABLED = True
@@ -302,7 +305,7 @@ class StepConfigQuestion(BasePydanticConfig):
     fallback_config: Optional[FallbackConfig] = None
 
 class ActionItemConfig(BasePydanticConfig):
-    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow", "record_payment", "record_prayer_request", "send_admin_notification", "query_model"]
+    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow", "record_payment", "record_prayer_request", "send_admin_notification", "query_model", "initiate_paynow_giving_payment"]
     variable_name: Optional[str] = None
     value_template: Optional[Any] = None
     field_path: Optional[str] = None
@@ -316,6 +319,10 @@ class ActionItemConfig(BasePydanticConfig):
     currency_template: Optional[str] = None
     notes_template: Optional[str] = None
     transaction_ref_template: Optional[str] = None
+    status_template: Optional[str] = None
+    # Fields for 'initiate_paynow_giving_payment'
+    phone_number_template: Optional[str] = None
+    email_template: Optional[str] = None
     # Fields for 'record_prayer_request'
     request_text_template: Optional[str] = None
     category_template: Optional[str] = None
@@ -347,6 +354,9 @@ class ActionItemConfig(BasePydanticConfig):
         elif action_type == 'record_payment':
             if self.amount_template is None or self.payment_type_template is None:
                 raise ValueError("For record_payment, 'amount_template' and 'payment_type_template' are required.")
+        elif action_type == 'initiate_paynow_giving_payment':
+            if self.amount_template is None or self.phone_number_template is None:
+                raise ValueError("For initiate_paynow_giving_payment, 'amount_template' and 'phone_number_template' are required.")
         elif action_type == 'record_prayer_request':
             if self.request_text_template is None:
                 raise ValueError("For record_prayer_request, 'request_text_template' is required.")
@@ -370,6 +380,79 @@ class StepConfigEndFlow(BasePydanticConfig):
 
 # Rebuild InteractiveMessagePayload if it had forward references to models defined after it
 InteractiveMessagePayload.model_rebuild()
+
+def _initiate_paynow_payment(contact: Contact, amount_str: str, payment_type: str, payment_method: str, phone_number: str, email: str, currency: str, notes: str) -> dict:
+    """
+    Handles the logic for initiating a Paynow payment.
+    Creates a Payment record, calls Paynow service, and returns context updates.
+    """
+    # 1. Validate amount
+    try:
+        amount = Decimal(amount_str)
+        if amount <= 0:
+            raise ValueError("Amount must be positive.")
+    except (InvalidOperation, ValueError) as e:
+        logger.error(f"Contact {contact.id}: Invalid amount '{amount_str}' for Paynow initiation. Error: {e}")
+        return {
+            'paynow_initiation_success': False,
+            'paynow_initiation_error': f"Invalid amount provided: {amount_str}"
+        }
+
+    # 2. Create a pending Payment record
+    payment = Payment.objects.create(
+        contact=contact,
+        member=getattr(contact, 'member_profile', None),
+        amount=amount,
+        currency=currency or "USD",
+        payment_type=payment_type or "other",
+        payment_method=payment_method,
+        status='pending',
+        notes=notes or "Online giving via WhatsApp flow (Paynow).",
+    )
+    logger.info(f"Contact {contact.id}: Created pending Payment record {payment.id} for Paynow initiation.")
+
+    # 3. Call Paynow Service
+    paynow_service = PaynowService()
+    paynow_method_map = {'ecocash': 'ecocash'}
+    paynow_method_type = paynow_method_map.get(str(payment_method).lower())
+
+    if not paynow_method_type:
+        payment.status = 'failed'
+        payment.notes += f"\nUnsupported payment method for Paynow: {payment_method}"
+        payment.save(update_fields=['status', 'notes', 'updated_at'])
+        return {
+            'paynow_initiation_success': False,
+            'paynow_initiation_error': f"Payment method '{payment_method}' is not supported for automated payments."
+        }
+
+    # Use a default email if none is provided, as Paynow requires it.
+    final_email = email or f"{contact.whatsapp_id}@crediblewcrm.co.zw"
+
+    paynow_response = paynow_service.initiate_express_checkout_payment(
+        amount=amount,
+        reference=str(payment.id), # Use our internal Payment UUID as the reference
+        phone_number=phone_number,
+        email=final_email,
+        paynow_method_type=paynow_method_type,
+        description=f"{str(payment_type).title()} from {contact.name or contact.whatsapp_id}"
+    )
+
+    # 4. Handle response
+    if paynow_response.get('success'):
+        payment.transaction_reference = paynow_response.get('paynow_reference')
+        payment.external_data = {'poll_url': paynow_response.get('poll_url'), 'initiation_response': paynow_response}
+        payment.save(update_fields=['transaction_reference', 'external_data', 'updated_at'])
+        
+        poll_paynow_transaction_status.delay(payment_id=str(payment.id))
+        logger.info(f"Contact {contact.id}: Paynow initiation successful for Payment {payment.id}. Polling task scheduled.")
+        return {'paynow_initiation_success': True, 'last_payment_id': str(payment.id)}
+    else:
+        error_message = paynow_response.get('message', 'Unknown error from Paynow.')
+        payment.status = 'failed'
+        payment.notes += f"\nPaynow initiation failed: {error_message}"
+        payment.save(update_fields=['status', 'notes', 'updated_at'])
+        logger.error(f"Contact {contact.id}: Paynow initiation failed for Payment {payment.id}. Reason: {error_message}")
+        return {'paynow_initiation_success': False, 'paynow_initiation_error': error_message, 'last_payment_id': str(payment.id)}
 
 def _get_value_from_context_or_contact(variable_path: str, flow_context: dict, contact: Contact) -> Any:
     """
@@ -644,12 +727,14 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     currency = _resolve_value(action_item_conf.currency_template, current_step_context, contact)
                     notes = _resolve_value(action_item_conf.notes_template, current_step_context, contact)
                     transaction_ref = _resolve_value(action_item_conf.transaction_ref_template, current_step_context, contact)
+                    status = _resolve_value(action_item_conf.status_template, current_step_context, contact)
 
                     payment_obj, confirmation_action = record_payment(
                         contact=contact,
                         amount_str=str(amount_str) if amount_str is not None else "0",
                         payment_type=str(payment_type) if payment_type else "other",
                         payment_method=str(payment_method) if payment_method else "whatsapp_flow",
+                        status=str(status) if status else None,
                         currency=str(currency) if currency else "USD",
                         notes=str(notes) if notes else None,
                         transaction_ref=str(transaction_ref) if transaction_ref else None
@@ -662,6 +747,20 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                             actions_to_perform.append(confirmation_action)
                     else:
                         logger.error(f"Contact {contact.id}: Action in step {step.id} failed to record payment for amount '{amount_str}'.")
+                
+                elif action_type == 'initiate_paynow_giving_payment':
+                    amount_str = _resolve_value(action_item_conf.amount_template, current_step_context, contact)
+                    payment_type = _resolve_value(action_item_conf.payment_type_template, current_step_context, contact)
+                    payment_method = _resolve_value(action_item_conf.payment_method_template, current_step_context, contact)
+                    phone_number = _resolve_value(action_item_conf.phone_number_template, current_step_context, contact)
+                    email = _resolve_value(action_item_conf.email_template, current_step_context, contact)
+                    currency = _resolve_value(action_item_conf.currency_template, current_step_context, contact)
+                    notes = _resolve_value(action_item_conf.notes_template, current_step_context, contact)
+
+                    context_updates = _initiate_paynow_payment(contact, amount_str, payment_type, payment_method, phone_number, email, currency, notes)
+                    current_step_context.update(context_updates)
+                    logger.info(f"Contact {contact.id}: Action in step {step.id} initiated Paynow payment. Context updated: {context_updates}")
+
                 elif action_type == 'record_prayer_request':
                     request_text = _resolve_value(action_item_conf.request_text_template, current_step_context, contact)
                     category = _resolve_value(action_item_conf.category_template, current_step_context, contact)
