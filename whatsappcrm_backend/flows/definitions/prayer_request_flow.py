@@ -14,7 +14,7 @@ PRAYER_REQUEST_FLOW = {
     "steps": [
         # 1. Ask for the prayer request text
         {
-            "name": "ask_for_request",
+            "name": "ask_prayer_request",
             "is_entry_point": True,
             "type": "question",
             "config": {
@@ -35,12 +35,12 @@ PRAYER_REQUEST_FLOW = {
                     "fallback_message_text": "Sorry, I didn't understand. Please type 'prayer' to start again."
                 }
             },
-            "transitions": [
-                {"to_step": "ask_for_category", "condition_config": {"type": "always_true"}}
-            ]
+            "transitions": [{"to_step": "ask_category", "condition_config": {"type": "always_true"}}]
         },
         # 2. Ask for category
         {
+
+
             "name": "ask_for_category",
             "type": "question",
             "config": {
@@ -82,6 +82,7 @@ PRAYER_REQUEST_FLOW = {
         },
         # 3. Ask about anonymity
         {
+
             "name": "ask_anonymity",
             "type": "question",
             "config": {
@@ -116,6 +117,7 @@ PRAYER_REQUEST_FLOW = {
         },
         # 4a. Set anonymity to True
         {
+
             "name": "set_anonymity_true",
             "type": "action",
             "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "is_anonymous", "value_template": True}]},
@@ -123,6 +125,7 @@ PRAYER_REQUEST_FLOW = {
         },
         # 4b. Set anonymity to False
         {
+
             "name": "set_anonymity_false",
             "type": "action",
             "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "is_anonymous", "value_template": False}]},
@@ -130,6 +133,7 @@ PRAYER_REQUEST_FLOW = {
         },
         # 5. Ask user to confirm details before submitting
         {
+
             "name": "confirm_prayer_request",
             "type": "question",
             "config": {
@@ -158,11 +162,13 @@ PRAYER_REQUEST_FLOW = {
             },
             "transitions": [
                 {"to_step": "record_prayer_request_action", "condition_config": {"type": "interactive_reply_id_equals", "value": "confirm_submit"}},
-                {"to_step": "ask_for_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "restart_request"}}
+
+                {"to_step": "ask_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "restart_request"}}
             ]
         },
         # 6. Record the prayer request after confirmation
         {
+
             "name": "record_prayer_request_action",
             "type": "action",
             "config": {
@@ -177,6 +183,7 @@ PRAYER_REQUEST_FLOW = {
         },
         # 7. Notify Admin
         {
+
             "name": "notify_admin_of_request",
             "type": "action",
             "config": {
@@ -189,6 +196,7 @@ PRAYER_REQUEST_FLOW = {
         },
         # 8. End the flow with a confirmation and offer next steps
         {
+
             "name": "end_prayer_request",
             "type": "question",
             "config": {
@@ -201,8 +209,8 @@ PRAYER_REQUEST_FLOW = {
                         },
                         "action": {
                             "buttons": [
-                                {"type": "reply", "reply": {"id": "return_to_menu", "title": "Main Menu"}},
-                                {"type": "reply", "reply": {"id": "end_conversation", "title": "No, I'm Done"}}
+                                {"type": "reply", "reply": {"id": "anonymous_yes", "title": "Yes, Anonymous"}},
+                                {"type": "reply", "reply": {"id": "anonymous_no", "title": "No, Use My Name"}}
                             ]
                         }
                     }
