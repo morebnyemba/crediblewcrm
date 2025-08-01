@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.db import transaction
 from django.apps import apps
 from django.forms.models import model_to_dict
+from jinja2 import Environment, select_autoescape, Undefined
 from django.core.exceptions import ValidationError as DjangoValidationError
 from pydantic import BaseModel, ValidationError, field_validator, model_validator, Field
 from django.conf import settings
@@ -31,6 +32,21 @@ logger = logging.getLogger(__name__)
 # Log MediaAsset status at module load time
 if not MEDIA_ASSET_ENABLED:
     logger.warning("MediaAsset model not found or could not be imported. MediaAsset functionality (e.g., 'asset_pk') will be disabled in flows.")
+
+# --- Jinja2 Environment Setup ---
+# A custom undefined type for Jinja that doesn't raise an error for missing variables,
+# but returns an empty string instead.
+class SilentUndefined(Undefined):
+    def _fail_with_undefined_error(self, *args, **kwargs):
+        return '' # Return empty string for undefined variables
+
+jinja_env = Environment(
+    loader=None, # We're loading templates from strings, not files
+    autoescape=select_autoescape(['html', 'xml'], disabled_extensions=('txt',), default_for_string=False),
+    undefined=SilentUndefined,
+    enable_async=False
+)
+jinja_env.globals['now'] = timezone.now # Make 'now' globally available for date comparisons
 
 # --- Pydantic Models for Configuration Validation ---
 # NOTE: For better organization in a larger project, these Pydantic models could be
@@ -281,6 +297,12 @@ class ActionItemConfig(BasePydanticConfig):
     is_anonymous_template: Optional[Any] = None
     # Fields for 'send_admin_notification'
     message_template: Optional[str] = None
+    # Fields for 'query_model'
+    app_label: Optional[str] = None
+    model_name: Optional[str] = None
+    filters_template: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    order_by: Optional[List[str]] = Field(default_factory=list)
+    limit: Optional[int] = None
 
     @model_validator(mode='after')
     def check_action_fields(self):
@@ -306,6 +328,9 @@ class ActionItemConfig(BasePydanticConfig):
         elif action_type == 'send_admin_notification':
             if self.message_template is None:
                 raise ValueError("For send_admin_notification, 'message_template' is required.")
+        elif action_type == 'query_model':
+            if not self.app_label or not self.model_name or not self.variable_name:
+                raise ValueError("For query_model, 'app_label', 'model_name', and 'variable_name' are required.")
         return self
 
 class StepConfigAction(BasePydanticConfig):
@@ -321,76 +346,9 @@ class StepConfigEndFlow(BasePydanticConfig):
 # Rebuild InteractiveMessagePayload if it had forward references to models defined after it
 InteractiveMessagePayload.model_rebuild()
 
-
-def _get_value_from_context_or_contact(variable_path: str, flow_context: dict, contact: Contact) -> Any:
-    """
-    Resolves a variable path (e.g., 'contact.name', 'flow_context.user_email') to its value.
-    Safely accesses attributes on Django models and keys in dictionaries. Does NOT execute methods.
-    """
-    if not variable_path: return None
-    parts = variable_path.split('.')
-    current_value = None
-    source_object_name = parts[0]
-
-    if source_object_name == 'flow_context':
-        current_value = flow_context
-        path_to_traverse = parts[1:]
-    elif source_object_name == 'contact':
-        current_value = contact
-        path_to_traverse = parts[1:]
-    elif source_object_name == 'member_profile':
-        try:
-            current_value = contact.member_profile # Access related object via Django ORM
-            path_to_traverse = parts[1:]
-        except (MemberProfile.DoesNotExist, AttributeError):
-            logger.debug(
-                f"Contact {contact.id}: MemberProfile does not exist when accessing '{variable_path}'"
-            )
-            return None
-    else: # Default to flow_context if no recognized prefix
-        current_value = flow_context
-        path_to_traverse = parts # Use all parts as keys for the context dict
-
-    for i, part in enumerate(path_to_traverse):
-        if current_value is None: # If an intermediate part was None, the final value is None
-            return None
-        try:
-            if isinstance(current_value, dict):
-                current_value = current_value.get(part)
-            elif hasattr(current_value, part): # Check for model field or property
-                attr = getattr(current_value, part)
-                if callable(attr) and not isinstance(getattr(type(current_value), part, None), property):
-                    # This is a method, not a property. Do not call it for security/predictability.
-                    logger.warning(
-                        f"Contact {contact.id}: Attempted to access a callable method '{part}' "
-                        f"via template variable '{variable_path}'. This is not allowed. Returning None."
-                    )
-                    return None
-                current_value = attr # Access property or attribute
-            else: # Part not found
-                return None
-        except Exception as e:
-            logger.warning(
-                f"Contact {contact.id}: Error accessing path '{'.'.join(path_to_traverse[:i+1])}' "
-                f"for variable '{variable_path}': {e}"
-            )
-            return None
-    return current_value
-
 def _resolve_value(template_value: Any, flow_context: dict, contact: Contact) -> Any:
     if isinstance(template_value, str):
-        def replace_match(match):
-            var_path = match.group(1).strip()
-            val = _get_value_from_context_or_contact(var_path, flow_context, contact)
-            return str(val) if val is not None else ''
-        
-        resolved_string = template_value
-        # Limit iterations to prevent runaway loops
-        for _ in range(10): # Max 10 levels of nesting
-            new_string = re.sub(r"{{\s*([\w.]+)\s*}}", replace_match, resolved_string)
-            if new_string == resolved_string: break
-            resolved_string = new_string
-        return resolved_string
+        # Use Jinja2 for powerful string templating, supporting loops, conditionals, and filters.
     elif isinstance(template_value, dict):
         return {k: _resolve_value(v, flow_context, contact) for k, v in template_value.items()}
     elif isinstance(template_value, list):
@@ -640,6 +598,39 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     }
                     actions_to_perform.append(notification_action)
                     logger.info(f"Contact {contact.id}: Queued admin notification to {admin_number}.")
+                elif action_type == 'query_model':
+                    app_label = action_item_conf.app_label
+                    model_name = action_item_conf.model_name
+                    variable_name = action_item_conf.variable_name
+                    
+                    if not app_label or not model_name or not variable_name:
+                        logger.error(f"Contact {contact.id}: 'query_model' action in step {step.id} is missing required fields. Skipping.")
+                        continue
+                    
+                    try:
+                        Model = apps.get_model(app_label, model_name)
+                        
+                        filters = _resolve_value(action_item_conf.filters_template, current_step_context, contact)
+                        if not isinstance(filters, dict):
+                            logger.warning(f"Contact {contact.id}: 'filters_template' for query_model did not resolve to a dictionary. Using empty filters. Resolved value: {filters}")
+                            filters = {}
+                            
+                        queryset = Model.objects.filter(**filters)
+                        
+                        order_by_fields = action_item_conf.order_by
+                        if order_by_fields and isinstance(order_by_fields, list):
+                            queryset = queryset.order_by(*order_by_fields)
+                            
+                        if action_item_conf.limit is not None and isinstance(action_item_conf.limit, int):
+                            queryset = queryset[:action_item_conf.limit]
+                            
+                        results_list = [model_to_dict(obj) for obj in queryset]
+                        current_step_context[variable_name] = results_list
+                        logger.info(f"Contact {contact.id}: Action in step {step.id} queried {model_name} and stored {len(results_list)} items in '{variable_name}'.")
+                    except LookupError:
+                        logger.error(f"Contact {contact.id}: 'query_model' action in step {step.id} failed. Model '{app_label}.{model_name}' not found.")
+                    except Exception as e:
+                        logger.error(f"Contact {contact.id}: 'query_model' action in step {step.id} failed with error: {e}", exc_info=True)
                 else:
                     logger.warning(f"Contact {contact.id}: Unknown or misconfigured action_type '{action_type}' in step '{step.name}' (ID: {step.id}).")
         except ValidationError as e:
