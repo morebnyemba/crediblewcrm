@@ -41,3 +41,4 @@ drf-spectacular # For OpenAPI schema generation
 django-prometheus # For monitoring
 Pillow
 jinja2
+paynow
