@@ -890,7 +890,7 @@ def _evaluate_transition_condition(transition: FlowTransition, contact: Contact,
     if not isinstance(config, dict):
         logger.warning(f"Transition {transition.id} has invalid condition_config (not a dict): {config}")
         return False
-    condition_type = config.get('type')    
+    condition_type = config.get('type')
     logger.debug(f"Contact {contact.id}, Flow {transition.current_step.flow.id}, Step {transition.current_step.id}: Evaluating condition type '{condition_type}' for transition {transition.id}. Context: {flow_context}, Message Type: {message_data.get('type')}")
 
     if not condition_type: return False # No condition type means no specific condition to evaluate beyond default

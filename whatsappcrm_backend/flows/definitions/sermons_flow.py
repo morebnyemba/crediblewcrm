@@ -39,6 +39,16 @@ SERMONS_FLOW = {
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
         {
+            "name": "show_query_error",
+            "type": "send_message",
+            "config": {
+                "message_type": "text",
+                "text": {
+                    "body": "Sorry, we encountered an error retrieving the sermons. Please try again later."
+                }
+            },
+            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+        },        {
             "name": "offer_return_to_menu",
             "type": "question",
             "config": {

@@ -17,7 +17,7 @@ EVENTS_FLOW = {
                     "action_type": "query_model",
                     "app_label": "church_services",
                     "model_name": "Event",
-                    "variable_name": "events_list",
+                    "variable_name": "events_list", 
                     "filters_template": {"is_active": True, "start_time__gte": "{{ now }}"},
                     "order_by": ["start_time"],
                     "limit": 5
