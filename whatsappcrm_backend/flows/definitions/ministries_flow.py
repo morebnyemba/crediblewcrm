@@ -24,16 +24,7 @@ MINISTRIES_FLOW = {
                     "limit": 10
                 }]
             },
-            "transitions": [{"to_step": "check_if_ministries_exist", "condition_config": {"type": "always_true"}}]
-        },
-        {
-            "name": "check_if_ministries_exist",
-            "type": "action",
-            "config": {"actions_to_run": []},
-            "transitions": [
-                {"to_step": "show_ministries_list", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "ministries_list"}},
-                {"to_step": "show_no_ministries_message", "priority": 20, "condition_config": {"type": "always_true"}}
-            ]
+            "transitions": [{"to_step": "show_ministries_list", "condition_config": {"type": "always_true"}}]
         },
         {
             "name": "show_ministries_list",
@@ -41,17 +32,8 @@ MINISTRIES_FLOW = {
             "config": {
                 "message_type": "text",
                 "text": {
-                    "body": "Here are our available ministries:\n\n{% for ministry in ministries_list %}*{{ ministry.name }}*\nLeader: {{ ministry.leader_name }}\nSchedule: {{ ministry.meeting_schedule }}\n_{{ ministry.description|truncatewords:15 }}_\n\n{% endfor %}"
+                    "body": "{% if ministries_list %}Here are our available ministries:\n\n{% for ministry in ministries_list %}*{{ ministry.name }}*\nLeader: {{ ministry.leader_name }}\nSchedule: {{ ministry.meeting_schedule }}\n_{{ ministry.description|truncatewords:15 }}_\n\n{% endfor %}{% else %}We don't have a list of ministries available at the moment. Please check back soon!{% endif %}"
                 }
-            },
-            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
-        },
-        {
-            "name": "show_no_ministries_message",
-            "type": "send_message",
-            "config": {
-                "message_type": "text",
-                "text": {"body": "We don't have a list of ministries available at the moment. Please check back soon!"}
             },
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },

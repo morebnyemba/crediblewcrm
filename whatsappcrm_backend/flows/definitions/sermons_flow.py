@@ -24,16 +24,7 @@ SERMONS_FLOW = {
                     "limit": 5
                 }]
             },
-            "transitions": [{"to_step": "check_if_sermons_exist", "condition_config": {"type": "always_true"}}]
-        },
-        {
-            "name": "check_if_sermons_exist",
-            "type": "action",
-            "config": {"actions_to_run": []},
-            "transitions": [
-                {"to_step": "show_sermons_list", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "sermons_list"}},
-                {"to_step": "show_no_sermons_message", "priority": 20, "condition_config": {"type": "always_true"}}
-            ]
+            "transitions": [{"to_step": "show_sermons_list", "condition_config": {"type": "always_true"}}]
         },
         {
             "name": "show_sermons_list",
@@ -41,18 +32,9 @@ SERMONS_FLOW = {
             "config": {
                 "message_type": "text",
                 "text": {
-                    "body": "Here are our most recent sermons:\n\n{% for sermon in sermons_list %}*{{ sermon.title }}*\n🗣️ {{ sermon.preacher }}\n🗓️ {{ sermon.sermon_date|date:'M j, Y' }}\n{% if sermon.video_link %}📺 Watch: {{ sermon.video_link }}{% endif %}\n\n{% endfor %}",
+                    "body": "{% if sermons_list %}Here are our most recent sermons:\n\n{% for sermon in sermons_list %}*{{ sermon.title }}*\n🗣️ {{ sermon.preacher }}\n🗓️ {{ sermon.sermon_date|strftime('%b %d, %Y') }}\n{% if sermon.video_link %}📺 Watch: {{ sermon.video_link }}{% endif %}\n\n{% endfor %}{% else %}There are no recent sermons available at the moment. Please check back soon!{% endif %}",
                     "preview_url": True
                 }
-            },
-            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
-        },
-        {
-            "name": "show_no_sermons_message",
-            "type": "send_message",
-            "config": {
-                "message_type": "text",
-                "text": {"body": "There are no recent sermons available at the moment. Please check back soon!"}
             },
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },

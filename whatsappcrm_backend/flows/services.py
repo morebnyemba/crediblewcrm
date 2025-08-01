@@ -6,6 +6,7 @@ import re
 from typing import List, Dict, Any, Optional, Union, Literal # For Pydantic type hinting
 
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.db import transaction
 from django.apps import apps
 from django.forms.models import model_to_dict
@@ -13,6 +14,7 @@ from jinja2 import Environment, select_autoescape, Undefined
 from django.core.exceptions import ValidationError as DjangoValidationError
 from pydantic import BaseModel, ValidationError, field_validator, model_validator, Field
 from django.conf import settings
+from datetime import date, datetime
 
 from conversations.models import Contact, Message
 from .models import Flow, FlowStep, FlowTransition, ContactFlowState
@@ -40,12 +42,34 @@ class SilentUndefined(Undefined):
     def _fail_with_undefined_error(self, *args, **kwargs):
         return '' # Return empty string for undefined variables
 
+def strftime_filter(value, format_string='%b %d, %Y'):
+    """
+    Jinja2 filter to format a date/datetime object or string using strftime.
+    """
+    if not value:
+        return ""
+    
+    dt_obj = None
+    if isinstance(value, str):
+        dt_obj = parse_datetime(value)
+        if not dt_obj:
+            # Try parsing as just a date if datetime fails
+            try:
+                dt_obj = datetime.strptime(value, '%Y-%m-%d')
+            except (ValueError, TypeError):
+                return value # Return original string if parsing fails
+    elif isinstance(value, (datetime, date)):
+        dt_obj = value
+    
+    return dt_obj.strftime(format_string) if dt_obj else value
+
 jinja_env = Environment(
     loader=None, # We're loading templates from strings, not files
     autoescape=select_autoescape(['html', 'xml'], disabled_extensions=('txt',), default_for_string=False),
     undefined=SilentUndefined,
     enable_async=False
 )
+jinja_env.filters['strftime'] = strftime_filter # Add the custom filter
 jinja_env.globals['now'] = timezone.now # Make 'now' globally available for date comparisons
 
 

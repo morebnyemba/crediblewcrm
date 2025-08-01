@@ -23,16 +23,7 @@ EVENTS_FLOW = {
                     "limit": 5
                 }]
             },
-            "transitions": [{"to_step": "check_if_events_exist", "condition_config": {"type": "always_true"}}]
-        },
-        {
-            "name": "check_if_events_exist",
-            "type": "action",
-            "config": {"actions_to_run": []},
-            "transitions": [
-                {"to_step": "show_events_list", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "events_list"}},
-                {"to_step": "show_no_events_message", "priority": 20, "condition_config": {"type": "always_true"}}
-            ]
+            "transitions": [{"to_step": "show_events_list", "condition_config": {"type": "always_true"}}]
         },
         {
             "name": "show_events_list",
@@ -40,17 +31,8 @@ EVENTS_FLOW = {
             "config": {
                 "message_type": "text",
                 "text": {
-                    "body": "Here are our upcoming events:\n\n{% for event in events_list %}*{{ event.title }}*\n🗓️ {{ event.start_time|date:'D, M j, Y @ P' }}\n📍 {{ event.location }}\n_{{ event.description|truncatewords:15 }}_\n\n{% endfor %}"
+                    "body": "{% if events_list %}Here are our upcoming events:\n\n{% for event in events_list %}*{{ event.title }}*\n🗓️ {{ event.start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n📍 {{ event.location }}\n_{{ event.description|truncatewords:15 }}_\n\n{% endfor %}{% else %}There are no upcoming events scheduled at the moment. Please check back soon!{% endif %}"
                 }
-            },
-            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
-        },
-        {
-            "name": "show_no_events_message",
-            "type": "send_message",
-            "config": {
-                "message_type": "text",
-                "text": {"body": "There are no upcoming events scheduled at the moment. Please check back soon!"}
             },
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
