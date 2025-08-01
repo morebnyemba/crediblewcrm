@@ -119,7 +119,7 @@ GIVING_FLOW = {
                 },
                 "reply_config": {
                     "save_to_variable": "ecocash_phone_number",
-                    "expected_type": "phone_number",
+                    "expected_type": "text",
                     "validation_regex": "^(07[78])\\d{7}$"
                 },
                 "fallback_config": {
@@ -141,17 +141,17 @@ GIVING_FLOW = {
             "config": {
                 "actions_to_run": [{
                     "action_type": "initiate_paynow_giving_payment",
-                    "amount_template": "{{ context.giving_amount }}",
-                    "payment_type_template": "{{ context.payment_type }}",
-                    "payment_method_template": "{{ context.payment_method }}",
-                    "phone_number_template": "{{ context.ecocash_phone_number }}",
+                    "amount_template": "{{ giving_amount }}",
+                    "payment_type_template": "{{ payment_type }}",
+                    "payment_method_template": "{{ payment_method }}",
+                    "phone_number_template": "{{ ecocash_phone_number }}",
                     "email_template": "{{ member_profile.email }}",
                     "currency_template": "USD",
                     "notes_template": "Online giving via WhatsApp flow."
                 }]
             },
             "transitions": [
-                {"to_step": "send_ecocash_prompt_message", "priority": 10, "condition_config": {"type": "variable_is_true", "variable_name": "paynow_initiation_success"}},
+                {"to_step": "send_ecocash_prompt_message", "priority": 10, "condition_config": {"type": "variable_equals", "variable_name": "paynow_initiation_success", "value": "True"}},
                 {"to_step": "send_ecocash_failure_message", "priority": 20, "condition_config": {"type": "always_true"}}
             ]
         },
@@ -163,7 +163,7 @@ GIVING_FLOW = {
             "config": {
                 "message_type": "text",
                 "text": {
-                    "body": "Thank you! I've initiated the payment. Please check your phone and enter your EcoCash PIN to approve the transaction of ${{ context.giving_amount }}.\n\nWe will send you a confirmation message once the payment is complete."
+                    "body": "Thank you! I've initiated the payment. Please check your phone and enter your EcoCash PIN to approve the transaction of ${{ giving_amount }}.\n\nWe will send you a confirmation message once the payment is complete."
                 }
             },
             "transitions": [{"to_step": "end_giving", "condition_config": {"type": "always_true"}}]
@@ -176,7 +176,7 @@ GIVING_FLOW = {
             "config": {
                 "message_type": "text",
                 "text": {
-                    "body": "I'm sorry, there was a problem initiating the payment with Paynow. Please try again in a few moments.\n\nError: {{ context.paynow_initiation_error }}"
+                    "body": "I'm sorry, there was a problem initiating the payment with Paynow. Please try again in a few moments.\n\nError: {{ paynow_initiation_error }}"
                 }
             },
             "transitions": [{"to_step": "ask_payment_method", "condition_config": {"type": "always_true"}}]
@@ -200,8 +200,7 @@ GIVING_FLOW = {
         # 5b. Handle methods that are not ready yet
         {
             "name": "handle_coming_soon",
-            "type": "send_message",
-            "config": {"message_type": "text", "text": {"body": "The payment method '{{ context.payment_method }}' is coming soon! Please select another method for now."}},
+            "type": "send_message", "config": {"message_type": "text", "text": {"body": "The payment method '{{ payment_method }}' is coming soon! Please select another method for now."}},
             "transitions": [{"to_step": "ask_payment_method", "condition_config": {"type": "always_true"}}]
         },
 
@@ -212,10 +211,10 @@ GIVING_FLOW = {
             "config": {
                 "actions_to_run": [{
                     "action_type": "record_payment",
-                    "amount_template": "{{ context.giving_amount }}",
-                    "payment_type_template": "{{ context.payment_type }}",
-                    "payment_method_template": "{{ context.payment_method }}",
-                    "transaction_ref_template": "{{ context.transaction_ref|default:'' }}",
+                    "amount_template": "{{ giving_amount }}",
+                    "payment_type_template": "{{ payment_type }}",
+                    "payment_method_template": "{{ payment_method }}",
+                    "transaction_ref_template": "{{ transaction_ref|default:'' }}",
                     "currency_template": "USD",
                     "notes_template": "Online giving via WhatsApp flow (Manual).",
                     "status_template": "completed"
@@ -231,7 +230,7 @@ GIVING_FLOW = {
             "config": {
                 "message_type": "text",
                 "text": {
-                    "body": "Thank you for your contribution! We have recorded your manual payment with reference '{{ context.transaction_ref }}'. It will be verified by our finance team."
+                    "body": "Thank you for your contribution! We have recorded your manual payment with reference '{{ transaction_ref }}'. It will be verified by our finance team."
                 }
             },
             "transitions": [{"to_step": "end_giving", "condition_config": {"type": "always_true"}}]
