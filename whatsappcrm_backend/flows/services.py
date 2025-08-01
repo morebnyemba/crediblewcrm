@@ -48,6 +48,7 @@ jinja_env = Environment(
 )
 jinja_env.globals['now'] = timezone.now # Make 'now' globally available for date comparisons
 
+
 # --- Pydantic Models for Configuration Validation ---
 # NOTE: For better organization in a larger project, these Pydantic models could be
 # moved to a dedicated 'schemas.py' or 'types.py' file within the 'flows' app.
@@ -346,13 +347,88 @@ class StepConfigEndFlow(BasePydanticConfig):
 # Rebuild InteractiveMessagePayload if it had forward references to models defined after it
 InteractiveMessagePayload.model_rebuild()
 
+def _get_value_from_context_or_contact(variable_path: str, flow_context: dict, contact: Contact) -> Any:
+    """
+    Resolves a variable path (e.g., 'contact.name', 'flow_context.user_email') to its value.
+    Safely accesses attributes on Django models and keys in dictionaries. Does NOT execute methods.
+    """
+    if not variable_path: return None
+    parts = variable_path.split('.')
+    current_value = None
+    source_object_name = parts[0]
+
+    if source_object_name == 'flow_context':
+        current_value = flow_context
+        path_to_traverse = parts[1:]
+    elif source_object_name == 'contact':
+        current_value = contact
+        path_to_traverse = parts[1:]
+    elif source_object_name == 'member_profile':
+        try:
+            current_value = contact.member_profile # Access related object via Django ORM
+            path_to_traverse = parts[1:]
+        except (MemberProfile.DoesNotExist, AttributeError):
+            logger.debug(
+                f"Contact {contact.id}: MemberProfile does not exist when accessing '{variable_path}'"
+            )
+            return None
+    else: # Default to flow_context if no recognized prefix
+        current_value = flow_context
+        path_to_traverse = parts # Use all parts as keys for the context dict
+
+    for i, part in enumerate(path_to_traverse):
+        if current_value is None: # If an intermediate part was None, the final value is None
+            return None
+        try:
+            if isinstance(current_value, dict):
+                current_value = current_value.get(part)
+            elif hasattr(current_value, part): # Check for model field or property
+                attr = getattr(current_value, part)
+                if callable(attr) and not isinstance(getattr(type(current_value), part, None), property):
+                    # This is a method, not a property. Do not call it for security/predictability.
+                    logger.warning(
+                        f"Contact {contact.id}: Attempted to access a callable method '{part}' "
+                        f"via template variable '{variable_path}'. This is not allowed. Returning None."
+                    )
+                    return None
+                current_value = attr # Access property or attribute
+            else: # Part not found
+                return None
+        except Exception as e:
+            logger.warning(
+                f"Contact {contact.id}: Error accessing path '{'.'.join(path_to_traverse[:i+1])}' "
+                f"for variable '{variable_path}': {e}"
+            )
+            return None
+    return current_value
+
 def _resolve_value(template_value: Any, flow_context: dict, contact: Contact) -> Any:
+    """
+    Resolves a template value using Jinja2, which can be a string, dict, or list.
+    Provides 'contact', 'member_profile', and the flow_context to the template.
+    """
     if isinstance(template_value, str):
         # Use Jinja2 for powerful string templating, supporting loops, conditionals, and filters.
+        try:
+            template = jinja_env.from_string(template_value)
+            # The context for Jinja includes the contact, their profile, and the flow context flattened.
+            render_context = {
+                **flow_context,
+                'contact': contact,
+                'member_profile': getattr(contact, 'member_profile', None)
+            }
+            return template.render(render_context)
+        except Exception as e:
+            logger.error(f"Jinja2 template rendering failed for contact {contact.id}: {e}. Template: '{template_value}'", exc_info=False)
+            return template_value # Return original on error
     elif isinstance(template_value, dict):
+        # Recursively resolve values in a dictionary
         return {k: _resolve_value(v, flow_context, contact) for k, v in template_value.items()}
     elif isinstance(template_value, list):
+        # Recursively resolve values in a list
         return [_resolve_value(item, flow_context, contact) for item in template_value]
+    
+    # For non-string, non-dict, non-list types, return as is
     return template_value
 
 def _resolve_template_components(components_config: list, flow_context: dict, contact: Contact) -> list:

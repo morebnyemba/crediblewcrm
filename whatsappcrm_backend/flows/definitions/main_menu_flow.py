@@ -88,9 +88,9 @@ MAIN_MENU_FLOW = {
                 {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
                 {"to_step": "initiate_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
                 {"to_step": "check_profile_exists", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
-                {"to_step": "set_coming_soon_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
-                {"to_step": "set_coming_soon_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
-                {"to_step": "set_coming_soon_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
+                {"to_step": "switch_to_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
+                {"to_step": "switch_to_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
+                {"to_step": "switch_to_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
                 {"to_step": "display_dev_info", "condition_config": {"type": "interactive_reply_id_equals", "value": "show_dev_info"}},
             ]
         },
@@ -161,14 +161,14 @@ MAIN_MENU_FLOW = {
                 {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
                 {"to_step": "initiate_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
                 {"to_step": "check_profile_exists", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
-                {"to_step": "set_coming_soon_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
-                {"to_step": "set_coming_soon_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
-                {"to_step": "set_coming_soon_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
+                {"to_step": "switch_to_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
+                {"to_step": "switch_to_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
+                {"to_step": "switch_to_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
                 {"to_step": "display_dev_info", "condition_config": {"type": "interactive_reply_id_equals", "value": "show_dev_info"}},
             ]
         },
 
-        # --- Steps for Switching Flows (Unchanged) ---
+        # --- Steps for Switching Flows ---
         {
             "name": "switch_to_registration",
             "type": "action",
@@ -185,6 +185,24 @@ MAIN_MENU_FLOW = {
             "name": "switch_to_giving",
             "type": "action",
             "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "giving"}]},
+            "transitions": []
+        },
+        {
+            "name": "switch_to_events",
+            "type": "action",
+            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "view_events"}]},
+            "transitions": []
+        },
+        {
+            "name": "switch_to_ministries",
+            "type": "action",
+            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "view_ministries"}]},
+            "transitions": []
+        },
+        {
+            "name": "switch_to_sermons",
+            "type": "action",
+            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "view_sermons"}]},
             "transitions": []
         },
 
@@ -217,32 +235,6 @@ MAIN_MENU_FLOW = {
             "type": "send_message",
             "config": {"message_type": "text", "text": {"body": "It looks like your profile is incomplete. Please register first to view your summary.\n\nType 'register' to begin, or 'menu' to go back."}},
             "transitions": [{"to_step": "end_flow_silently", "condition_config": {"type": "always_true"}}]
-        },
-
-        # --- "Coming Soon" Path (Unchanged) ---
-        {
-            "name": "set_coming_soon_events",
-            "type": "action",
-            "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "feature_name", "value_template": "Upcoming Events"}]},
-            "transitions": [{"to_step": "show_coming_soon_message", "condition_config": {"type": "always_true"}}]
-        },
-        {
-            "name": "set_coming_soon_ministries",
-            "type": "action",
-            "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "feature_name", "value_template": "Ministries & Groups"}]},
-            "transitions": [{"to_step": "show_coming_soon_message", "condition_config": {"type": "always_true"}}]
-        },
-        {
-            "name": "set_coming_soon_sermons",
-            "type": "action",
-            "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "feature_name", "value_template": "Recent Sermons"}]},
-            "transitions": [{"to_step": "show_coming_soon_message", "condition_config": {"type": "always_true"}}]
-        },
-        {
-            "name": "show_coming_soon_message",
-            "type": "send_message",
-            "config": {"message_type": "text", "text": {"body": "The '{{ flow_context.feature_name }}' feature is coming soon! We're working hard to bring it to you.\n\nType 'menu' to return to the main menu."}},
-            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
 
         # --- New step for Development Info ---
