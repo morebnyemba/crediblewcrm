@@ -227,6 +227,31 @@ class Payment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        """
+        Overrides the default save method to automatically create a PaymentHistory
+        record on creation or on status change.
+        """
+        # Check if the object is new or if the status has changed.
+        is_new = self._state.adding
+        status_changed = False
+
+        if not is_new:
+            try:
+                old_obj = Payment.objects.get(pk=self.pk)
+                if old_obj.status != self.status:
+                    status_changed = True
+            except Payment.DoesNotExist:
+                # This case is unlikely but good to handle. Treat as new.
+                status_changed = True
+
+        # Call the original save method first.
+        super().save(*args, **kwargs)
+
+        # If it's a new payment or the status changed, create a history record.
+        if is_new or status_changed:
+            PaymentHistory.objects.create(payment=self, status=self.status)
+
     def __str__(self):
         display_name = self.member.get_full_name() if self.member and self.member.get_full_name() else str(self.contact)
         return f"Payment {self.id} - {self.amount} {self.currency} by {display_name}"
