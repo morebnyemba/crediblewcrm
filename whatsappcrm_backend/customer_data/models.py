@@ -209,6 +209,12 @@ class Payment(models.Model):
     payment_method = models.CharField(_("Payment Method"), max_length=50, choices=PAYMENT_METHOD_CHOICES, blank=True)
     status = models.CharField(_("Status"), max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     transaction_reference = models.CharField(_("Transaction Reference"), max_length=255, blank=True, null=True, help_text="Reference from payment gateway or bank.")
+    external_data = models.JSONField(
+        _("External Data"),
+        default=dict,
+        blank=True,
+        help_text=_("Data from external payment gateways, like Paynow poll_url or reference.")
+    )
     notes = models.TextField(_("Notes"), blank=True, null=True, help_text="Internal notes about the payment.")
     proof_of_payment = models.ImageField(
         _("Proof of Payment"),
