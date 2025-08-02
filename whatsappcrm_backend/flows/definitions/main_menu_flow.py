@@ -171,38 +171,38 @@ MAIN_MENU_FLOW = {
         # --- Steps for Switching Flows ---
         {
             "name": "switch_to_registration",
-            "type": "action",
-            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "member_registration"}]},
+            "type": "switch_flow",
+            "config": {"target_flow_name": "member_registration"},
             "transitions": []
         },
         {
             "name": "switch_to_prayer_request",
-            "type": "action",
-            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "prayer_request"}]},
+            "type": "switch_flow",
+            "config": {"target_flow_name": "prayer_request"},
             "transitions": []
         },
         {
             "name": "switch_to_giving",
-            "type": "action",
-            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "giving"}]},
+            "type": "switch_flow",
+            "config": {"target_flow_name": "giving"},
             "transitions": []
         },
         {
             "name": "switch_to_events",
-            "type": "action",
-            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "view_events"}]},
+            "type": "switch_flow",
+            "config": {"target_flow_name": "view_events"},
             "transitions": []
         },
         {
             "name": "switch_to_ministries",
-            "type": "action",
-            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "view_ministries"}]},
+            "type": "switch_flow",
+            "config": {"target_flow_name": "view_ministries"},
             "transitions": []
         },
         {
             "name": "switch_to_sermons",
-            "type": "action",
-            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "view_sermons"}]},
+            "type": "switch_flow",
+            "config": {"target_flow_name": "view_sermons"},
             "transitions": []
         },
 

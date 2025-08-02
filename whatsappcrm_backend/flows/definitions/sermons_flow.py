@@ -148,8 +148,8 @@ SERMONS_FLOW = {
         },
         {
             "name": "switch_to_main_menu",
-            "type": "action",
-            "config": {"actions_to_run": [{"action_type": "switch_flow", "target_flow_name": "main_menu"}]},
+            "type": "switch_flow",
+            "config": {"target_flow_name": "main_menu"},
             "transitions": []
         },
         {
