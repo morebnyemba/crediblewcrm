@@ -501,6 +501,12 @@ def _get_value_from_context_or_contact(variable_path: str, flow_context: dict, c
         try:
             if isinstance(current_value, dict):
                 current_value = current_value.get(part)
+            elif isinstance(current_value, list) and part.isdigit():
+                index = int(part)
+                if 0 <= index < len(current_value):
+                    current_value = current_value[index]
+                else:
+                    return None # Index out of bounds
             elif hasattr(current_value, part): # Check for model field or property
                 attr = getattr(current_value, part)
                 if callable(attr) and not isinstance(getattr(type(current_value), part, None), property):
@@ -1079,13 +1085,15 @@ def _evaluate_transition_condition(transition: FlowTransition, contact: Contact,
         return result
         
     elif condition_type == 'variable_exists':
-        variable_name = config.get('variable_name')
-        if variable_name is None: return False
-        actual_value = _get_value_from_context_or_contact(variable_name, flow_context, contact)
+        variable_name_template = config.get('variable_name')
+        if variable_name_template is None: return False
+        # Resolve the variable name itself as a template to handle dynamic paths like 'list.{{ index }}'
+        resolved_variable_path = _resolve_value(variable_name_template, flow_context, contact)
+        actual_value = _get_value_from_context_or_contact(resolved_variable_path, flow_context, contact)
         result = actual_value is not None
         logger.debug(
             f"Contact {contact.id}, Flow {transition.current_step.flow.id}, Step {transition.current_step.id}: "
-            f"Condition 'variable_exists' check for '{variable_name}'. "
+            f"Condition 'variable_exists' check for '{resolved_variable_path}'. "
             f"Value: '{str(actual_value)[:100]}' (type: {type(actual_value).__name__}). Result: {result}"
         )
         return result
