@@ -71,9 +71,7 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password"className="text-gray-700 dark:text-gray-300">Password</Label>
-              <Input
-                wrapperClassName="relative" // Add a wrapper class if your Input doesn't support it directly
-              >
+              <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -82,12 +80,12 @@ export default function LoginPage() {
                   placeholder="Enter your password"
                   required
                   disabled={isLoading}
-                  className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50 pr-10" // Add padding for the icon
+                  className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50 pr-10"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label={showPassword ? "Hide password" : "Show password"}>
                   {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
-              </Input>
+              </div>
             </div>
             <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white" disabled={isLoading}>
               {isLoading ? 'Logging in...' : 'Log In'}
