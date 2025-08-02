@@ -823,7 +823,15 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                         if action_item_conf.limit is not None and isinstance(action_item_conf.limit, int):
                             queryset = queryset[:action_item_conf.limit]
                             
-                        results_list = [model_to_dict(obj) for obj in queryset]
+                        results_list = []
+                        for obj in queryset:
+                            dict_obj = model_to_dict(obj)
+                            # Post-process to ensure all values are JSON serializable
+                            for key, value in dict_obj.items():
+                                if isinstance(value, (datetime.date, datetime.datetime)):
+                                    dict_obj[key] = value.isoformat()
+                            results_list.append(dict_obj)
+                            
                         current_step_context[variable_name] = results_list
                         logger.info(f"Contact {contact.id}: Action in step {step.id} queried {model_name} and stored {len(results_list)} items in '{variable_name}'.")
                     except LookupError:
@@ -1236,6 +1244,10 @@ def _update_member_profile_data(contact: Contact, fields_to_update_config: Dict[
     changed_fields = []
     for field_path, value_template in fields_to_update_config.items():
         resolved_value = _resolve_value(value_template, flow_context, contact) # Resolve value using context
+        
+        # Handle 'skip' for optional fields by setting them to None
+        if isinstance(resolved_value, str) and resolved_value.lower() == 'skip':
+            resolved_value = None
         
         parts = field_path.split('.')
         if len(parts) == 1: # Direct attribute on MemberProfile model
