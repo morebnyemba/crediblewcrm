@@ -5,20 +5,23 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button'; // Assuming shadcn/ui
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'; // Corrected import
 import { toast } from 'sonner';
-import { FiLogIn } from 'react-icons/fi';
+import { FiLogIn, FiEye, FiEyeOff } from 'react-icons/fi';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/dashboard"; // Redirect to intended page or dashboard
+
+  const usernameInputRef = React.useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,6 +36,7 @@ export default function LoginPage() {
       setError(errorMessage);
       toast.error(errorMessage);
       setIsLoading(false);
+      usernameInputRef.current?.focus(); // Focus username input on error
     }
   };
 
@@ -60,6 +64,7 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter your username"
                 required
+                ref={usernameInputRef}
                 disabled={isLoading}
                 className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50"
               />
@@ -67,15 +72,22 @@ export default function LoginPage() {
             <div className="space-y-2">
               <Label htmlFor="password"className="text-gray-700 dark:text-gray-300">Password</Label>
               <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                required
-                disabled={isLoading}
-                className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50"
-              />
+                wrapperClassName="relative" // Add a wrapper class if your Input doesn't support it directly
+              >
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                  disabled={isLoading}
+                  className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50 pr-10" // Add padding for the icon
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label={showPassword ? "Hide password" : "Show password"}>
+                  {showPassword ? <FiEyeOff /> : <FiEye />}
+                </button>
+              </Input>
             </div>
             <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white" disabled={isLoading}>
               {isLoading ? 'Logging in...' : 'Log In'}

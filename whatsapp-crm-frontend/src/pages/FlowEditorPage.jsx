@@ -71,6 +71,7 @@ export const STEP_TYPE_CHOICES = [
     { value: 'end_flow', label: 'End Flow' }, 
     { value: 'condition', label: 'Condition Node (Visual)' }, // If it's just visual, config might be minimal
     { value: 'human_handover', label: 'Handover to Human' },
+    { value: 'switch_flow', label: 'Switch to Another Flow' },
 ];
 
 const initialFlowDetailsState = {

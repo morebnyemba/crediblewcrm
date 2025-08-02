@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
-  FiSend, FiUser, FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertCircle, FiPaperclip, FiSmile
+  FiSend, FiUser, FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertCircle, FiPaperclip, FiSmile, FiArrowLeft
 } from 'react-icons/fi';
 import { formatDistanceToNow, parseISO } from 'date-fns'; // For relative timestamps
 
@@ -209,10 +209,13 @@ export default function ConversationsPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-var(--header-height,4rem)-2rem)] border dark:border-slate-700 rounded-lg shadow-md overflow-hidden"> {/* Adjust height based on your header */}
+    <div className="flex h-[calc(100vh-var(--header-height,4rem)-2rem)] border dark:border-slate-700 rounded-lg shadow-md overflow-hidden bg-white dark:bg-slate-900"> {/* Adjust height based on your header */}
       {/* Contacts List Panel */}
-      <div className="w-1/3 min-w-[280px] max-w-[400px] border-r dark:border-slate-700 flex flex-col bg-slate-50 dark:bg-slate-800/50">
-        <div className="p-3 border-b dark:border-slate-700">
+      <div className={`
+        w-full md:w-1/3 md:min-w-[280px] md:max-w-[400px] border-r dark:border-slate-700 flex-col bg-slate-50 dark:bg-slate-800/50
+        ${selectedContact ? 'hidden md:flex' : 'flex'}
+      `}>
+        <div className="p-3 border-b dark:border-slate-700 flex-shrink-0">
           <div className="relative">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
@@ -261,10 +264,16 @@ export default function ConversationsPage() {
       </div>
 
       {/* Message Display and Input Panel */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-slate-900">
+      <div className={`
+        w-full md:flex-1 flex-col bg-white dark:bg-slate-900
+        ${selectedContact ? 'flex' : 'hidden md:flex'}
+      `}>
         {selectedContact ? (
           <>
-            <div className="p-3 border-b dark:border-slate-700 flex items-center space-x-3">
+            <div className="p-3 border-b dark:border-slate-700 flex items-center space-x-2 flex-shrink-0">
+              <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedContact(null)}>
+                <FiArrowLeft className="h-5 w-5" />
+              </Button>
               <Avatar>
                 <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(selectedContact.name || selectedContact.whatsapp_id)}&background=random`} alt={selectedContact.name} />
                 <AvatarFallback>{(selectedContact.name || selectedContact.whatsapp_id || 'U').substring(0,2).toUpperCase()}</AvatarFallback>
@@ -285,7 +294,7 @@ export default function ConversationsPage() {
               <div ref={messagesEndRef} /> {/* Anchor to scroll to */}
             </ScrollArea>
 
-            <form onSubmit={handleSendMessage} className="p-3 border-t dark:border-slate-700 flex items-center space-x-2 bg-slate-50 dark:bg-slate-800">
+            <form onSubmit={handleSendMessage} className="p-3 border-t dark:border-slate-700 flex items-center space-x-2 bg-slate-50 dark:bg-slate-800 flex-shrink-0">
               {/* TODO: Add emoji picker, attachment button */}
               {/* <Button variant="ghost" size="icon" type="button" className="dark:text-slate-400"><FiSmile className="h-5 w-5"/></Button> */}
               {/* <Button variant="ghost" size="icon" type="button" className="dark:text-slate-400"><FiPaperclip className="h-5 w-5"/></Button> */}

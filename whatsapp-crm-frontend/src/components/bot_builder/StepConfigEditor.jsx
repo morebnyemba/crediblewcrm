@@ -153,6 +153,40 @@ export default function StepConfigEditor({ isOpen, step, onClose, onSaveStep }) 
 
   // --- UI Renderers for different config types ---
 
+  // Specific to step_type: 'switch_flow'
+  const renderSwitchFlowConfig = () => (
+    <div className="space-y-3 p-2 border dark:border-slate-700 rounded-md mt-2">
+        <div className="p-1">
+            <Label htmlFor="targetFlowName" className="dark:text-slate-300">Target Flow Name*</Label>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">The unique name of the flow to switch to (e.g., 'main_menu').</p>
+            <Input 
+                id="targetFlowName" 
+                value={currentConfig.target_flow_name || ''} 
+                onChange={(e) => handleConfigPathChange('target_flow_name', e.target.value)} 
+                className="dark:bg-slate-700 dark:border-slate-600"
+                placeholder="main_menu"
+            />
+        </div>
+        <Separator className="dark:bg-slate-600 my-2"/>
+        <div className="p-1">
+            <Label htmlFor="initialContext" className="dark:text-slate-300">Initial Context (JSON, Optional)</Label>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Pass data to the new flow's context. Use Jinja2 templates if needed.</p>
+            <Textarea 
+                id="initialContext"
+                value={
+                    typeof currentConfig.initial_context_template === 'string' 
+                        ? currentConfig.initial_context_template 
+                        : JSON.stringify(currentConfig.initial_context_template || {}, null, 2)
+                }
+                onChange={(e) => handleConfigPathChange('initial_context_template', e.target.value)}
+                rows={4} 
+                className="font-mono text-xs dark:bg-slate-700 dark:border-slate-600" 
+                placeholder={'{\n  "source_flow": "registration",\n  "user_id": "{{ contact.id }}"\n}'}
+            />
+        </div>
+    </div>
+  );
+
   // Specific to step_type: 'send_message'
   const renderSendMessageConfig = () => {
     const msgConf = currentConfig.message_config || {}; // All message configs are under "message_config"
@@ -376,6 +410,7 @@ export default function StepConfigEditor({ isOpen, step, onClose, onSaveStep }) 
       case 'send_message': return renderSendMessageConfig();
       case 'action': return renderActionConfig();
       case 'question': return renderQuestionConfig();
+      case 'switch_flow': return renderSwitchFlowConfig();
       case 'start_flow_node': return <p className="text-sm text-slate-500 dark:text-slate-400 p-3">Start nodes define the entry point. No specific runtime config usually needed here.</p>;
       case 'end_flow':
         const hasEndMsgConf = currentConfig.message_config !== undefined;
