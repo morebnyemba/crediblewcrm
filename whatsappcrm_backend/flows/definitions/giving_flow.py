@@ -166,7 +166,7 @@ GIVING_FLOW = {
                     "body": "Thank you! I've initiated the payment. Please check your phone and enter your EcoCash PIN to approve the transaction of ${{ giving_amount }}.\n\nWe will send you a confirmation message once the payment is complete."
                 }
             },
-            "transitions": [{"to_step": "end_giving", "condition_config": {"type": "always_true"}}]
+            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
 
         # 4d. Inform user of failure
@@ -233,14 +233,46 @@ GIVING_FLOW = {
                     "body": "Thank you for your contribution! We have recorded your manual payment with reference '{{ transaction_ref }}'. It will be verified by our finance team."
                 }
             },
-            "transitions": [{"to_step": "end_giving", "condition_config": {"type": "always_true"}}]
+            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
 
-        # 7. End the flow
+        # 7. Offer to return to menu
         {
-            "name": "end_giving",
+            "name": "offer_return_to_menu",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {"text": "Is there anything else I can help you with?"},
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": "return_to_menu", "title": "Main Menu"}},
+                                {"type": "reply", "reply": {"id": "end_conversation", "title": "No, I'm Done"}}
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {"save_to_variable": "final_choice", "expected_type": "interactive_id"}
+            },
+            "transitions": [
+                {"to_step": "switch_to_main_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}},
+                {"to_step": "end_flow_goodbye", "condition_config": {"type": "interactive_reply_id_equals", "value": "end_conversation"}}
+            ]
+        },
+        # 8. Switch back to the main menu
+        {
+            "name": "switch_to_main_menu",
+            "type": "switch_flow",
+            "config": {"target_flow_name": "main_menu"},
+            "transitions": []
+        },
+        # 9. End the flow with a simple goodbye
+        {
+            "name": "end_flow_goodbye",
             "type": "end_flow",
-            "config": {},
+            "config": {"message_config": {"message_type": "text", "text": {"body": "You're welcome! Have a blessed day."}}},
             "transitions": []
         }
     ]

@@ -305,13 +305,30 @@ REGISTRATION_FLOW = {
         # 7a. End the flow successfully.
         {
             "name": "end_registration",
-            "type": "end_flow",
+            "type": "question",
             "config": {
-                "message_config": {"message_type": "text", "text": {"body": "Thank you, {{ first_name }}! Your profile has been saved. Welcome to the community! 🙏"}}
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {
+                            "text": "Thank you, {{ first_name }}! Your profile has been saved. Welcome to the community! 🙏\n\nWould you like to return to the main menu?"
+                        },
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": "return_to_menu", "title": "Main Menu"}},
+                                {"type": "reply", "reply": {"id": "end_conversation", "title": "No, I'm Done"}}
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {"save_to_variable": "final_choice", "expected_type": "interactive_id"}
             },
-            "transitions": []
+            "transitions": [
+                {"to_step": "switch_to_main_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}},
+                {"to_step": "end_flow_goodbye", "condition_config": {"type": "interactive_reply_id_equals", "value": "end_conversation"}}
+            ]
         },
-
         # 7b. End the flow if the user cancels.
         {
             "name": "end_flow_cancelled",
@@ -319,6 +336,20 @@ REGISTRATION_FLOW = {
             "config": {
                 "message_config": {"message_type": "text", "text": {"body": "Okay, no changes have been made. Type 'menu' to see other options."}}
             },
+            "transitions": []
+        },
+        # 8a. Switch to main menu
+        {
+            "name": "switch_to_main_menu",
+            "type": "switch_flow",
+            "config": {"target_flow_name": "main_menu"},
+            "transitions": []
+        },
+        # 8b. Say goodbye
+        {
+            "name": "end_flow_goodbye",
+            "type": "end_flow",
+            "config": {"message_config": {"message_type": "text", "text": {"body": "You're welcome! Have a blessed day."}}},
             "transitions": []
         }
     ]
