@@ -60,11 +60,11 @@ SERMONS_FLOW = {
                 "text": {
                     "body": (
                         "Sermon ({{ (sermon_index | int) + 1 }} of {{ sermons_list|length }}):\n\n"
-                        "*{{ sermons_list[sermon_index].title }}*\n"
-                        "🗣️ Speaker: {{ sermons_list[sermon_index].preacher }}\n"
-                        "🗓️ Date: {{ sermons_list[sermon_index].sermon_date|strftime('%b %d, %Y') }}\n\n"
-                        "_{{ sermons_list[sermon_index].description|truncatewords(35) }}_\n\n"
-                        "{% if sermons_list[sermon_index].video_link %}📺 Watch here: {{ sermons_list[sermon_index].video_link }}{% endif %}"
+                        "*{{ sermons_list[sermon_index | int].title }}*\n"
+                        "🗣️ Speaker: {{ sermons_list[sermon_index | int].preacher }}\n"
+                        "🗓️ Date: {{ sermons_list[sermon_index | int].sermon_date|strftime('%b %d, %Y') }}\n\n"
+                        "_{{ sermons_list[sermon_index | int].description|truncatewords(35) }}_\n\n"
+                        "{% if sermons_list[sermon_index | int].video_link %}📺 Watch here: {{ sermons_list[sermon_index | int].video_link }}{% endif %}"
                     ),
                     "preview_url": True
                 }
