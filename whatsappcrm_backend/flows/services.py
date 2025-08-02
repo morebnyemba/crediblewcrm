@@ -828,7 +828,7 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                             dict_obj = model_to_dict(obj)
                             # Post-process to ensure all values are JSON serializable
                             for key, value in dict_obj.items():
-                                if isinstance(value, (datetime.date, datetime.datetime)):
+                                if isinstance(value, (date, datetime)):
                                     dict_obj[key] = value.isoformat()
                             results_list.append(dict_obj)
                             
