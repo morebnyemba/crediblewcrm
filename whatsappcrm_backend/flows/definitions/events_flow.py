@@ -58,7 +58,7 @@ EVENTS_FLOW = {
                 "message_type": "text",
                 "text": {
                     "body": (
-                        "Upcoming Event ({{ event_index + 1 }} of {{ events_list|length }}):\n\n"
+                        "Upcoming Event ({{ (event_index | int) + 1 }} of {{ events_list|length }}):\n\n"
                         "*{{ events_list[event_index].title }}*\n"
                         "🗓️ When: {{ events_list[event_index].start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n"
                         "📍 Where: {{ events_list[event_index].location }}\n\n"
@@ -100,7 +100,7 @@ EVENTS_FLOW = {
                 "actions_to_run": [{
                     "action_type": "set_context_variable",
                     "variable_name": "event_index",
-                    "value_template": "{{ event_index + 1 }}"
+                    "value_template": "{{ (event_index | int) + 1 }}"
                 }]
             },
             "transitions": [

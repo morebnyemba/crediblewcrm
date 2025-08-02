@@ -59,7 +59,7 @@ SERMONS_FLOW = {
                 "message_type": "text",
                 "text": {
                     "body": (
-                        "Sermon ({{ sermon_index + 1 }} of {{ sermons_list|length }}):\n\n"
+                        "Sermon ({{ (sermon_index | int) + 1 }} of {{ sermons_list|length }}):\n\n"
                         "*{{ sermons_list[sermon_index].title }}*\n"
                         "🗣️ Speaker: {{ sermons_list[sermon_index].preacher }}\n"
                         "🗓️ Date: {{ sermons_list[sermon_index].sermon_date|strftime('%b %d, %Y') }}\n\n"
@@ -108,7 +108,7 @@ SERMONS_FLOW = {
                 "actions_to_run": [{
                     "action_type": "set_context_variable",
                     "variable_name": "sermon_index",
-                    "value_template": "{{ sermon_index + 1 }}"
+                    "value_template": "{{ (sermon_index | int) + 1 }}"
                 }]
             },
             "transitions": [
