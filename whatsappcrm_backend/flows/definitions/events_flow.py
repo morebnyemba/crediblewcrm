@@ -31,7 +31,7 @@ EVENTS_FLOW = {
             "config": {
                 "message_type": "text",
                 "text": {
-                    "body": "{% if events_list %}Here are our upcoming events:\n\n{% for event in events_list %}*{{ event.title }}*\n🗓️ {{ event.start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n📍 {{ event.location }}\n_{{ event.description|truncatewords:15 }}_\n\n{% endfor %}{% else %}There are no upcoming events scheduled at the moment. Please check back soon!{% endif %}"
+                    "body": "{% if events_list %}Here are our upcoming events:\n\n{% for event in events_list %}*{{ event.title }}*\n🗓️ {{ event.start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n📍 {{ event.location }}\n_{{ event.description|truncatewords(15) }}_\n\n{% endfor %}{% else %}There are no upcoming events scheduled at the moment. Please check back soon!{% endif %}"
                 }
             },
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]

@@ -66,6 +66,17 @@ def strftime_filter(value, format_string='%b %d, %Y'):
     
     return dt_obj.strftime(format_string) if dt_obj else value
 
+def truncatewords_filter(value, length=25, end_text='...'):
+    """
+    Jinja2 filter to truncate a string after a certain number of words.
+    """
+    if not isinstance(value, str):
+        return value
+    words = value.split()
+    if len(words) <= length:
+        return value
+    return ' '.join(words[:length]) + end_text
+
 jinja_env = Environment(
     loader=None, # We're loading templates from strings, not files
     autoescape=select_autoescape(['html', 'xml'], disabled_extensions=('txt',), default_for_string=False),
@@ -73,6 +84,7 @@ jinja_env = Environment(
     enable_async=False
 )
 jinja_env.filters['strftime'] = strftime_filter # Add the custom filter
+jinja_env.filters['truncatewords'] = truncatewords_filter # Add the new filter
 jinja_env.globals['now'] = timezone.now # Make 'now' globally available for date comparisons
 
 
