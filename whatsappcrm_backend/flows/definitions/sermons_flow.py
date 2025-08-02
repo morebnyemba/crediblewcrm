@@ -1,12 +1,13 @@
 # whatsappcrm_backend/flows/definitions/sermons_flow.py
 """
-This flow displays recent sermons to the user.
+This flow displays recent sermons to the user, one at a time,
+allowing them to navigate through the list.
 """
 
 SERMONS_FLOW = {
     "name": "view_sermons",
     "friendly_name": "View Recent Sermons",
-    "description": "Shows a list of recent, published sermons.",
+    "description": "Shows a list of recent, published sermons one by one.",
     "is_active": True,
     "steps": [
         {
@@ -14,41 +15,114 @@ SERMONS_FLOW = {
             "is_entry_point": True,
             "type": "action",
             "config": {
-                "actions_to_run": [{
-                    "action_type": "query_model",
-                    "app_label": "church_services",
-                    "model_name": "Sermon",
-                    "variable_name": "sermons_list",
-                    "filters_template": {"is_published": True},
-                    "order_by": ["-sermon_date"],
-                    "limit": 5
-                }]
+                "actions_to_run": [
+                    {
+                        "action_type": "query_model",
+                        "app_label": "church_services",
+                        "model_name": "Sermon",
+                        "variable_name": "sermons_list",
+                        "filters_template": {"is_published": True},
+                        "order_by": ["-sermon_date"],
+                        "limit": 10
+                    },
+                    {
+                        "action_type": "set_context_variable",
+                        "variable_name": "sermon_index",
+                        "value_template": 0
+                    }
+                ]
             },
-            "transitions": [{"to_step": "show_sermons_list", "condition_config": {"type": "always_true"}}]
+            "transitions": [{"to_step": "check_if_sermons_exist", "condition_config": {"type": "always_true"}}]
         },
         {
-            "name": "show_sermons_list",
+            "name": "check_if_sermons_exist",
+            "type": "action",
+            "config": {"actions_to_run": []}, # This is a routing step
+            "transitions": [
+                {"to_step": "display_sermon", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "sermons_list.0"}},
+                {"to_step": "no_sermons_message", "priority": 20, "condition_config": {"type": "always_true"}}
+            ]
+        },
+        {
+            "name": "no_sermons_message",
+            "type": "send_message",
+            "config": {
+                "message_type": "text",
+                "text": {"body": "There are no recent sermons available at the moment. Please check back soon!"}
+            },
+            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+        },
+        {
+            "name": "display_sermon",
             "type": "send_message",
             "config": {
                 "message_type": "text",
                 "text": {
-                    "body": "{% if sermons_list %}Here are our most recent sermons:\n\n{% for sermon in sermons_list %}*{{ sermon.title }}*\n🗣️ {{ sermon.preacher }}\n🗓️ {{ sermon.sermon_date|strftime('%b %d, %Y') }}\n{% if sermon.video_link %}📺 Watch: {{ sermon.video_link }}{% endif %}\n\n{% endfor %}{% else %}There are no recent sermons available at the moment. Please check back soon!{% endif %}",
+                    "body": (
+                        "Sermon ({{ sermon_index + 1 }} of {{ sermons_list|length }}):\n\n"
+                        "*{{ sermons_list[sermon_index].title }}*\n"
+                        "🗣️ Speaker: {{ sermons_list[sermon_index].preacher }}\n"
+                        "🗓️ Date: {{ sermons_list[sermon_index].sermon_date|strftime('%b %d, %Y') }}\n\n"
+                        "_{{ sermons_list[sermon_index].description|truncatewords(35) }}_\n\n"
+                        "{% if sermons_list[sermon_index].video_link %}📺 Watch here: {{ sermons_list[sermon_index].video_link }}{% endif %}"
+                    ),
                     "preview_url": True
                 }
             },
+            "transitions": [{"to_step": "ask_next_sermon_action", "condition_config": {"type": "always_true"}}]
+        },
+        {
+            "name": "ask_next_sermon_action",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {"text": "What would you like to do next?"},
+                        "action": {
+                            "buttons": [
+                                {
+                                    "type": "reply",
+                                    "reply": {"id": "next_sermon", "title": "Next Sermon"}
+                                },
+                                {
+                                    "type": "reply",
+                                    "reply": {"id": "return_to_menu", "title": "Main Menu"}
+                                }
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {"save_to_variable": "sermon_nav_choice", "expected_type": "interactive_id"}
+            },
+            "transitions": [
+                {"to_step": "increment_sermon_index", "priority": 10, "condition_config": {"type": "interactive_reply_id_equals", "value": "next_sermon"}},
+                {"to_step": "switch_to_main_menu", "priority": 20, "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}}
+            ]
+        },
+        {
+            "name": "increment_sermon_index",
+            "type": "action",
+            "config": {
+                "actions_to_run": [{
+                    "action_type": "set_context_variable",
+                    "variable_name": "sermon_index",
+                    "value_template": "{{ sermon_index + 1 }}"
+                }]
+            },
+            "transitions": [
+                {"to_step": "display_sermon", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "sermons_list.{{ sermon_index }}"}},
+                {"to_step": "end_of_sermons", "priority": 20, "condition_config": {"type": "always_true"}}
+            ]
+        },
+        {
+            "name": "end_of_sermons",
+            "type": "send_message",
+            "config": {"message_type": "text", "text": {"body": "You've reached the end of our recent sermons list!"}},
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
         {
-            "name": "show_query_error",
-            "type": "send_message",
-            "config": {
-                "message_type": "text",
-                "text": {
-                    "body": "Sorry, we encountered an error retrieving the sermons. Please try again later."
-                }
-            },
-            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
-        },        {
             "name": "offer_return_to_menu",
             "type": "question",
             "config": {
