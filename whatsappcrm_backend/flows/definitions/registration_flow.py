@@ -67,6 +67,7 @@ REGISTRATION_FLOW = {
             "type": "action",
             "config": {
                 "actions_to_run": [
+                    {"action_type": "set_context_variable", "variable_name": "is_update_flow", "value_template": True},
                     {"action_type": "set_context_variable", "variable_name": "first_name", "value_template": "{{ member_profile.first_name }}"},
                     {"action_type": "set_context_variable", "variable_name": "last_name", "value_template": "{{ member_profile.last_name }}"},
                     {"action_type": "set_context_variable", "variable_name": "gender", "value_template": "{{ member_profile.gender }}"},
@@ -82,7 +83,7 @@ REGISTRATION_FLOW = {
                     {"action_type": "set_context_variable", "variable_name": "baptism_date", "value_template": "{{ member_profile.baptism_date }}"},
                 ]
             },
-            "transitions": [{"to_step": "start_registration", "condition_config": {"type": "always_true"}}]
+            "transitions": [{"to_step": "confirm_details", "condition_config": {"type": "always_true"}}]
         },
 
         # 3. Start the registration/update process.
@@ -246,7 +247,11 @@ REGISTRATION_FLOW = {
                         "header": {"type": "text", "text": "Confirm Your Details"},
                         "body": {
                             "text": (
+                                "{% if is_update_flow %}"
+                                "Here is the information we have on file for you. Please review it:\n\n"
+                                "{% else %}"
                                 "Great, thank you! Please review your information:\n\n"
+                                "{% endif %}"
                                 "*Name:* {{ first_name }} {{ last_name }}\n"
                                 "*Email:* {{ email }}\n"
                                 "*DOB:* {{ date_of_birth }}\n"
@@ -256,7 +261,11 @@ REGISTRATION_FLOW = {
                                 "*Address:* {{ address_line_1 }}, {{ city }}, {{ state_province }}, {{ country }}\n\n"
                                 "*Secondary Phone:* {% if secondary_phone_number and secondary_phone_number|lower != 'skip' %}{{ secondary_phone_number }}{% else %}Not Provided{% endif %}\n"
                                 "*Baptism Date:* {% if baptism_date and baptism_date|lower != 'skip' %}{{ baptism_date }}{% else %}Not Provided{% endif %}\n\n"
+                                "{% if is_update_flow %}"
+                                "If this is correct, tap 'Yes, Save Profile'. To make changes, tap 'No, Start Over'."
+                                "{% else %}"
                                 "Does this look correct?"
+                                "{% endif %}"
                             )
                         },
                         "action": {
