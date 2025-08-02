@@ -57,10 +57,10 @@ MINISTRIES_FLOW = {
                 "text": {
                     "body": (
                         "Ministry ({{ (ministry_index | int) + 1 }} of {{ ministries_list|length }}):\n\n"
-                        "*{{ ministries_list[ministry_index].name }}*\n"
-                        "Leader: {{ ministries_list[ministry_index].leader_name }}\n"
-                        "Schedule: {{ ministries_list[ministry_index].meeting_schedule }}\n\n"
-                        "_{{ ministries_list[ministry_index].description|truncatewords(35) }}_"
+                        "*{{ ministries_list[ministry_index | int].name }}*\n"
+                        "Leader: {{ ministries_list[ministry_index | int].leader_name }}\n"
+                        "Schedule: {{ ministries_list[ministry_index | int].meeting_schedule }}\n\n"
+                        "_{{ ministries_list[ministry_index | int].description|truncatewords(35) }}_"
                     )
                 }
             },

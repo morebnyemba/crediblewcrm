@@ -59,11 +59,11 @@ EVENTS_FLOW = {
                 "text": {
                     "body": (
                         "Upcoming Event ({{ (event_index | int) + 1 }} of {{ events_list|length }}):\n\n"
-                        "*{{ events_list[event_index].title }}*\n"
-                        "🗓️ When: {{ events_list[event_index].start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n"
-                        "📍 Where: {{ events_list[event_index].location }}\n\n"
-                        "_{{ events_list[event_index].description|truncatewords(35) }}_\n\n"
-                        "{% if events_list[event_index].registration_link %}Register here: {{ events_list[event_index].registration_link }}{% endif %}"
+                        "*{{ events_list[event_index | int].title }}*\n"
+                        "🗓️ When: {{ events_list[event_index | int].start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n"
+                        "📍 Where: {{ events_list[event_index | int].location }}\n\n"
+                        "_{{ events_list[event_index | int].description|truncatewords(35) }}_\n\n"
+                        "{% if events_list[event_index | int].registration_link %}Register here: {{ events_list[event_index | int].registration_link }}{% endif %}"
                     )
                 }
             },
