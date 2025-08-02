@@ -84,6 +84,7 @@ class FlowStep(models.Model):
         ('end_flow', _('End Flow')),
         ('start_flow_node', _('Start Flow Node')),
         ('human_handover', _('Handover to Human Agent')), # <-- Ensure this is present if you use it
+        ('switch_flow', _('Switch to Another Flow')),
     ]
 
     flow = models.ForeignKey(Flow, on_delete=models.CASCADE, related_name='steps')

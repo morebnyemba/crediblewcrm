@@ -152,6 +152,15 @@ class FlowStepSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "For 'action' steps, config must include 'actions_to_run' as a list."
                 )
+        elif step_type == 'switch_flow':
+            if not value.get('target_flow_name'):
+                raise serializers.ValidationError(
+                    "For 'switch_flow' steps, the config must include a 'target_flow_name' key."
+                )
+            if not isinstance(value.get('target_flow_name'), str) or not value.get('target_flow_name').strip():
+                 raise serializers.ValidationError(
+                    "The 'target_flow_name' must be a non-empty string."
+                )
         # Add more step_type specific config validations as your system evolves
         return value
 

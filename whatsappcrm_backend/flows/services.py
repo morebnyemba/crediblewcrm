@@ -317,7 +317,7 @@ class StepConfigQuestion(BasePydanticConfig):
     fallback_config: Optional[FallbackConfig] = None
 
 class ActionItemConfig(BasePydanticConfig):
-    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow", "record_payment", "record_prayer_request", "send_admin_notification", "query_model", "initiate_paynow_giving_payment"]
+    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "record_payment", "record_prayer_request", "send_admin_notification", "query_model", "initiate_paynow_giving_payment"]
     variable_name: Optional[str] = None
     value_template: Optional[Any] = None
     field_path: Optional[str] = None
@@ -360,9 +360,6 @@ class ActionItemConfig(BasePydanticConfig):
         elif action_type == 'update_member_profile':
             if not self.fields_to_update or not isinstance(self.fields_to_update, dict):
                 raise ValueError("For update_member_profile, 'fields_to_update' (a dictionary) is required.")
-        elif action_type == 'switch_flow':
-            if not self.target_flow_name:
-                raise ValueError("For switch_flow, 'target_flow_name' is required.")
         elif action_type == 'record_payment':
             if self.amount_template is None or self.payment_type_template is None:
                 raise ValueError("For record_payment, 'amount_template' and 'payment_type_template' are required.")
@@ -389,6 +386,10 @@ class StepConfigHumanHandover(BasePydanticConfig):
 
 class StepConfigEndFlow(BasePydanticConfig):
     message_config: Optional[StepConfigSendMessage] = None
+
+class StepConfigSwitchFlow(BasePydanticConfig):
+    target_flow_name: str
+    initial_context_template: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 # Rebuild InteractiveMessagePayload if it had forward references to models defined after it
 InteractiveMessagePayload.model_rebuild()
@@ -729,15 +730,6 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                 elif action_type == 'update_member_profile' and action_item_conf.fields_to_update is not None:
                     resolved_fields_to_update = _resolve_value(action_item_conf.fields_to_update, current_step_context, contact)
                     _update_member_profile_data(contact, resolved_fields_to_update, current_step_context)
-                elif action_type == 'switch_flow' and action_item_conf.target_flow_name is not None:
-                    resolved_initial_context = _resolve_value(action_item_conf.initial_context_template or {}, current_step_context, contact)
-                    actions_to_perform.append({
-                        'type': '_internal_command_switch_flow',
-                        'target_flow_name': action_item_conf.target_flow_name,
-                        'initial_context': resolved_initial_context if isinstance(resolved_initial_context, dict) else {}
-                    })
-                    logger.info(f"Contact {contact.id}: Action in step {step.id} queued switch to flow '{action_item_conf.target_flow_name}'.")
-                    break # Stop processing further actions in this step if switching flow
                 elif action_type == 'record_payment':
                     amount_str = _resolve_value(action_item_conf.amount_template, current_step_context, contact)
                     payment_type = _resolve_value(action_item_conf.payment_type_template, current_step_context, contact)
@@ -860,6 +852,19 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     logger.warning(f"Contact {contact.id}: Unknown or misconfigured action_type '{action_type}' in step '{step.name}' (ID: {step.id}).")
         except ValidationError as e:
             logger.error(f"Contact {contact.id}: Pydantic validation for 'action' step '{step.name}' (ID: {step.id}) failed: {e.errors()}", exc_info=False)
+
+    elif step.step_type == 'switch_flow':
+        try:
+            switch_config = StepConfigSwitchFlow.model_validate(raw_step_config)
+            resolved_initial_context = _resolve_value(switch_config.initial_context_template or {}, current_step_context, contact)
+            actions_to_perform.append({
+                'type': '_internal_command_switch_flow',
+                'target_flow_name': switch_config.target_flow_name,
+                'initial_context': resolved_initial_context if isinstance(resolved_initial_context, dict) else {}
+            })
+            logger.info(f"Contact {contact.id}: Step '{step.name}' queued switch to flow '{switch_config.target_flow_name}'.")
+        except ValidationError as e:
+            logger.error(f"Contact {contact.id}: Pydantic validation for 'switch_flow' step '{step.name}' (ID: {step.id}) failed: {e.errors()}", exc_info=False)
 
     elif step.step_type == 'end_flow':
         try:
