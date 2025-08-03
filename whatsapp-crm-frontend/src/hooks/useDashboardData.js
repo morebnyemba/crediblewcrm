@@ -15,13 +15,8 @@ const initialStatCardsDefinition = [
 ];
 
 const activityIcons = {
-  "FiUsers": FiUsers,
-  "FiZap": FiZap,
-  "FiMessageCircle": FiMessageCircle,
-  "FiSettings": FiSettings,
-  "FiCheckCircle": FiCheckCircle,
-  "FiAlertCircle": FiAlertCircle,
-  "default": FiActivity,
+  FiUsers, FiZap, FiMessageCircle, FiSettings, FiCheckCircle, FiAlertCircle,
+  default: FiActivity,
 };
 
 export function useDashboardData() {
@@ -90,7 +85,7 @@ export function useDashboardData() {
          setError(prev => `${prev} Summary: ${summaryResult.reason.message}; `.trimStart());
       }
     } catch (err) { 
-      setError(prev => `${prev} Dashboard fetch failed: ${err.message}`.trimStart());
+      setError(prev => `${prev} Dashboard fetch failed: {err.message}`.trimStart());
       setSystemStatus({ status: "System Error", color: "text-red-500 dark:text-red-400", icon: <FiAlertCircle /> });
     } finally {
       setIsLoading(false);
