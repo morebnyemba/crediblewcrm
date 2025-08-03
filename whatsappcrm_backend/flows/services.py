@@ -1442,17 +1442,53 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
             
             if next_step_to_transition_to:
                 actions, flow_context = _transition_to_step(contact_flow_state, next_step_to_transition_to, flow_context, contact, message_data)
-                actions_to_perform.extend(actions)
+                
+                # Check for a switch_flow command specifically to handle it within the loop
+                switch_action = next((a for a in actions if a.get('type') == '_internal_command_switch_flow'), None)
+                if switch_action:
+                    logger.info(f"Contact {contact.id}: Processing internal command to switch flow within the main loop.")
+                    try:
+                        _clear_contact_flow_state(contact) # Clear old state
 
-                # --- FIX: Check if the new step's actions include a flow control command. ---
-                # If so, we must break the processing loop immediately and let the outer
-                # handler process the switch/end command, preventing a "dead end" error.
-                has_flow_control_command = any(
-                    action.get('type') in ['_internal_command_clear_flow_state', '_internal_command_switch_flow']
-                    for action in actions
-                )
-                if has_flow_control_command:
-                    break # Exit the while loop
+                        new_flow_name = switch_action.get('target_flow_name')
+                        initial_context_for_new_flow = switch_action.get('initial_context', {})
+
+                        target_flow = Flow.objects.get(name=new_flow_name, is_active=True)
+                        entry_point_step = FlowStep.objects.filter(flow=target_flow, is_entry_point=True).first()
+
+                        if not entry_point_step:
+                            raise ValueError(f"Flow '{new_flow_name}' is active but has no entry point step defined.")
+                        
+                        logger.info(f"Contact {contact.id}: Switching to flow '{target_flow.name}' at entry step '{entry_point_step.name}'.")
+                        
+                        ContactFlowState.objects.create(
+                            contact=contact,
+                            current_flow=target_flow,
+                            current_step=entry_point_step,
+                            flow_context_data=initial_context_for_new_flow,
+                            started_at=timezone.now()
+                        )
+                        
+                        # The message is "consumed" by the first step that uses it.
+                        # For subsequent automatic steps in the new flow, we need to prevent reprocessing the original message.
+                        message_data = {'type': 'internal_switch_flow'}
+                        incoming_message_obj = None
+                        
+                        continue # Restart the loop to process the new flow's entry point
+
+                    except (Flow.DoesNotExist, ValueError) as e:
+                        logger.error(f"Contact {contact.id}: Failed to switch flow to '{switch_action.get('target_flow_name')}'. Error: {e}", exc_info=True)
+                        _clear_contact_flow_state(contact, error=True) # Ensure state is cleared on failure
+                        actions_to_perform.append({
+                            'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text',
+                            'data': {'body': 'I seem to be having some technical difficulties. Please try again in a moment.'}
+                        })
+                        break # Exit loop on failure
+                else:
+                    # No switch command, so process actions normally and check for other control commands
+                    actions_to_perform.extend(actions)
+                    if any(action.get('type') == '_internal_command_clear_flow_state' for action in actions):
+                        break # Exit the while loop for end_flow or human_handover
 
             else:
                 logger.info(f"No transition met for step '{current_step.name}'. Engaging fallback logic for contact {contact.id}.")
