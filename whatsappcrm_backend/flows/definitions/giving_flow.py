@@ -65,7 +65,7 @@ giving_flow_steps = [
         "transitions": [
             {
                 "next_step": "ask_payment_type",
-                "condition_config": {"type": "always_true"}
+                "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}
             }
         ]
     },
