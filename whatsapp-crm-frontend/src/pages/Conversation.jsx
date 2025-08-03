@@ -14,53 +14,8 @@ import {
   FiSend, FiUser, FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertCircle, FiPaperclip, FiSmile, FiArrowLeft
 } from 'react-icons/fi';
 import { formatDistanceToNow, parseISO } from 'date-fns'; // For relative timestamps
+import { apiCall } from '@/lib/api'; // Use the centralized API helper
 import { selectedContactAtom } from '@/atoms/conversationAtoms';
-
-// --- API Configuration & Helper (Should be in a shared service file) ---
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const getAuthToken = () => localStorage.getItem('accessToken');
-
-async function apiCall(endpoint, method = 'GET', body = null, isPaginatedFallback = false) {
-  const token = getAuthToken();
-  const headers = {
-    ...(!body || !(body instanceof FormData) && { 'Content-Type': 'application/json' }),
-    ...(token && { 'Authorization': `Bearer ${token}` }),
-  };
-  const config = { method, headers, ...(body && !(body instanceof FormData) && { body: JSON.stringify(body) }) };
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-    if (!response.ok) {
-      let errorData = { detail: `Request to ${endpoint} failed: ${response.status} ${response.statusText}` };
-      try {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") !== -1) { errorData = await response.json(); }
-        else { errorData.detail = (await response.text()) || errorData.detail; }
-      } catch (e) { console.error("Failed to parse error response:", e); }
-      const errorMessage = errorData.detail || 
-                           (typeof errorData === 'object' && errorData !== null && !errorData.detail ? 
-                             Object.entries(errorData).map(([k,v])=>`${k.replace(/_/g, " ")}: ${Array.isArray(v) ? v.join(', ') : String(v)}`).join('; ') : 
-                             `API Error ${response.status}`);
-      const err = new Error(errorMessage); err.data = errorData; err.isApiError = true; throw err;
-    }
-    if (response.status === 204 || (response.headers.get("content-length") || "0") === "0") {
-      return isPaginatedFallback ? { results: [], count: 0, next: null, previous: null } : null;
-    }
-    const data = await response.json();
-    return isPaginatedFallback ? { 
-      results: data.results || (Array.isArray(data) ? data : []), 
-      count: data.count === undefined ? (Array.isArray(data) ? data.length : 0) : data.count,
-      next: data.next,
-      previous: data.previous
-    } : data;
-  } catch (error) {
-    console.error(`API call to ${method} ${API_BASE_URL}${endpoint} failed:`, error);
-    if (!error.isApiError || !error.message.includes("(toasted)")) {
-        toast.error(error.message || 'An API error occurred. Check console.');
-        error.message = (error.message || "") + " (toasted)";
-    }
-    throw error;
-  }
-}
 
 
 const MessageBubble = ({ message, contactName }) => {
