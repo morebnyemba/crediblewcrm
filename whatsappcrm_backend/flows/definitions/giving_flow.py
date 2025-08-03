@@ -8,7 +8,7 @@
 giving_flow_steps = [
     {
         "name": "ask_for_amount",
-        "step_type": "question",  # Changed from send_message to question
+        "step_type": "question",
         "is_entry_point": True,
         "config": {
             "message_config": {
@@ -19,15 +19,15 @@ giving_flow_steps = [
             },
             "reply_config": {
                 "expected_type": "number",
-                "validation_regex": "^(0*[1-9]\\d*(\\.\\d{1,2})?|0+\\.([0-9]*[1-9]+\\d*))$",
+                "validation_regex": "^\\d+(\\.\\d{1,2})?$",
                 "save_to_variable": "giving_amount"
             },
             "fallback_config": {
                 "action": "re_prompt",
                 "max_retries": 2,
-                "re_prompt_message_text": "Invalid amount. Please enter a valid number (e.g., 10.50).",
-                "fallback_message_text": "Too many invalid attempts. Please type 'give' to restart."
-            },
+                "re_prompt_message_text": "Sorry, that doesn't look like a valid amount. Please enter a number (e.g., 10 or 25.50).",
+                "fallback_message_text": "Sorry, we couldn't process that. Please type 'give' to try again."
+            }
         },
         "transitions": [
             {
@@ -174,7 +174,7 @@ giving_flow_steps = [
             "fallback_config": {
                 "action": "re_prompt",
                 "max_retries": 2,
-                "re_prompt_message_text": "Invalid number. Please enter a 10-digit number starting with 077 or 078.",
+                "re_prompt_message_text": "That doesn't look like a valid Zimbabwean mobile number. Please enter a 10-digit number starting with 077 or 078.",
                 "fallback_message_text": "Too many invalid attempts. Please type 'give' to restart."
             }
         },
@@ -200,7 +200,8 @@ giving_flow_steps = [
                 "condition_config": {"type": "variable_equals", "variable_name": "is_valid_number", "value": "False"}
             }
         ]
-    },    {
+    },
+    {
         "name": "initiate_ecocash_payment",
         "step_type": "action",
         "config": {
@@ -228,15 +229,15 @@ giving_flow_steps = [
     },
     {
         "name": "send_ecocash_success_message",
-        "step_type": "end_flow",
+        "step_type": "send_message",
         "config": {
-            "message_config": {
+             "message_config": {
                 "message_type": "text",
                 "text": {"body": "Thank you! Please check your phone and enter your EcoCash PIN to approve the payment of *${{ giving_amount }}*."}
             }
         }
     },
-        {
+    {
         "name": "send_invalid_number_message",
         "step_type": "send_message",
         "config": {
@@ -252,6 +253,7 @@ giving_flow_steps = [
             "message_type": "text",
             "text": {"body": "I'm sorry, there was a problem initiating the payment with Paynow. Please try again in a few moments.\n\n*Error:* {{ paynow_initiation_error }}"}
         },
+
         "transitions": [{"next_step": "ask_payment_method", "condition_config": {"type": "always_true"}}]
     },
 
