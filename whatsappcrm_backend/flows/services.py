@@ -300,7 +300,7 @@ class StepConfigSendMessage(BasePydanticConfig):
 
 class ReplyConfig(BasePydanticConfig):
     save_to_variable: str
-    expected_type: Literal["text", "email", "number", "interactive_id"]
+    expected_type: Literal["text", "email", "number", "interactive_id", "image"]
     validation_regex: Optional[str] = None
 
 class FallbackConfig(BasePydanticConfig):
@@ -330,6 +330,7 @@ class ActionItemConfig(BasePydanticConfig):
     notes_template: Optional[str] = None
     transaction_ref_template: Optional[str] = None
     status_template: Optional[str] = None
+    proof_of_payment_wamid_template: Optional[str] = None
     # Fields for 'initiate_paynow_giving_payment'
     phone_number_template: Optional[str] = None
     email_template: Optional[str] = None
@@ -737,6 +738,7 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     notes = _resolve_value(action_item_conf.notes_template, current_step_context, contact)
                     transaction_ref = _resolve_value(action_item_conf.transaction_ref_template, current_step_context, contact)
                     status = _resolve_value(action_item_conf.status_template, current_step_context, contact)
+                    proof_of_payment_wamid = _resolve_value(action_item_conf.proof_of_payment_wamid_template, current_step_context, contact)
 
                     payment_obj, confirmation_action = record_payment(
                         contact=contact,
@@ -746,7 +748,8 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                         status=str(status) if status else None,
                         currency=str(currency) if currency else "USD",
                         notes=str(notes) if notes else None,
-                        transaction_ref=str(transaction_ref) if transaction_ref else None
+                        transaction_ref=str(transaction_ref) if transaction_ref else None,
+                        proof_of_payment_wamid=str(proof_of_payment_wamid) if proof_of_payment_wamid else None
                     )
 
                     if payment_obj:
@@ -1406,6 +1409,8 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                         interactive_reply_id = interactive_payload.get('button_reply', {}).get('id')
                     elif interactive_type == 'list_reply':
                         interactive_reply_id = interactive_payload.get('list_reply', {}).get('id')
+                
+                image_payload = message_data.get('image') if message_data.get('type') == 'image' else None
 
                 reply_is_valid = False
                 value_to_save = None
@@ -1425,6 +1430,10 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                     except ValueError: pass
                 elif expected_reply_type == 'interactive_id' and interactive_reply_id:
                     value_to_save = interactive_reply_id; reply_is_valid = True
+                elif expected_reply_type == 'image' and image_payload:
+                    value_to_save = image_payload.get('id') # Save the WhatsApp Media ID
+                    if value_to_save:
+                        reply_is_valid = True
                 
                 if validation_regex_ctx and not reply_is_valid and user_text and expected_reply_type == 'text':
                     if re.match(validation_regex_ctx, user_text):
