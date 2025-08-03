@@ -3,6 +3,7 @@
 import requests
 import json
 import logging
+from typing import Optional, Tuple
 # from django.conf import settings # No longer using settings for API creds
 from .models import MetaAppConfig # Import the model
 from django.core.exceptions import ObjectDoesNotExist
@@ -135,3 +136,51 @@ def create_interactive_list_message_data(body_text: str, button_text: str, secti
     if footer_text:
         interactive_payload["footer"] = {"text": footer_text}
     return interactive_payload
+
+def download_whatsapp_media(wamid: str, config: MetaAppConfig) -> Optional[Tuple[bytes, str]]:
+    """
+    Downloads media from WhatsApp using a given Media ID (WAMID).
+
+    Args:
+        wamid: The WhatsApp Media ID of the file to download.
+        config: The active MetaAppConfig containing the API token.
+
+    Returns:
+        A tuple of (content_bytes, mime_type) or None on failure.
+    """
+    if not all([wamid, config, config.access_token]):
+        logger.error("download_whatsapp_media: Missing WAMID, config, or access_token.")
+        return None
+
+    # 1. Get Media URL
+    get_url_endpoint = f"https://graph.facebook.com/{config.api_version}/{wamid}/"
+    headers = {"Authorization": f"Bearer {config.access_token}"}
+    
+    try:
+        response = requests.get(get_url_endpoint, headers=headers, timeout=10)
+        response.raise_for_status()
+        media_info = response.json()
+        media_url = media_info.get("url")
+        mime_type = media_info.get("mime_type")
+
+        if not media_url:
+            logger.error(f"Failed to get media URL for WAMID {wamid}. Response: {media_info}")
+            return None
+
+        # 2. Download Media Content from the obtained URL
+        media_response = requests.get(
+            media_url,
+            headers={"Authorization": f"Bearer {config.access_token}"},
+            timeout=20
+        )
+        media_response.raise_for_status()
+        
+        logger.info(f"Successfully downloaded media for WAMID {wamid} ({mime_type}).")
+        return media_response.content, mime_type
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error during media download for WAMID {wamid}: {e}", exc_info=True)
+        return None
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during media download for WAMID {wamid}: {e}", exc_info=True)
+        return None
