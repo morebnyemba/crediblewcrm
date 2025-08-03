@@ -161,6 +161,10 @@ class FlowStepSerializer(serializers.ModelSerializer):
                  raise serializers.ValidationError(
                     "The 'target_flow_name' must be a non-empty string."
                 )
+            if 'trigger_keyword_to_pass' in value and (not isinstance(value.get('trigger_keyword_to_pass'), str) or not value.get('trigger_keyword_to_pass').strip()):
+                raise serializers.ValidationError(
+                    "The 'trigger_keyword_to_pass' must be a non-empty string if provided."
+                )
         # Add more step_type specific config validations as your system evolves
         return value
 

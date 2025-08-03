@@ -390,6 +390,7 @@ class StepConfigEndFlow(BasePydanticConfig):
 class StepConfigSwitchFlow(BasePydanticConfig):
     target_flow_name: str
     initial_context_template: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    trigger_keyword_to_pass: Optional[str] = None
 
 # Rebuild InteractiveMessagePayload if it had forward references to models defined after it
 InteractiveMessagePayload.model_rebuild()
@@ -856,11 +857,20 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
     elif step.step_type == 'switch_flow':
         try:
             switch_config = StepConfigSwitchFlow.model_validate(raw_step_config)
-            resolved_initial_context = _resolve_value(switch_config.initial_context_template or {}, current_step_context, contact)
+            
+            # Start with the initial context from the config and resolve any templates in it
+            initial_context = _resolve_value(switch_config.initial_context_template or {}, current_step_context, contact)
+            if not isinstance(initial_context, dict):
+                initial_context = {}
+
+            # If a keyword is specified, add it to the context being passed to the new flow
+            if switch_config.trigger_keyword_to_pass:
+                initial_context['simulated_trigger_keyword'] = switch_config.trigger_keyword_to_pass
+
             actions_to_perform.append({
                 'type': '_internal_command_switch_flow',
                 'target_flow_name': switch_config.target_flow_name,
-                'initial_context': resolved_initial_context if isinstance(resolved_initial_context, dict) else {}
+                'initial_context': initial_context
             })
             logger.info(f"Contact {contact.id}: Step '{step.name}' queued switch to flow '{switch_config.target_flow_name}'.")
         except ValidationError as e:
