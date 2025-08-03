@@ -1,5 +1,6 @@
 // src/pages/FlowEditorPage.jsx
-import React, { useState, useEffect, useCallback, useReducer } from 'react';
+import React, { useEffect, useCallback } from 'react';
+import { useAtom } from 'jotai';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 
 // Shadcn/ui and other imports
@@ -26,6 +27,25 @@ import { toast } from 'sonner';
 // Import your editor modals (ensure paths are correct)
 import StepConfigEditor from '@/components/bot_builder/StepConfigEditor';
 import TransitionEditorModal from '@/components/bot_builder/TransitionEditorModal';
+
+// Import Jotai atoms
+import {
+  STEP_TYPE_CHOICES,
+  flowDetailsAtom,
+  stepsAtom,
+  transitionsAtom,
+  isLoadingFlowAtom,
+  isSavingFlowAtom,
+  isOperatingOnStepAtom,
+  isLoadingTransitionsAtom,
+  flowEditorErrorAtom,
+  showAddStepModalAtom,
+  newStepNameAtom,
+  newStepTypeAtom,
+  editingStepAtom,
+  managingTransitionsForStepAtom,
+  editingTransitionAtom,
+} from '@/atoms/flowEditorAtoms';
 
 // --- API Configuration & Helper ---
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -61,75 +81,36 @@ async function apiCall(endpoint, method = 'GET', body = null) {
   }
 }
 
-// --- Constants ---
-// Ensure this is consistent with your backend models.py and StepConfigEditor.jsx
-export const STEP_TYPE_CHOICES = [
-    { value: 'send_message', label: 'Send Message' }, 
-    { value: 'question', label: 'Ask Question' },
-    { value: 'action', label: 'Perform Action' }, 
-    { value: 'start_flow_node', label: 'Start Node (Entry)' },
-    { value: 'end_flow', label: 'End Flow' }, 
-    { value: 'condition', label: 'Condition Node (Visual)' }, // If it's just visual, config might be minimal
-    { value: 'human_handover', label: 'Handover to Human' },
-    { value: 'switch_flow', label: 'Switch to Another Flow' },
-];
-
-const initialFlowDetailsState = {
-  id: null, name: 'New Untitled Flow', description: '',
-  triggerKeywordsRaw: '', nlpIntent: '', isActive: true,
-};
-
-// --- Reducers (keep as defined in message #69) ---
-function stepsReducer(state, action) {
-  const getDisplayType = (stepType) => STEP_TYPE_CHOICES.find(c => c.value === stepType)?.label || stepType;
-  switch (action.type) {
-    case 'SET_STEPS': return Array.isArray(action.payload) ? action.payload.map(s => ({...s, step_type_display: getDisplayType(s.step_type) })) : [];
-    case 'ADD_STEP': return [...state, {...action.payload, step_type_display: getDisplayType(action.payload.step_type) }];
-    case 'UPDATE_STEP': return state.map(step => step.id === action.payload.id ? { ...step, ...action.payload, step_type_display: getDisplayType(action.payload.step_type) } : step);
-    case 'DELETE_STEP': return state.filter(step => step.id !== action.payload.id);
-    default: throw new Error(`Unhandled stepsReducer action: ${action.type}`);
-  }
-}
-function transitionsReducer(state, action) { /* ... same as message #69 ... */ 
-  switch (action.type) {
-    case 'SET_TRANSITIONS': return Array.isArray(action.payload) ? action.payload : [];
-    case 'ADD_TRANSITION': return [...state, action.payload];
-    case 'UPDATE_TRANSITION': return state.map(t => t.id === action.payload.id ? { ...t, ...action.payload } : t);
-    case 'DELETE_TRANSITION': return state.filter(t => t.id !== action.payload.id);
-    default: throw new Error(`Unhandled transitionsReducer action: ${action.type}`);
-  }
-}
-
 // --- Main Component ---
 export default function FlowEditorPage() {
   const { flowId: flowIdFromParams } = useParams();
   const navigate = useNavigate();
   const logger = console;
 
-  const [flowDetails, setFlowDetails] = useState(initialFlowDetailsState);
-  const [steps, dispatchSteps] = useReducer(stepsReducer, []);
-  const [stepTransitions, dispatchStepTransitions] = useReducer(transitionsReducer, []);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSavingFlow, setIsSavingFlow] = useState(false);
-  const [isOperatingOnStep, setIsOperatingOnStep] = useState(false);
-  const [isLoadingTransitions, setIsLoadingTransitions] = useState(false);
-  const [error, setError] = useState(null);
-
-  const [showAddStepModal, setShowAddStepModal] = useState(false);
-  const [newStepName, setNewStepName] = useState('');
-  const [newStepType, setNewStepType] = useState(STEP_TYPE_CHOICES[0]?.value || 'send_message');
+  // State managed by Jotai
+  const [flowDetails, setFlowDetails] = useAtom(flowDetailsAtom);
+  const [steps, setSteps] = useAtom(stepsAtom);
+  const [stepTransitions, setStepTransitions] = useAtom(transitionsAtom);
+  const [isLoading, setIsLoading] = useAtom(isLoadingFlowAtom);
+  const [isSavingFlow, setIsSavingFlow] = useAtom(isSavingFlowAtom);
+  const [isOperatingOnStep, setIsOperatingOnStep] = useAtom(isOperatingOnStepAtom);
+  const [isLoadingTransitions, setIsLoadingTransitions] = useAtom(isLoadingTransitionsAtom);
+  const [error, setError] = useAtom(flowEditorErrorAtom);
+  const [showAddStepModal, setShowAddStepModal] = useAtom(showAddStepModalAtom);
+  const [newStepName, setNewStepName] = useAtom(newStepNameAtom);
+  const [newStepType, setNewStepType] = useAtom(newStepTypeAtom);
   
-  const [editingStep, setEditingStep] = useState(null);
-  const [managingTransitionsForStep, setManagingTransitionsForStep] = useState(null);
-  const [editingTransition, setEditingTransition] = useState(null);
+  const [editingStep, setEditingStep] = useAtom(editingStepAtom);
+  const [managingTransitionsForStep, setManagingTransitionsForStep] = useAtom(managingTransitionsForStepAtom);
+  const [editingTransition, setEditingTransition] = useAtom(editingTransitionAtom);
 
   // Fetch flow data
   useEffect(() => {
     const isNewFlow = !flowIdFromParams || flowIdFromParams === 'new';
-    setFlowDetails(isNewFlow ? { ...initialFlowDetailsState, name: 'New Untitled Flow' } : initialFlowDetailsState);
-    dispatchSteps({ type: 'SET_STEPS', payload: [] });
-    dispatchStepTransitions({ type: 'SET_TRANSITIONS', payload: [] });
+    const initialFlowState = { id: null, name: 'New Untitled Flow', description: '', triggerKeywordsRaw: '', nlpIntent: '', isActive: true };
+    setFlowDetails(isNewFlow ? initialFlowState : initialFlowState);
+    setSteps([]);
+    setStepTransitions([]);
     setEditingStep(null); setManagingTransitionsForStep(null); setEditingTransition(null);
 
     if (!isNewFlow) {
@@ -144,9 +125,9 @@ export default function FlowEditorPage() {
             nlpIntent: fetchedFlow.nlp_trigger_intent || '',
             isActive: fetchedFlow.is_active !== undefined ? fetchedFlow.is_active : true,
           });
-
           const fetchedSteps = await apiCall(`/crm-api/flows/flows/${flowIdFromParams}/steps/`);
-          dispatchSteps({ type: 'SET_STEPS', payload: (fetchedSteps.results || fetchedSteps || []) });
+          const getDisplayType = (stepType) => STEP_TYPE_CHOICES.find(c => c.value === stepType)?.label || stepType;
+          setSteps((fetchedSteps.results || fetchedSteps || []).map(s => ({...s, step_type_display: getDisplayType(s.step_type)})));
           setError(null);
         } catch (err) { setError(err.message); setFlowDetails(prev => ({...prev, name: "Error Loading Flow Data"})); }
         finally { setIsLoading(false); }
@@ -156,7 +137,7 @@ export default function FlowEditorPage() {
       logger.info("Initializing for new flow creation.");
       setIsLoading(false);
     }
-  }, [flowIdFromParams, logger]);
+  }, [flowIdFromParams, logger, setFlowDetails, setSteps, setStepTransitions, setEditingStep, setManagingTransitionsForStep, setEditingTransition, setIsLoading, setError]);
 
   const handleFlowDetailChange = (field, value) => setFlowDetails(prev => ({ ...prev, [field]: value }));
 
@@ -203,7 +184,8 @@ export default function FlowEditorPage() {
     };
     try {
       const createdStep = await apiCall(`/crm-api/flows/flows/${flowDetails.id}/steps/`, 'POST', newStepPayload);
-      dispatchSteps({ type: 'ADD_STEP', payload: createdStep });
+      const getDisplayType = (stepType) => STEP_TYPE_CHOICES.find(c => c.value === stepType)?.label || stepType;
+      setSteps(prev => [...prev, {...createdStep, step_type_display: getDisplayType(createdStep.step_type)}]);
       toast.success(`Step "${createdStep.name}" added.`);
       setNewStepName(''); setNewStepType(STEP_TYPE_CHOICES[0]?.value); setShowAddStepModal(false);
     } catch (err) { logger.error("Error adding new step:", err.data || err.message); }
@@ -218,7 +200,8 @@ export default function FlowEditorPage() {
     let success = false;
     try {
         const patchedStep = await apiCall(`/crm-api/flows/flows/${flowDetails.id}/steps/${stepId}/`, 'PATCH', updatedStepDataFromModal);
-        dispatchSteps({ type: 'UPDATE_STEP', payload: patchedStep });
+        const getDisplayType = (stepType) => STEP_TYPE_CHOICES.find(c => c.value === stepType)?.label || stepType;
+        setSteps(prev => prev.map(step => step.id === patchedStep.id ? { ...step, ...patchedStep, step_type_display: getDisplayType(patchedStep.step_type) } : step));
         toast.success(`Step "${patchedStep.name}" updated.`);
         success = true;
     } catch (err) {
@@ -237,7 +220,7 @@ export default function FlowEditorPage() {
     setIsOperatingOnStep(true);
     try {
       await apiCall(`/crm-api/flows/flows/${flowDetails.id}/steps/${stepId}/`, 'DELETE');
-      dispatchSteps({ type: 'DELETE_STEP', payload: { id: stepId } });
+      setSteps(prev => prev.filter(step => step.id !== stepId));
       toast.success(`Step "${stepName}" deleted.`);
       if (editingStep?.id === stepId) setEditingStep(null);
       if (managingTransitionsForStep?.id === stepId) setManagingTransitionsForStep(null);
@@ -250,8 +233,8 @@ export default function FlowEditorPage() {
     setManagingTransitionsForStep(step); setEditingTransition(null); setIsLoadingTransitions(true);
     try {
       const fetchedTransitions = await apiCall(`/crm-api/flows/flows/${flowDetails.id}/steps/${step.id}/transitions/`);
-      dispatchStepTransitions({ type: 'SET_TRANSITIONS', payload: (fetchedTransitions.results || fetchedTransitions || []) });
-    } catch (err) { dispatchStepTransitions({ type: 'SET_TRANSITIONS', payload: [] }); }
+      setStepTransitions(fetchedTransitions.results || fetchedTransitions || []);
+    } catch (err) { setStepTransitions([]); }
     finally { setIsLoadingTransitions(false); }
   };
 
@@ -269,10 +252,10 @@ export default function FlowEditorPage() {
       const method = isEditingMode ? 'PUT' : 'POST';
       savedTransition = await apiCall(endpoint, method, payload);
       if (isEditingMode) {
-        dispatchStepTransitions({ type: 'UPDATE_TRANSITION', payload: savedTransition });
+        setStepTransitions(prev => prev.map(t => t.id === savedTransition.id ? savedTransition : t));
         toast.success("Transition updated!");
       } else {
-        dispatchStepTransitions({ type: 'ADD_TRANSITION', payload: savedTransition });
+        setStepTransitions(prev => [...prev, savedTransition]);
         toast.success("Transition added!");
       }
       success = true;
@@ -292,7 +275,7 @@ export default function FlowEditorPage() {
     const currentStepId = managingTransitionsForStep.id;
     try {
       await apiCall(`/crm-api/flows/flows/${flowDetails.id}/steps/${currentStepId}/transitions/${transitionIdToDelete}/`, 'DELETE');
-      dispatchStepTransitions({ type: 'DELETE_TRANSITION', payload: { id: transitionIdToDelete } });
+      setStepTransitions(prev => prev.filter(t => t.id !== transitionIdToDelete));
       toast.success("Transition deleted.");
       if (editingTransition?.id === transitionIdToDelete) setEditingTransition(null);
     } catch (err) { /* toast handled */ }
@@ -430,7 +413,7 @@ export default function FlowEditorPage() {
           onClose={() => {
             setManagingTransitionsForStep(null);
             setEditingTransition(null);
-            dispatchStepTransitions({ type: 'SET_TRANSITIONS', payload: [] }); // Clear when modal closes
+            setStepTransitions([]); // Clear when modal closes
           }}
           onSave={handleSaveTransition} // Expects (isEditing, transitionId, payload)
           onDelete={handleDeleteTransition} // Expects (transitionId)

@@ -10,6 +10,7 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import { useAuth } from '@/context/AuthContext';
 
 // --- Import your chart components ---
 // Ensure these files exist and export components correctly
@@ -38,6 +39,7 @@ export default function Dashboard() {
     isLoading,
     error,
   } = useDashboardData();
+  const { user } = useAuth(); // Consume auth state with the Jotai-powered hook
 
   const navigate = useNavigate();
 
@@ -54,7 +56,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">Dashboard Overview</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Welcome! Here's a real-time summary of your CRM activity.
+            Welcome, {user?.username || 'User'}! Here's a real-time summary of your CRM activity.
           </p>
         </div>
         <div className={`flex items-center gap-2 py-1.5 px-3 rounded-full text-xs font-medium ${systemStatus.color}`}>
@@ -152,14 +154,14 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mt-6 md:mt-8">
           <Card className="dark:bg-slate-800 dark:border-slate-700 shadow-lg">
               <CardHeader><CardTitle className="text-lg font-semibold dark:text-slate-100 flex items-center"><FiBarChart2 className="mr-2 text-indigo-500"/>Conversation Trends</CardTitle></CardHeader>
-              <CardContent className="h-80 bg-slate-50 dark:bg-slate-700/50 rounded-md p-4">
-                  { ConversationTrendChart ? <ConversationTrendChart data={conversationTrendsData} isLoading={isLoadingData} /> : <p className="text-center text-sm text-slate-500 dark:text-slate-400">Chart component not loaded.</p> }
+              <CardContent className="h-80 bg-slate-50 dark:bg-slate-700/50 rounded-md p-4 flex items-center justify-center">
+                  { ConversationTrendChart ? <ConversationTrendChart data={conversationTrendsData} isLoading={isLoading} /> : <p className="text-center text-sm text-slate-500 dark:text-slate-400">Chart component not loaded.</p> }
               </CardContent>
           </Card>
            <Card className="dark:bg-slate-800 dark:border-slate-700 shadow-lg">
               <CardHeader><CardTitle className="text-lg font-semibold dark:text-slate-100 flex items-center"><FiCpu className="mr-2 text-rose-500"/>Bot Performance</CardTitle></CardHeader>
-              <CardContent className="h-80 bg-slate-50 dark:bg-slate-700/50 rounded-md p-4">
-                  { BotPerformanceDisplay ? <BotPerformanceDisplay data={botPerformanceData} isLoading={isLoadingData} /> : <p className="text-center text-sm text-slate-500 dark:text-slate-400">Performance display not loaded.</p> }
+              <CardContent className="h-80 bg-slate-50 dark:bg-slate-700/50 rounded-md p-4 flex items-center justify-center">
+                  { BotPerformanceDisplay ? <BotPerformanceDisplay data={botPerformanceData} isLoading={isLoading} /> : <p className="text-center text-sm text-slate-500 dark:text-slate-400">Performance display not loaded.</p> }
               </CardContent>
           </Card>
       </div>
