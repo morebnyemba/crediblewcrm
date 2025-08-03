@@ -8,7 +8,7 @@
 giving_flow_steps = [
     {
         "name": "ask_for_amount",
-        "step_type": "question",
+        "step_type": "question",  # Changed from send_message to question
         "is_entry_point": True,
         "config": {
             "message_config": {
@@ -19,14 +19,15 @@ giving_flow_steps = [
             },
             "reply_config": {
                 "expected_type": "number",
+                "validation_regex": "^(0*[1-9]\\d*(\\.\\d{1,2})?|0+\\.([0-9]*[1-9]+\\d*))$",
                 "save_to_variable": "giving_amount"
             },
             "fallback_config": {
                 "action": "re_prompt",
                 "max_retries": 2,
-                "re_prompt_message_text": "Sorry, that doesn't look like a valid amount. Please enter a number (e.g., 10 or 25.50).",
-                "fallback_message_text": "Sorry, we couldn't process that. Please type 'give' to try again."
-            }
+                "re_prompt_message_text": "Invalid amount. Please enter a valid number (e.g., 10.50).",
+                "fallback_message_text": "Too many invalid attempts. Please type 'give' to restart."
+            },
         },
         "transitions": [
             {
@@ -155,7 +156,7 @@ giving_flow_steps = [
                 "value_template": "{{ contact.whatsapp_id }}"
             }]
         },
-        "transitions": [{"next_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"next_step": "validate_ecocash_number", "condition_config": {"type": "always_true"}}]
     },
     {
         "name": "ask_ecocash_phone_number",
@@ -173,12 +174,33 @@ giving_flow_steps = [
             "fallback_config": {
                 "action": "re_prompt",
                 "max_retries": 2,
-                "re_prompt_message_text": "That doesn't look like a valid Zimbabwean mobile number. Please enter a 10-digit number starting with 077 or 078."
+                "re_prompt_message_text": "Invalid number. Please enter a 10-digit number starting with 077 or 078.",
+                "fallback_message_text": "Too many invalid attempts. Please type 'give' to restart."
             }
         },
-        "transitions": [{"next_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"next_step": "validate_ecocash_number", "condition_config": {"type": "always_true"}}]
     },
-    {
+        {
+        "name": "validate_ecocash_number",
+        "step_type": "action",
+        "config": {
+            "actions_to_run": [{
+                "action_type": "validate_phone_number",
+                "variable_name": "ecocash_phone_number",
+                "country_code": "ZW"
+            }]
+        },
+        "transitions": [
+            {
+                "next_step": "initiate_ecocash_payment",
+                "condition_config": {"type": "variable_equals", "variable_name": "is_valid_number", "value": "True"}
+            },
+            {
+                "next_step": "send_invalid_number_message",
+                "condition_config": {"type": "variable_equals", "variable_name": "is_valid_number", "value": "False"}
+            }
+        ]
+    },    {
         "name": "initiate_ecocash_payment",
         "step_type": "action",
         "config": {
@@ -199,7 +221,7 @@ giving_flow_steps = [
                 "condition_config": {"type": "variable_equals", "variable_name": "paynow_initiation_success", "value": "True"}
             },
             {
-                "next_step": "send_ecocash_failure_message",
+                "next_step": "send_payment_failure_message",
                 "condition_config": {"type": "always_true"}
             }
         ]
@@ -214,12 +236,21 @@ giving_flow_steps = [
             }
         }
     },
-    {
-        "name": "send_ecocash_failure_message",
+        {
+        "name": "send_invalid_number_message",
         "step_type": "send_message",
         "config": {
             "message_type": "text",
-            "text": {"body": "I'm sorry, there was a problem initiating the payment.\n\n*Error:* {{ paynow_initiation_error }}\n\nPlease try a different method."}
+            "text": {"body": "Sorry, that's not a valid Zimbabwean number. Please enter a 10-digit number starting with 077 or 078."}
+        },
+        "transitions": [{"next_step": "ask_payment_method", "condition_config": {"type": "always_true"}}]
+    },
+    {
+        "name": "send_payment_failure_message",
+        "step_type": "send_message",
+        "config": {
+            "message_type": "text",
+            "text": {"body": "I'm sorry, there was a problem initiating the payment with Paynow. Please try again in a few moments.\n\n*Error:* {{ paynow_initiation_error }}"}
         },
         "transitions": [{"next_step": "ask_payment_method", "condition_config": {"type": "always_true"}}]
     },
