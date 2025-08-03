@@ -1,279 +1,296 @@
 # whatsappcrm_backend/flows/definitions/giving_flow.py
 
-"""
-This flow definition handles the process of online giving, allowing users
-to specify an amount, type of giving, and payment method.
-"""
+# A more robust and user-friendly giving flow.
+# - Handles automated Paynow payments for EcoCash.
+# - Handles manual payments with image proof of payment.
+# - Asks to reuse the contact's number for EcoCash to save typing.
 
-GIVING_FLOW = {
-    "name": "giving",
-    "friendly_name": "Online Giving",
-    "description": "Guides a user through making a tithe or offering.",
-    "trigger_keywords": ["give", "offering", "tithe", "donate"],
-    "is_active": True,
-    "steps": [
-        # 1. Ask for the amount
-        {
-            "name": "ask_for_amount",
-            "is_entry_point": True,
-            "type": "question",
-            "config": {
-                "message_config": {
-                    "message_type": "text",
-                    "text": {
-                        "body": "Thank you for your heart to give! ❤️\n\nHow much would you like to contribute today? Please enter a numeric amount (e.g., 10.50)."
-                    }
-                },
-                "reply_config": {
-                    "save_to_variable": "giving_amount",
-                    "expected_type": "number"
-                },
-                "fallback_config": {
-                    "action": "re_prompt",
-                    "max_retries": 2,
-                    "re_prompt_message_text": "Sorry, that doesn't look like a valid amount. Please enter a number (e.g., 10 or 25.50).",
-                    "fallback_message_text": "Sorry, we couldn't process that. Please type 'give' to try again."
+giving_flow_steps = [
+    {
+        "name": "ask_for_amount",
+        "step_type": "question",
+        "is_entry_point": True,
+        "config": {
+            "message_config": {
+                "message_type": "text",
+                "text": {
+                    "body": "Thank you for your heart to give! ❤️\n\nHow much would you like to contribute today? Please enter a numeric amount (e.g., 10.50)."
                 }
             },
-            "transitions": [
-                {"to_step": "ask_payment_type", "condition_config": {"type": "always_true"}}
-            ]
+            "reply_config": {
+                "expected_type": "number",
+                "save_to_variable": "giving_amount"
+            },
+            "fallback_config": {
+                "action": "re_prompt",
+                "max_retries": 2,
+                "re_prompt_message_text": "Sorry, that doesn't look like a valid amount. Please enter a number (e.g., 10 or 25.50).",
+                "fallback_message_text": "Sorry, we couldn't process that. Please type 'give' to try again."
+            }
         },
-
-        # 2. Ask for the type of payment (Tithe, Offering, etc.)
-        {
-            "name": "ask_payment_type",
-            "type": "question",
-            "config": {
-                "message_config": {
-                    "message_type": "interactive",
-                    "interactive": {
-                        "type": "button",
-                        "body": {"text": "Thank you! What is this contribution for?"},
-                        "action": {
-                            "buttons": [
-                                {"type": "reply", "reply": {"id": "tithe", "title": "Tithe"}},
-                                {"type": "reply", "reply": {"id": "offering", "title": "Offering"}},
-                                {"type": "reply", "reply": {"id": "pledge", "title": "Pledge"}}
+        "transitions": [
+            {
+                "next_step": "ask_payment_type",
+                "condition_config": {"type": "always_true"}
+            }
+        ]
+    },
+    {
+        "name": "ask_payment_type",
+        "step_type": "question",
+        "config": {
+            "message_config": {
+                "message_type": "interactive",
+                "interactive": {
+                    "type": "button",
+                    "body": {"text": "Thank you! What is this contribution for?"},
+                    "action": {
+                        "buttons": [
+                            {"type": "reply", "reply": {"id": "tithe", "title": "Tithe"}},
+                            {"type": "reply", "reply": {"id": "offering", "title": "Offering"}},
+                            {"type": "reply", "reply": {"id": "pledge", "title": "Pledge"}}
+                        ]
+                    }
+                }
+            },
+            "reply_config": {
+                "expected_type": "interactive_id",
+                "save_to_variable": "payment_type"
+            }
+        },
+        "transitions": [
+            {
+                "next_step": "ask_payment_method",
+                "condition_config": {"type": "always_true"}
+            }
+        ]
+    },
+    {
+        "name": "ask_payment_method",
+        "step_type": "question",
+        "config": {
+            "message_config": {
+                "message_type": "interactive",
+                "interactive": {
+                    "type": "list",
+                    "header": {"type": "text", "text": "Payment Method"},
+                    "body": {"text": "How would you like to give?"},
+                    "action": {
+                        "button": "Choose Method",
+                        "sections": [{
+                            "title": "Available Methods",
+                            "rows": [
+                                {"id": "ecocash", "title": "EcoCash"},
+                                {"id": "manual_payment", "title": "Manual/Cash Payment"},
+                                {"id": "omari", "title": "Omari", "description": "Coming Soon"},
+                                {"id": "innbucks", "title": "Innbucks", "description": "Coming Soon"}
                             ]
-                        }
+                        }]
                     }
-                },
-                "reply_config": {
-                    "save_to_variable": "payment_type",
-                    "expected_type": "interactive_id"
                 }
             },
-            "transitions": [
-                {"to_step": "ask_payment_method", "condition_config": {"type": "always_true"}}
-            ]
+            "reply_config": {
+                "expected_type": "interactive_id",
+                "save_to_variable": "payment_method"
+            }
         },
-
-        # 3. Ask for the payment method
-        {
-            "name": "ask_payment_method",
-            "type": "question",
-            "config": {
-                "message_config": {
-                    "message_type": "interactive",
-                    "interactive": {
-                        "type": "list",
-                        "header": {"type": "text", "text": "Payment Method"},
-                        "body": {"text": "How would you like to give?"},
-                        "action": {
-                            "button": "Choose Method",
-                            "sections": [{
-                                "title": "Available Methods",
-                                "rows": [
-                                    {"id": "ecocash", "title": "EcoCash"},
-                                    {"id": "manual_payment", "title": "Manual/Cash Payment"},
-                                    {"id": "omari", "title": "Omari", "description": "Coming Soon"},
-                                    {"id": "innbucks", "title": "Innbucks", "description": "Coming Soon"}
-                                ]
-                            }]
-                        }
-                    }
-                },
-                "reply_config": {
-                    "save_to_variable": "payment_method",
-                    "expected_type": "interactive_id"
+        "transitions": [
+            {
+                "next_step": "confirm_whatsapp_as_ecocash",
+                "condition_config": {
+                    "type": "interactive_reply_id_equals",
+                    "value": "ecocash"
                 }
             },
-            "transitions": [
-                {"to_step": "ask_ecocash_phone_number", "priority": 10, "condition_config": {"type": "interactive_reply_id_equals", "value": "ecocash"}},
-                {"to_step": "ask_for_transaction_ref", "priority": 10, "condition_config": {"type": "interactive_reply_id_equals", "value": "manual_payment"}},
-                {"to_step": "handle_coming_soon", "priority": 20, "condition_config": {"type": "always_true"}}
-            ]
-        },
-
-        # 4a. Ask for EcoCash phone number
-        {
-            "name": "ask_ecocash_phone_number",
-            "type": "question",
-            "config": {
-                "message_config": {
-                    "message_type": "text",
-                    "text": {
-                        "body": "Please enter the EcoCash number you will be using to pay (e.g., 0772123456)."
+            {
+                "next_step": "display_manual_payment_details",
+                "condition_config": {
+                    "type": "interactive_reply_id_equals",
+                    "value": "manual_payment"
+                }
+            }
+        ]
+    },
+    # --- EcoCash (Automated) Path ---
+    {
+        "name": "confirm_whatsapp_as_ecocash",
+        "step_type": "question",
+        "config": {
+            "message_config": {
+                "message_type": "interactive",
+                "interactive": {
+                    "type": "button",
+                    "body": {"text": "Is `{{ contact.whatsapp_id }}` the EcoCash number you'll be using?"},
+                    "action": {
+                        "buttons": [
+                            {"type": "reply", "reply": {"id": "yes_use_this_number", "title": "Yes, Use This Number"}},
+                            {"type": "reply", "reply": {"id": "no_use_another", "title": "No, Use Another"}}
+                        ]
                     }
-                },
-                "reply_config": {
-                    "save_to_variable": "ecocash_phone_number",
-                    "expected_type": "text",
-                    "validation_regex": "^(07[78])\\d{7}$"
-                },
-                "fallback_config": {
-                    "action": "re_prompt",
-                    "max_retries": 2,
-                    "re_prompt_message_text": "That doesn't look like a valid Zimbabwean mobile number. Please enter a 10-digit number starting with 077 or 078.",
-                    "fallback_message_text": "Sorry, we couldn't process that. Please type 'give' to try again."
                 }
             },
-            "transitions": [
-                {"to_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}
-            ]
+            "reply_config": {
+                "expected_type": "interactive_id",
+                "save_to_variable": "confirm_ecocash_choice"
+            }
         },
-
-        # 4b. Initiate the Paynow transaction for EcoCash
-        {
-            "name": "initiate_ecocash_payment",
-            "type": "action",
-            "config": {
-                "actions_to_run": [{
-                    "action_type": "initiate_paynow_giving_payment",
-                    "amount_template": "{{ giving_amount }}",
-                    "payment_type_template": "{{ payment_type }}",
-                    "payment_method_template": "{{ payment_method }}",
-                    "phone_number_template": "{{ ecocash_phone_number }}",
-                    "email_template": "{{ member_profile.email }}",
-                    "currency_template": "USD",
-                    "notes_template": "Online giving via WhatsApp flow."
-                }]
+        "transitions": [
+            {
+                "next_step": "set_ecocash_from_contact",
+                "condition_config": {"type": "interactive_reply_id_equals", "value": "yes_use_this_number"}
             },
-            "transitions": [
-                {"to_step": "send_ecocash_prompt_message", "priority": 10, "condition_config": {"type": "variable_equals", "variable_name": "paynow_initiation_success", "value": "True"}},
-                {"to_step": "send_ecocash_failure_message", "priority": 20, "condition_config": {"type": "always_true"}}
-            ]
+            {
+                "next_step": "ask_ecocash_phone_number",
+                "condition_config": {"type": "interactive_reply_id_equals", "value": "no_use_another"}
+            }
+        ]
+    },
+    {
+        "name": "set_ecocash_from_contact",
+        "step_type": "action",
+        "config": {
+            "actions_to_run": [{
+                "action_type": "set_context_variable",
+                "variable_name": "ecocash_phone_number",
+                "value_template": "{{ contact.whatsapp_id }}"
+            }]
         },
-
-        # 4c. Inform user of success and next steps
-        {
-            "name": "send_ecocash_prompt_message",
-            "type": "send_message",
-            "config": {
+        "transitions": [{"next_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}]
+    },
+    {
+        "name": "ask_ecocash_phone_number",
+        "step_type": "question",
+        "config": {
+            "message_config": {
                 "message_type": "text",
-                "text": {
-                    "body": "Thank you! I've initiated the payment. Please check your phone and enter your EcoCash PIN to approve the transaction of ${{ giving_amount }}.\n\nWe will send you a confirmation message once the payment is complete."
-                }
+                "text": {"body": "Please enter the 10-digit EcoCash number you will be using to pay (e.g., 0772123456)."}
             },
-            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+            "reply_config": {
+                "expected_type": "text",
+                "save_to_variable": "ecocash_phone_number",
+                "validation_regex": "^(07[78])\\d{7}$"
+            },
+            "fallback_config": {
+                "action": "re_prompt",
+                "max_retries": 2,
+                "re_prompt_message_text": "That doesn't look like a valid Zimbabwean mobile number. Please enter a 10-digit number starting with 077 or 078."
+            }
         },
-
-        # 4d. Inform user of failure
-        {
-            "name": "send_ecocash_failure_message",
-            "type": "send_message",
-            "config": {
+        "transitions": [{"next_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}]
+    },
+    {
+        "name": "initiate_ecocash_payment",
+        "step_type": "action",
+        "config": {
+            "actions_to_run": [{
+                "action_type": "initiate_paynow_giving_payment",
+                "amount_template": "{{ giving_amount }}",
+                "payment_type_template": "{{ payment_type }}",
+                "payment_method_template": "{{ payment_method }}",
+                "phone_number_template": "{{ ecocash_phone_number }}",
+                "email_template": "{{ member_profile.email }}",
+                "currency_template": "USD",
+                "notes_template": "Online giving via WhatsApp flow."
+            }]
+        },
+        "transitions": [
+            {
+                "next_step": "send_ecocash_success_message",
+                "condition_config": {"type": "variable_equals", "variable_name": "paynow_initiation_success", "value": "True"}
+            },
+            {
+                "next_step": "send_ecocash_failure_message",
+                "condition_config": {"type": "always_true"}
+            }
+        ]
+    },
+    {
+        "name": "send_ecocash_success_message",
+        "step_type": "end_flow",
+        "config": {
+            "message_config": {
                 "message_type": "text",
-                "text": {
-                    "body": "I'm sorry, there was a problem initiating the payment with Paynow. Please try again in a few moments.\n\nError: {{ paynow_initiation_error }}"
-                }
-            },
-            "transitions": [{"to_step": "ask_payment_method", "condition_config": {"type": "always_true"}}]
-        },
-
-        # 5a. Ask for transaction reference for manual payments
-        {
-            "name": "ask_for_transaction_ref",
-            "type": "question",
-            "config": {
-                "message_config": {
-                    "message_type": "text",
-                    "text": {"body": "You've selected a manual payment. Please enter the transaction ID or receipt number for your contribution."}
-                },
-                "reply_config": {"save_to_variable": "transaction_ref", "expected_type": "text"},
-                "fallback_config": {"action": "re_prompt", "max_retries": 2, "re_prompt_message_text": "Sorry, I didn't get that. Please enter the transaction reference number.", "fallback_message_text": "Sorry, we couldn't process that. Please type 'give' to try again."}
-            },
-            "transitions": [{"to_step": "record_manual_payment_action", "condition_config": {"type": "always_true"}}]
-        },
-
-        # 5b. Handle methods that are not ready yet
-        {
-            "name": "handle_coming_soon",
-            "type": "send_message", "config": {"message_type": "text", "text": {"body": "The payment method '{{ payment_method }}' is coming soon! Please select another method for now."}},
-            "transitions": [{"to_step": "ask_payment_method", "condition_config": {"type": "always_true"}}]
-        },
-
-        # 6a. Record the manual payment using an action
-        {
-            "name": "record_manual_payment_action",
-            "type": "action",
-            "config": {
-                "actions_to_run": [{
-                    "action_type": "record_payment",
-                    "amount_template": "{{ giving_amount }}",
-                    "payment_type_template": "{{ payment_type }}",
-                    "payment_method_template": "{{ payment_method }}",
-                    "transaction_ref_template": "{{ transaction_ref|default:'' }}",
-                    "currency_template": "USD",
-                    "notes_template": "Online giving via WhatsApp flow (Manual).",
-                    "status_template": "completed"
-                }]
-            },
-            "transitions": [{"to_step": "end_giving_manual_confirmation", "condition_config": {"type": "always_true"}}]
-        },
-
-        # 6b. Confirmation for manual payment
-        {
-            "name": "end_giving_manual_confirmation",
-            "type": "send_message",
-            "config": {
-                "message_type": "text",
-                "text": {
-                    "body": "Thank you for your contribution! We have recorded your manual payment with reference '{{ transaction_ref }}'. It will be verified by our finance team."
-                }
-            },
-            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
-        },
-
-        # 7. Offer to return to menu
-        {
-            "name": "offer_return_to_menu",
-            "type": "question",
-            "config": {
-                "message_config": {
-                    "message_type": "interactive",
-                    "interactive": {
-                        "type": "button",
-                        "body": {"text": "Is there anything else I can help you with?"},
-                        "action": {
-                            "buttons": [
-                                {"type": "reply", "reply": {"id": "return_to_menu", "title": "Main Menu"}},
-                                {"type": "reply", "reply": {"id": "end_conversation", "title": "No, I'm Done"}}
-                            ]
-                        }
-                    }
-                },
-                "reply_config": {"save_to_variable": "final_choice", "expected_type": "interactive_id"}
-            },
-            "transitions": [
-                {"to_step": "switch_to_main_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}},
-                {"to_step": "end_flow_goodbye", "condition_config": {"type": "interactive_reply_id_equals", "value": "end_conversation"}}
-            ]
-        },
-        # 8. Switch back to the main menu
-        {
-            "name": "switch_to_main_menu",
-            "type": "switch_flow",
-            "config": {"target_flow_name": "main_menu"},
-            "transitions": []
-        },
-        # 9. End the flow with a simple goodbye
-        {
-            "name": "end_flow_goodbye",
-            "type": "end_flow",
-            "config": {"message_config": {"message_type": "text", "text": {"body": "You're welcome! Have a blessed day."}}},
-            "transitions": []
+                "text": {"body": "Thank you! Please check your phone and enter your EcoCash PIN to approve the payment of *${{ giving_amount }}*."}
+            }
         }
-    ]
-}
+    },
+    {
+        "name": "send_ecocash_failure_message",
+        "step_type": "send_message",
+        "config": {
+            "message_type": "text",
+            "text": {"body": "I'm sorry, there was a problem initiating the payment.\n\n*Error:* {{ paynow_initiation_error }}\n\nPlease try a different method."}
+        },
+        "transitions": [{"next_step": "ask_payment_method", "condition_config": {"type": "always_true"}}]
+    },
+
+    # --- Manual Payment Path ---
+    {
+        "name": "display_manual_payment_details",
+        "step_type": "send_message",
+        "config": {
+            "message_type": "text",
+            "text": {
+                "body": (
+                    "Thank you. Please use one of the methods below to give:\n\n"
+                    "🏦 *Bank Transfer*\n"
+                    "Bank: Steward Bank\n"
+                    "Account: 123456789\n\n"
+                    "📱 *Merchant Code*\n"
+                    "Code: *123*456*1#\n\n"
+                    "After paying, please send a screenshot as proof of payment."
+                )
+            }
+        },
+        "transitions": [{"next_step": "ask_for_pop", "condition_config": {"type": "always_true"}}]
+    },
+    {
+        "name": "ask_for_pop",
+        "step_type": "question",
+        "config": {
+            "message_config": {
+                "message_type": "text",
+                "text": {"body": "Please send the image of your proof of payment now."}
+            },
+            "reply_config": {
+                "expected_type": "image",
+                "save_to_variable": "proof_of_payment_wamid"
+            },
+            "fallback_config": {
+                "action": "re_prompt",
+                "max_retries": 2,
+                "re_prompt_message_text": "That doesn't seem to be an image. Please send a screenshot or photo of your proof of payment."
+            }
+        },
+        "transitions": [{
+            "next_step": "record_manual_payment",
+            "condition_config": {"type": "variable_exists", "variable_name": "proof_of_payment_wamid"}
+        }]
+    },
+    {
+        "name": "record_manual_payment",
+        "step_type": "action",
+        "config": {
+            "actions_to_run": [{
+                "action_type": "record_payment",
+                "amount_template": "{{ giving_amount }}",
+                "payment_type_template": "{{ payment_type }}",
+                "payment_method_template": "manual_payment",
+                "status_template": "pending_verification",
+                "notes_template": "Manual payment with proof submitted via WhatsApp.",
+                "proof_of_payment_wamid_template": "{{ proof_of_payment_wamid }}"
+            }]
+        },
+        "transitions": [{"next_step": "end_flow_after_manual", "condition_config": {"type": "always_true"}}]
+    },
+    {
+        "name": "end_flow_after_manual",
+        "step_type": "end_flow",
+        "config": {
+            "message_config": {
+                "message_type": "text",
+                "text": {"body": "Thank you! We have received your proof of payment and will verify it shortly. God bless you! 🙏"}
+            }
+        }
+    }
+]
