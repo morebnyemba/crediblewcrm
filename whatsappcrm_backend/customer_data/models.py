@@ -170,6 +170,7 @@ class Payment(models.Model):
     """
     PAYMENT_STATUS_CHOICES = [
         ('pending', _('Pending')),
+        ('pending_verification', _('Pending Verification')),
         ('completed', _('Completed')),
         ('failed', _('Failed')),
         ('refunded', _('Refunded')),
