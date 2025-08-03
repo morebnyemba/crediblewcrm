@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from conversations.models import Contact
 from .models import MemberProfile, Payment, PaymentHistory, PrayerRequest
+from .tasks import process_proof_of_payment_image
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,8 @@ def record_payment(
     currency: str = 'USD',
     payment_method: str = 'whatsapp_flow',
     transaction_ref: str = None,
-    notes: str = None
+    notes: str = None,
+    proof_of_payment_wamid: str = None
 ) -> tuple[Payment | None, dict | None]:
     """
     Creates a Payment record for a contact and an associated history entry.
@@ -30,6 +32,7 @@ def record_payment(
         payment_method: The method of payment.
         transaction_ref: An optional external transaction reference.
         notes: Optional internal notes for the payment.
+        proof_of_payment_wamid: Optional WAMID of an uploaded proof of payment image.
 
     Returns:
         A tuple of (Payment object, confirmation_action_dict), or (None, None) if an error occurred.
@@ -54,7 +57,11 @@ def record_payment(
 
             # Determine status and confirmation message based on payment method
             is_manual_payment = payment_method == 'manual_payment'
-            payment_status = 'pending' if is_manual_payment else 'completed'
+            
+            if proof_of_payment_wamid:
+                payment_status = 'pending_verification'
+            else:
+                payment_status = 'pending' if is_manual_payment else 'completed'
 
             payment = Payment.objects.create(
                 contact=contact, member=member_profile, amount=amount, currency=currency,
@@ -63,13 +70,25 @@ def record_payment(
             )
 
             history_note = f"Payment recorded via flow for contact {contact.whatsapp_id}."
-            if is_manual_payment:
+            if payment_status == 'pending_verification':
+                history_note = f"Manual payment with proof submitted via flow for contact {contact.whatsapp_id}. Awaiting verification."
+            elif is_manual_payment:
                 history_note = f"Manual payment initiated via flow for contact {contact.whatsapp_id}. Awaiting confirmation."
 
             PaymentHistory.objects.create(payment=payment, status=payment_status, notes=history_note)
             
+            # If proof of payment is provided, trigger the background download task
+            if proof_of_payment_wamid and payment:
+                process_proof_of_payment_image.delay(payment_id=str(payment.id), wamid=proof_of_payment_wamid)
+                logger.info(f"Scheduled background task to download proof of payment for payment {payment.id}.")
+
             # Create confirmation message action
-            if is_manual_payment:
+            if payment_status == 'pending_verification':
+                confirmation_message_text = (
+                    f"Thank you! We have received your proof of payment for *{amount} {currency}* "
+                    f"and will verify it shortly. God bless you! 🙏"
+                )
+            elif is_manual_payment:
                 ref_text = f" using reference: *{transaction_ref}*" if transaction_ref else ""
                 confirmation_message_text = (
                     f"Thank you for your pledge! 🙏\n\n"
