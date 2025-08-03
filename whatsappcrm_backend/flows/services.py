@@ -1486,8 +1486,60 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
     final_actions_for_meta_view = []
     for action in actions_to_perform: # actions_to_perform could be modified by switch_flow
         if action.get('type') == '_internal_command_clear_flow_state':
+            # --- FIX: Actually clear the state when the command is processed. ---
             _clear_contact_flow_state(contact)
             logger.debug(f"Contact {contact.id}: Processed internal command to clear flow state.")
+        elif action.get('type') == '_internal_command_switch_flow':
+            logger.info(f"Contact {contact.id}: Processing internal command to switch flow.")
+            
+            # Robustness: Wrap the entire flow switch in a try/except block.
+            # If switching fails, the user is not left in a broken state.
+            try:
+                _clear_contact_flow_state(contact) # Ensure old state is gone before starting new one.
+
+                new_flow_name = action.get('target_flow_name')
+                initial_context_for_new_flow = action.get('initial_context', {})
+
+                # Directly find and start the new flow
+                target_flow = Flow.objects.get(name=new_flow_name, is_active=True)
+                entry_point_step = FlowStep.objects.filter(flow=target_flow, is_entry_point=True).first()
+
+                if not entry_point_step:
+                    # This is a configuration error. The flow exists and is active, but has no entry point.
+                    raise ValueError(f"Flow '{new_flow_name}' is active but has no entry point step defined.")
+
+                logger.info(f"Contact {contact.id}: Switching to flow '{target_flow.name}' at entry step '{entry_point_step.name}'.")
+                
+                # Create the new state with the initial context from the action
+                new_contact_flow_state = ContactFlowState.objects.create(
+                    contact=contact,
+                    current_flow=target_flow,
+                    current_step=entry_point_step,
+                    flow_context_data=initial_context_for_new_flow,
+                    started_at=timezone.now()
+                )
+
+                # Execute the first step of the new flow
+                step_actions, updated_flow_context = _execute_step_actions(
+                    entry_point_step, contact, initial_context_for_new_flow.copy()
+                )
+                final_actions_for_meta_view.extend(step_actions)
+
+                # Save the context after the first step's execution
+                # Re-fetch to ensure the state wasn't cleared again by the first step
+                current_state = ContactFlowState.objects.filter(pk=new_contact_flow_state.pk).first()
+                if current_state:
+                    current_state.flow_context_data = updated_flow_context
+                    current_state.save(update_fields=['flow_context_data', 'last_updated_at'])
+                    logger.debug(f"Contact {contact.id}: Saved context after executing first step of switched flow.")
+
+            except (Flow.DoesNotExist, ValueError) as e:
+                logger.error(f"Contact {contact.id}: Failed to switch flow to '{action.get('target_flow_name')}'. Error: {e}", exc_info=True)
+                _clear_contact_flow_state(contact, error=True) # Ensure state is cleared on failure
+                final_actions_for_meta_view.append({
+                    'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text',
+                    'data': {'body': 'I seem to be having some technical difficulties. Please try again in a moment.'}
+                })
         elif action.get('type') == 'send_whatsapp_message': # Only pass valid message actions
             final_actions_for_meta_view.append(action)
         else:
