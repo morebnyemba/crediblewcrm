@@ -1356,6 +1356,7 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
         return []
 
     actions_to_perform = []
+    is_internal_message = message_data.get('type', '').startswith('internal_')
     try:
         # --- Start of Main Flow Processing Loop ---
         # This loop will continue as long as the contact is in an active flow state.
@@ -1384,6 +1385,12 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
             # --- Step 1: Process incoming message if the current step is a question ---
             is_pass_through_step = True # Assume step is pass-through unless it's a question
             if current_step.step_type == 'question' and '_question_awaiting_reply_for' in flow_context:
+                # If we've arrived at a question step via an internal transition (fallthrough/switch),
+                # we must stop and wait for the user's actual reply. We should not process the
+                # internal message as if it were a user's answer.
+                if is_internal_message:
+                    logger.debug(f"Reached question step '{current_step.name}' via internal transition. Breaking loop to await user reply.")
+                    break
                 is_pass_through_step = False # A question is NOT a pass-through step; it must wait for a reply.
                 question_expectation = flow_context['_question_awaiting_reply_for']
                 variable_to_save_name = question_expectation.get('variable_name')
@@ -1519,6 +1526,7 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
             # For subsequent automatic "fall-through" steps, we use an empty message_data.
             message_data = {'type': 'internal_fallthrough'}
             incoming_message_obj = None
+            is_internal_message = True
     except Exception as e:
         logger.error(f"Critical error in process_message_for_flow for contact {contact.whatsapp_id}: {e}", exc_info=True)
         # Clear state on unhandled error to prevent loops and allow re-triggering or human intervention
