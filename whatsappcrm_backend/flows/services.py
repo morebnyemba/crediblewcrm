@@ -322,8 +322,6 @@ class ActionItemConfig(BasePydanticConfig):
     value_template: Optional[Any] = None
     field_path: Optional[str] = None
     fields_to_update: Optional[Dict[str, Any]] = None
-    target_flow_name: Optional[str] = None
-    initial_context_template: Optional[Dict[str, Any]] = Field(default_factory=dict)
     # Fields for 'record_payment'
     amount_template: Optional[str] = None
     payment_type_template: Optional[str] = None

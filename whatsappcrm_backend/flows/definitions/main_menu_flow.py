@@ -172,37 +172,55 @@ MAIN_MENU_FLOW = {
         {
             "name": "switch_to_registration",
             "type": "switch_flow",
-            "config": {"target_flow_name": "member_registration"},
+            "config": {
+                "target_flow_name": "member_registration",
+                "trigger_keyword_to_pass": "start_registration"
+            },
             "transitions": []
         },
         {
             "name": "switch_to_prayer_request",
             "type": "switch_flow",
-            "config": {"target_flow_name": "prayer_request"},
+            "config": {
+                "target_flow_name": "prayer_request",
+                "trigger_keyword_to_pass": "start_prayer_request"
+            },
             "transitions": []
         },
         {
             "name": "switch_to_giving",
             "type": "switch_flow",
-            "config": {"target_flow_name": "giving"},
+            "config": {
+                "target_flow_name": "giving",
+                "trigger_keyword_to_pass": "start_giving"
+            },
             "transitions": []
         },
         {
             "name": "switch_to_events",
             "type": "switch_flow",
-            "config": {"target_flow_name": "view_events"},
+            "config": {
+                "target_flow_name": "view_events",
+                "trigger_keyword_to_pass": "start_events"
+            },
             "transitions": []
         },
         {
             "name": "switch_to_ministries",
             "type": "switch_flow",
-            "config": {"target_flow_name": "view_ministries"},
+            "config": {
+                "target_flow_name": "view_ministries",
+                "trigger_keyword_to_pass": "start_ministries"
+            },
             "transitions": []
         },
         {
             "name": "switch_to_sermons",
             "type": "switch_flow",
-            "config": {"target_flow_name": "view_sermons"},
+            "config": {
+                "target_flow_name": "view_sermons",
+                "trigger_keyword_to_pass": "start_sermons"
+            },
             "transitions": []
         },
 
