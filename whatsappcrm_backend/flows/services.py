@@ -1461,13 +1461,26 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                         
                         logger.info(f"Contact {contact.id}: Switching to flow '{target_flow.name}' at entry step '{entry_point_step.name}'.")
                         
-                        ContactFlowState.objects.create(
+                        new_contact_flow_state = ContactFlowState.objects.create(
                             contact=contact,
                             current_flow=target_flow,
                             current_step=entry_point_step,
                             flow_context_data=initial_context_for_new_flow,
                             started_at=timezone.now()
                         )
+
+                        # --- FIX: Manually execute the actions for the new entry point step ---
+                        # This ensures that 'action' steps at the start of a flow are run immediately
+                        # after a switch, before the loop continues to evaluate transitions.
+                        entry_actions, updated_context = _execute_step_actions(
+                            entry_point_step, contact, initial_context_for_new_flow.copy()
+                        )
+                        actions_to_perform.extend(entry_actions)
+                        
+                        # Save the context after this first execution
+                        new_contact_flow_state.flow_context_data = updated_context
+                        new_contact_flow_state.save(update_fields=['flow_context_data', 'last_updated_at'])
+                        logger.debug(f"Contact {contact.id}: Executed entry step '{entry_point_step.name}' and saved context.")
                         
                         # The message is "consumed" by the first step that uses it.
                         # For subsequent automatic steps in the new flow, we need to prevent reprocessing the original message.
