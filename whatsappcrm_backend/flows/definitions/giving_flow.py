@@ -5,11 +5,44 @@
 # - Handles manual payments with image proof of payment.
 # - Asks to reuse the contact's number for EcoCash to save typing.
 
+
 giving_flow_steps = [
+    {
+        "name": "show_giving_options",
+        "step_type": "question",
+        "is_entry_point": True,
+        "config": {
+            "message_config": {
+                "message_type": "interactive",
+                "interactive": {
+                    "type": "button",
+                    "body": {"text": "What would you like to do?"},
+                    "action": {
+                        "buttons": [
+                            {"type": "reply", "reply": {"id": "give_online", "title": "Give Online"}},
+                            {"type": "reply", "reply": {"id": "view_history", "title": "View Giving History"}},
+                            {"type": "reply", "reply": {"id": "check_status", "title": "Check Payment Status"}}
+                        ]
+                    }
+                }
+            },
+            "reply_config": {
+                "expected_type": "interactive_id",
+                "save_to_variable": "selected_giving_option"
+            }
+        },
+        "transitions": [
+            {
+                "next_step": "ask_for_amount",
+                "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}
+            },
+            # Add transitions for "view_history" and "check_status" later
+        ]
+    },
     {
         "name": "ask_for_amount",
         "step_type": "question",
-        "is_entry_point": True,
+        "is_entry_point": False,
         "config": {
             "message_config": {
                 "message_type": "text",
