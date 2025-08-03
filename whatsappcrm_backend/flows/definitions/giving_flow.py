@@ -286,11 +286,6 @@ giving_flow_steps = [
     {
         "name": "end_flow_after_manual",
         "step_type": "end_flow",
-        "config": {
-            "message_config": {
-                "message_type": "text",
-                "text": {"body": "Thank you! We have received your proof of payment and will verify it shortly. God bless you! 🙏"}
-            }
-        }
+        "config": {}
     }
 ]
