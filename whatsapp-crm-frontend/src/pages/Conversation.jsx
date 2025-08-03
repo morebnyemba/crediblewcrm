@@ -1,5 +1,6 @@
 // src/pages/ConversationsPage.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useAtom } from 'jotai';
 import { Link } from 'react-router-dom'; // If you need to link to contact details page
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import {
   FiSend, FiUser, FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertCircle, FiPaperclip, FiSmile, FiArrowLeft
 } from 'react-icons/fi';
 import { formatDistanceToNow, parseISO } from 'date-fns'; // For relative timestamps
+import { selectedContactAtom } from '@/atoms/conversationAtoms';
 
 // --- API Configuration & Helper (Should be in a shared service file) ---
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -100,7 +102,7 @@ const MessageBubble = ({ message, contactName }) => {
 
 export default function ConversationsPage() {
   const [contacts, setContacts] = useState([]);
-  const [selectedContact, setSelectedContact] = useState(null); // { id, name, whatsapp_id }
+  const [selectedContact, setSelectedContact] = useAtom(selectedContactAtom);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   
