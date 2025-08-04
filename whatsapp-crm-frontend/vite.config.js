@@ -12,26 +12,17 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  server: { // <<< ADD THIS SERVER CONFIGURATION
-    // This allows the Vite dev server to be accessed via these hostnames.
-    // Your Vite dev server typically runs on localhost:5173 (or another port).
-    // The error "Blocked request. This host ("popular-real-squirrel.ngrok-free.app") is not allowed."
-    // means that a request *to your Vite dev server* had this ngrok URL as its Host header.
-    // This is unusual if 'popular-real-squirrel.ngrok-free.app' is the ngrok URL for your *backend*.
+  server: {
+    // This configuration is for the Vite development server.
+    // The `allowedHosts` option specifies which hostnames are permitted to access the dev server.
+    // This is a security measure to prevent DNS rebinding attacks.
     //
-    // However, if you are specifically tunneling your Vite frontend dev server
-    // and 'popular-real-squirrel.ngrok-free.app' IS the public URL for your Vite frontend,
-    // then this setting is correct.
-    //
-    // If 'popular-real-squirrel.ngrok-free.app' is for your Django backend,
-    // and you access your frontend via http://localhost:5173, then requests from your
-    // frontend to the backend ngrok URL should not cause Vite to block anything.
-    // This setting only affects requests *received by* the Vite dev server.
+    // If you are using a tunneling service like ngrok to expose your local dev server
+    // and you see a "Blocked request" error, you may need to add your ngrok hostname here.
+    // e.g., 'my-tunnel.ngrok-free.app'
     allowedHosts: [
       'localhost',
       '127.0.0.1',
-      // Add the specific ngrok hostname that Vite is complaining about.
-      'popular-real-squirrel.ngrok-free.app', 
     ],
     // You can also specify the port if it's not the default 5173
     // port: 5173, 
