@@ -38,15 +38,15 @@ GIVING_FLOW = {
         },
         "transitions": [
             {
-                "next_step": "ask_for_amount",
+                "to_step": "ask_for_amount",
                 "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}
             },
             {
-                "next_step": "query_payment_history",
+                "to_step": "query_payment_history",
                 "condition_config": {"type": "interactive_reply_id_equals", "value": "view_history"}
             },
             {
-                "next_step": "query_last_payment",
+                "to_step": "query_last_payment",
                 "condition_config": {"type": "interactive_reply_id_equals", "value": "check_status"}
             }
         ]
@@ -77,7 +77,7 @@ GIVING_FLOW = {
         },
         "transitions": [
             {
-                "next_step": "ask_payment_type",
+                "to_step": "ask_payment_type",
                 "condition_config": {"type": "always_true"}
             }
         ]
@@ -107,7 +107,7 @@ GIVING_FLOW = {
         },
         "transitions": [
             {
-                "next_step": "ask_payment_method",
+                "to_step": "ask_payment_method",
                 "condition_config": {"type": "always_true"}
             }
         ]
@@ -143,14 +143,14 @@ GIVING_FLOW = {
         },
         "transitions": [
             {
-                "next_step": "confirm_whatsapp_as_ecocash",
+                "to_step": "confirm_whatsapp_as_ecocash",
                 "condition_config": {
                     "type": "interactive_reply_id_equals",
                     "value": "ecocash"
                 }
             },
             {
-                "next_step": "display_manual_payment_details",
+                "to_step": "display_manual_payment_details",
                 "condition_config": {
                     "type": "interactive_reply_id_equals",
                     "value": "manual_payment"
@@ -183,11 +183,11 @@ GIVING_FLOW = {
         },
         "transitions": [
             {
-                "next_step": "set_ecocash_from_contact",
+                "to_step": "set_ecocash_from_contact",
                 "condition_config": {"type": "interactive_reply_id_equals", "value": "yes_use_this_number"}
             },
             {
-                "next_step": "ask_ecocash_phone_number",
+                "to_step": "ask_ecocash_phone_number",
                 "condition_config": {"type": "interactive_reply_id_equals", "value": "no_use_another"}
             }
         ]
@@ -203,7 +203,7 @@ GIVING_FLOW = {
                 "value_template": "{{ '0' + contact.whatsapp_id[3:] if contact.whatsapp_id and contact.whatsapp_id.startswith('263') else contact.whatsapp_id }}"
             }]
         },
-        "transitions": [{"next_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}]
     },
     {
         "name": "ask_ecocash_phone_number",
@@ -225,7 +225,7 @@ GIVING_FLOW = {
                 "fallback_message_text": "Too many invalid attempts. Please type 'give' to restart."
             }
         },
-        "transitions": [{"next_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}]
     },
     {
         "name": "initiate_ecocash_payment",
@@ -244,11 +244,11 @@ GIVING_FLOW = {
         },
         "transitions": [
             {
-                "next_step": "send_ecocash_success_message",
+                "to_step": "send_ecocash_success_message",
                 "condition_config": {"type": "variable_equals", "variable_name": "paynow_initiation_success", "value": "True"}
             },
             {
-                "next_step": "send_ecocash_failure_message",
+                "to_step": "send_ecocash_failure_message",
                 "condition_config": {"type": "always_true"}
             }
         ]
@@ -260,7 +260,7 @@ GIVING_FLOW = {
             "message_type": "text",
             "text": {"body": "Thank you! Please check your phone and enter your EcoCash PIN to approve the payment of *${{ giving_amount }}*."}
         },
-        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
     {
         "name": "send_ecocash_failure_message",
@@ -269,7 +269,7 @@ GIVING_FLOW = {
             "message_type": "text",
             "text": {"body": "I'm sorry, there was a problem initiating the payment with Paynow. Please try again in a few moments.\n\n*Error:* {{ paynow_initiation_error }}"}
         },
-        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
 
     # --- Manual Payment Path ---
@@ -290,7 +290,7 @@ GIVING_FLOW = {
                 )
             }
         },
-        "transitions": [{"next_step": "ask_for_pop", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "ask_for_pop", "condition_config": {"type": "always_true"}}]
     },
     {
         "name": "ask_for_pop",
@@ -311,7 +311,7 @@ GIVING_FLOW = {
             }
         },
         "transitions": [{
-            "next_step": "record_manual_payment",
+            "to_step": "record_manual_payment",
             "condition_config": {"type": "variable_exists", "variable_name": "proof_of_payment_wamid"}
         }]
     },
@@ -329,7 +329,7 @@ GIVING_FLOW = {
                 "proof_of_payment_wamid_template": "{{ proof_of_payment_wamid }}"
             }]
         },
-        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
 
     # --- Path 2: View History ---
@@ -349,15 +349,15 @@ GIVING_FLOW = {
                 }
             ]
         },
-        "transitions": [{"next_step": "check_if_history_exists", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "check_if_history_exists", "condition_config": {"type": "always_true"}}]
     },
     {
         "name": "check_if_history_exists",
         "type": "action",
         "config": {"actions_to_run": []},
         "transitions": [
-            {"next_step": "display_payment_history", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "payment_history_list.0"}},
-            {"next_step": "no_payment_history_message", "priority": 20, "condition_config": {"type": "always_true"}}
+            {"to_step": "display_payment_history", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "payment_history_list.0"}},
+            {"to_step": "no_payment_history_message", "priority": 20, "condition_config": {"type": "always_true"}}
         ]
     },
     {
@@ -376,7 +376,7 @@ GIVING_FLOW = {
                 )
             }
         },
-        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
     {
         "name": "no_payment_history_message",
@@ -385,7 +385,7 @@ GIVING_FLOW = {
             "message_type": "text",
             "text": {"body": "You do not have any giving history with us yet. We look forward to your first contribution!"}
         },
-        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
 
     # --- Path 3: Check Status ---
@@ -405,15 +405,15 @@ GIVING_FLOW = {
                 }
             ]
         },
-        "transitions": [{"next_step": "check_if_last_payment_exists", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "check_if_last_payment_exists", "condition_config": {"type": "always_true"}}]
     },
     {
         "name": "check_if_last_payment_exists",
         "type": "action",
         "config": {"actions_to_run": []},
         "transitions": [
-            {"next_step": "set_last_payment_variable", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "last_payment_list.0"}},
-            {"next_step": "no_payment_history_message", "priority": 20, "condition_config": {"type": "always_true"}}
+            {"to_step": "set_last_payment_variable", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "last_payment_list.0"}},
+            {"to_step": "no_payment_history_message", "priority": 20, "condition_config": {"type": "always_true"}}
         ]
     },
     {
@@ -426,7 +426,7 @@ GIVING_FLOW = {
                 "value_template": "{{ last_payment_list[0] }}"
             }]
         },
-        "transitions": [{"next_step": "display_last_payment_status", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "display_last_payment_status", "condition_config": {"type": "always_true"}}]
     },
     {
         "name": "display_last_payment_status",
@@ -441,7 +441,7 @@ GIVING_FLOW = {
                 )
             }
         },
-        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
 
     # --- Shared End/Loop Steps ---
@@ -465,8 +465,8 @@ GIVING_FLOW = {
             "reply_config": {"save_to_variable": "final_choice", "expected_type": "interactive_id"}
         },
         "transitions": [
-            {"next_step": "show_giving_options", "condition_config": {"type": "interactive_reply_id_equals", "value": "giving_menu"}},
-            {"next_step": "switch_to_main_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "main_menu"}}
+            {"to_step": "show_giving_options", "condition_config": {"type": "interactive_reply_id_equals", "value": "giving_menu"}},
+            {"to_step": "switch_to_main_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "main_menu"}}
         ]
     },
     {
