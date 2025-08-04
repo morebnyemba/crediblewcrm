@@ -323,7 +323,7 @@ GIVING_FLOW = {
                 "action_type": "record_payment",
                 "amount_template": "{{ giving_amount }}",
                 "payment_type_template": "{{ payment_type }}",
-                "payment_method_template": "manual_payment",
+                "payment_method_template": "{{ payment_method }}",
                 "status_template": "pending_verification",
                 "notes_template": "Manual payment with proof submitted via WhatsApp.",
                 "proof_of_payment_wamid_template": "{{ proof_of_payment_wamid }}"

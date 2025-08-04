@@ -307,11 +307,19 @@ JAZZMIN_UI_TWEAKS = {
 # CELERY_RESULT_BACKEND="redis://localhost:6379/1"
 # DB_ENGINE="django.db.backends.postgresql" # Or your preferred DB
 # DB_NAME="your_db_name"
-# DB_USER="your_db_user"
-# DB_PASSWORD="your_db_password"
-# DB_HOST="localhost"
-# DB_PORT="5432"
 CONVERSATION_EXPIRY_DAYS="60"
 ADMIN_WHATSAPP_NUMBER="+263787211325"
 JWT_ACCESS_TOKEN_LIFETIME_MINUTES="60"
+CHURCH_GIVING_DETAILS = {
+    'BANK_NAME': os.getenv('CHURCH_BANK_NAME', 'Steward Bank'),
+    'ACCOUNT_NUMBER': os.getenv('CHURCH_ACCOUNT_NUMBER', '123456789'),
+    'MERCHANT_CODE': os.getenv('CHURCH_MERCHANT_CODE', '*123*456*1#'),
+    'DEFAULT_CURRENCY': os.getenv('DEFAULT_GIVING_CURRENCY', 'USD'),
+}
+
+# You can then add these to your .env file:
+# CHURCH_BANK_NAME="Steward Bank"
+# CHURCH_ACCOUNT_NUMBER="123456789"
+# CHURCH_MERCHANT_CODE="*123*456*1#"
+# DEFAULT_GIVING_CURRENCY="USD"
 JWT_REFRESH_TOKEN_LIFETIME_DAYS="7"

@@ -79,8 +79,11 @@ class PaymentAdmin(admin.ModelAdmin):
         The URL is generated dynamically from the stored path.
         """
         if obj.proof_of_payment_url:
-            full_url = default_storage.url(obj.proof_of_payment_url)
-            return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 200px; max-height: 200px;" /></a>', full_url)
+            try:
+                full_url = default_storage.url(obj.proof_of_payment_url)
+                return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 200px; max-height: 200px;" /></a>', full_url)
+            except Exception:
+                return "Error: Image file not found in storage."
         return "No proof uploaded."
     display_proof_of_payment.short_description = 'Proof of Payment'
 
@@ -114,6 +117,7 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
                 return "Error retrieving image."
         return "No proof uploaded."
     display_proof_of_payment.short_description = 'Proof of Payment'
+
 
     def _display_proof_of_payment_thumbnail_url(self, obj):
         """Helper function to get the URL for thumbnail."""
