@@ -127,10 +127,12 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
 
     def display_proof_of_payment_thumbnail(self, obj):
         """Displays a smaller thumbnail for the list view."""
-        full_url = self._display_proof_of_payment_thumbnail_url(obj)
-
-        if full_url:
-            return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 80px; max-height: 80px;" /></a>', full_url)
+        try:
+            full_url = self._display_proof_of_payment_thumbnail_url(obj)
+            if full_url:
+                return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 80px; max-height: 80px;" /></a>', full_url)
+        except Exception:
+            return "Error" # Keep it short for the list view
         return "No proof."
     display_proof_of_payment_thumbnail.short_description = 'Proof Thumbnail'
 
