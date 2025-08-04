@@ -262,6 +262,16 @@ class Payment(models.Model):
         verbose_name_plural = _("Payments")
         ordering = ['-created_at']
 
+class PendingVerificationPayment(Payment):
+    """
+    A proxy model for Payments that are pending manual verification.
+    This allows for a separate admin view to manage these specific payments.
+    """
+    class Meta:
+        proxy = True
+        verbose_name = 'Pending Manual Payment'
+        verbose_name_plural = 'Pending Manual Payments'
+
 class PaymentHistory(models.Model):
     """
     Logs the status changes for a Payment, creating an audit trail.

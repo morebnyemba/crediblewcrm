@@ -250,7 +250,7 @@ JAZZMIN_SETTINGS = {
     "site_logo_classes": "img-circle",
     # Path to logo, relative to static files.
     # It should not include /static/ in the path.
-    "site_logo": "img/logo.png",
+    "site_logo": "/admin/img/logo.png",
     "welcome_sign": "Welcome to the AutoWhatsapp Admin",
     "copyright": "Slyker Tech Web Services.",
     "search_model": ["auth.User", "meta_integration.MetaAppConfig", "conversations.Contact", "flows.Flow"],
@@ -275,6 +275,7 @@ JAZZMIN_SETTINGS = {
         "customer_data": "fas fa-church",
         "customer_data.Family": "fas fa-users",
         "customer_data.MemberProfile": "fas fa-user-tag",
+        "customer_data.PendingVerificationPayment": "fas fa-check-double",
     },
     "default_icon_parents": "fas fa-chevron-circle-right",
     "default_icon_children": "fas fa-circle",

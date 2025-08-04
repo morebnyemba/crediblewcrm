@@ -1,7 +1,7 @@
 # whatsappcrm_backend/customer_data/admin.py
 
 from django.contrib import admin
-from .models import Family, MemberProfile, Payment, PaymentHistory, PrayerRequest
+from .models import Family, MemberProfile, Payment, PaymentHistory, PrayerRequest, PendingVerificationPayment
 from django.utils.html import format_html
 from django.core.files.storage import default_storage
 
@@ -83,6 +83,52 @@ class PaymentAdmin(admin.ModelAdmin):
             return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 200px; max-height: 200px;" /></a>', full_url)
         return "No proof uploaded."
     display_proof_of_payment.short_description = 'Proof of Payment'
+
+
+@admin.register(PendingVerificationPayment)
+class PendingVerificationPaymentAdmin(admin.ModelAdmin):
+    """
+    Admin view specifically for verifying manual payments that are in 'pending_verification' status.
+    """
+    list_display = ('id', 'member', 'contact', 'amount', 'currency', 'payment_type', 'created_at', 'display_proof_of_payment_thumbnail')
+    list_filter = ('payment_type', 'currency')
+    search_fields = ('id', 'member__first_name', 'member__last_name', 'contact__whatsapp_id')
+    readonly_fields = (
+        'id', 'created_at', 'updated_at', 'display_proof_of_payment', 'member', 'contact',
+        'amount', 'currency', 'payment_type', 'payment_method', 'notes', 'status'
+    )
+    actions = ['verify_selected_payments']
+    list_per_page = 25
+
+    def get_queryset(self, request):
+        # Filter to only show payments pending verification
+        return super().get_queryset(request).filter(status='pending_verification')
+
+    def display_proof_of_payment(self, obj):
+        """Displays the proof of payment image as a large, clickable thumbnail in the detail view."""
+        if obj.proof_of_payment_url:
+            full_url = default_storage.url(obj.proof_of_payment_url)
+            return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 400px; max-height: 400px;" /></a>', full_url)
+        return "No proof uploaded."
+    display_proof_of_payment.short_description = 'Proof of Payment'
+
+    def display_proof_of_payment_thumbnail(self, obj):
+        """Displays a smaller thumbnail for the list view."""
+        if obj.proof_of_payment_url:
+            full_url = default_storage.url(obj.proof_of_payment_url)
+            return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 80px; max-height: 80px;" /></a>', full_url)
+        return "No proof."
+    display_proof_of_payment_thumbnail.short_description = 'Proof Thumbnail'
+
+    @admin.action(description='Mark selected payments as verified (Completed)')
+    def verify_selected_payments(self, request, queryset):
+        for payment in queryset:
+            payment.status = 'completed'
+            payment.save(update_fields=['status']) # The model's save() method handles history creation
+        self.message_user(request, f'{queryset.count()} payments were successfully marked as completed.')
+
+    def has_add_permission(self, request): return False
+    def has_delete_permission(self, request, obj=None): return False
 
 
 @admin.register(PaymentHistory)
