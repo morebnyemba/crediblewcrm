@@ -39,18 +39,23 @@ def record_payment(
     Returns:
         A tuple of (Payment object, confirmation_action_dict), or (None, None) if an error occurred.
     """
+    logger.info(
+        f"Attempting to record payment for contact {contact.id} ({contact.whatsapp_id}). "
+        f"Amount: '{amount_str}', Type: '{payment_type}', Method: '{payment_method}', "
+        f"Status: '{status}', WAMID: '{proof_of_payment_wamid}'"
+    )
     try:
         amount = Decimal(amount_str)
         if amount <= 0:
-            logger.warning(f"Attempted to record a non-positive payment amount ({amount}) for contact {contact.id}. Aborting.")
+            logger.warning(f"Attempted to record a non-positive payment amount ({amount}) for contact {contact.id} ({contact.whatsapp_id}). Aborting.")
             return None, None
     except (InvalidOperation, TypeError):
-        logger.error(f"Invalid amount '{amount_str}' provided for payment for contact {contact.id}. Cannot convert to Decimal.")
+        logger.error(f"Invalid amount '{amount_str}' provided for payment for contact {contact.id} ({contact.whatsapp_id}). Cannot convert to Decimal.")
         return None, None
 
     valid_payment_types = [choice[0] for choice in Payment.PAYMENT_TYPE_CHOICES]
     if payment_type not in valid_payment_types:
-        logger.warning(f"Invalid payment_type '{payment_type}' for contact {contact.id}. Defaulting to 'other'.")
+        logger.warning(f"Invalid payment_type '{payment_type}' for contact {contact.id} ({contact.whatsapp_id}). Defaulting to 'other'.")
         payment_type = 'other'
 
     try:
@@ -66,6 +71,11 @@ def record_payment(
                 else:
                     payment_status = 'pending' if is_manual_payment else 'completed'
 
+            logger.debug(
+                f"Creating Payment object for contact {contact.id} with: "
+                f"Amount={amount}, Currency={currency}, Type={payment_type}, "
+                f"Method={payment_method}, Status={payment_status}"
+            )
             payment = Payment.objects.create(
                 contact=contact, member=member_profile, amount=amount, currency=currency,
                 payment_type=payment_type, payment_method=payment_method,
@@ -111,10 +121,10 @@ def record_payment(
                 'data': {'body': confirmation_message_text}
             }
 
-            logger.info(f"Successfully recorded payment {payment.id} of {amount} {currency} for contact {contact.id}. Status: {payment_status}")
+            logger.info(f"Successfully recorded payment {payment.id} of {amount} {currency} for contact {contact.id} ({contact.whatsapp_id}). Status: {payment_status}")
             return payment, confirmation_action
     except Exception as e:
-        logger.error(f"Failed to record payment for contact {contact.id}. Error: {e}", exc_info=True)
+        logger.error(f"Failed to record payment for contact {contact.id} ({contact.whatsapp_id}). Error: {e}", exc_info=True)
         return None, None
 
 def record_prayer_request(
