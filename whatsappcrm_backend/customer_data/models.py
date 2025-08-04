@@ -217,12 +217,12 @@ class Payment(models.Model):
         help_text=_("Data from external payment gateways, like Paynow poll_url or reference.")
     )
     notes = models.TextField(_("Notes"), blank=True, null=True, help_text="Internal notes about the payment.")
-    proof_of_payment_url = models.CharField(
-        _("Proof of Payment Path"),
-        max_length=1024,
+    proof_of_payment = models.ImageField(
+        _("Proof of Payment"),
+        upload_to='payment_proofs/%Y/%m/',
         blank=True,
         null=True,
-        help_text=_("Path to the uploaded proof of payment image in storage.")
+        help_text=_("The uploaded proof of payment image.")
     )
     
     created_at = models.DateTimeField(auto_now_add=True)
