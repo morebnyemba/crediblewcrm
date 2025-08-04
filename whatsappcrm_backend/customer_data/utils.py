@@ -91,7 +91,11 @@ def record_payment(
             
             # If proof of payment is provided, trigger the background download task
             if proof_of_payment_wamid and payment:
-                process_proof_of_payment_image.delay(payment_id=str(payment.id), wamid=proof_of_payment_wamid)
+                # Use transaction.on_commit to ensure the task runs only after the payment record is committed to the DB.
+                # This prevents a race condition where the Celery worker picks up the task before the transaction is complete.
+                transaction.on_commit(
+                    lambda: process_proof_of_payment_image.delay(payment_id=str(payment.id), wamid=proof_of_payment_wamid)
+                )
                 logger.info(f"Scheduled background task to download proof of payment for payment {payment.id}.")
 
             # Create confirmation message action
