@@ -105,17 +105,27 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
         return super().get_queryset(request).filter(status='pending_verification')
 
     def display_proof_of_payment(self, obj):
-        """Displays the proof of payment image as a large, clickable thumbnail in the detail view."""
+        """Displays the proof of payment image as a large, clickable thumbnail in the detail view. Prevents errors from missing files"""
         if obj.proof_of_payment_url:
-            full_url = default_storage.url(obj.proof_of_payment_url)
-            return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 400px; max-height: 400px;" /></a>', full_url)
+            try:
+                full_url = default_storage.url(obj.proof_of_payment_url)
+                return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 400px; max-height: 400px;" /></a>', full_url)
+            except Exception:
+                return "Error retrieving image."
         return "No proof uploaded."
     display_proof_of_payment.short_description = 'Proof of Payment'
 
+    def _display_proof_of_payment_thumbnail_url(self, obj):
+        """Helper function to get the URL for thumbnail."""
+        if obj.proof_of_payment_url:
+            return default_storage.url(obj.proof_of_payment_url)
+        return None
+
     def display_proof_of_payment_thumbnail(self, obj):
         """Displays a smaller thumbnail for the list view."""
-        if obj.proof_of_payment_url:
-            full_url = default_storage.url(obj.proof_of_payment_url)
+        full_url = self._display_proof_of_payment_thumbnail_url(obj)
+
+        if full_url:
             return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 80px; max-height: 80px;" /></a>', full_url)
         return "No proof."
     display_proof_of_payment_thumbnail.short_description = 'Proof Thumbnail'

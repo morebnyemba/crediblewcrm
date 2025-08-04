@@ -28,6 +28,7 @@ def process_proof_of_payment_image(self, payment_id: str, wamid: str):
         logger.info(f"Payment {payment_id} already has a proof of payment URL. Skipping download.")
         return f"Proof of payment already exists for Payment {payment_id}."
 
+    # Get active Meta App Config
     try:
         config = MetaAppConfig.objects.get_active_config()
     except (MetaAppConfig.DoesNotExist, MetaAppConfig.MultipleObjectsReturned) as e:
@@ -35,16 +36,21 @@ def process_proof_of_payment_image(self, payment_id: str, wamid: str):
         self.retry(exc=e)
 
     logger.info(f"Starting download of proof of payment for Payment {payment_id} (WAMID: {wamid}).")
+
+    # Attempt to download the WhatsApp media
     download_result = download_whatsapp_media(wamid, config)
 
+    # Check download
     if not download_result:
         logger.error(f"Failed to download media for WAMID {wamid} for payment {payment_id}. Retrying.")
         self.retry()
 
+    # Extract information
     image_bytes, mime_type = download_result
     
+    # Create a unique filename
     file_extension = mime_type.split('/')[-1] if mime_type and '/' in mime_type else 'jpg'
-    safe_extension = ''.join(c for c in file_extension if c.isalnum())
+    safe_extension = ''.join(c for c in file_extension if c.isalnum()) # Sanitize file extention
     filename = f"payment_proofs/{payment.created_at.year}/{payment.created_at.month}/{payment_id}.{safe_extension}"
 
     try:
