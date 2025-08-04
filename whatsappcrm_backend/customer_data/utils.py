@@ -19,7 +19,8 @@ def record_payment(
     payment_method: str = 'whatsapp_flow',
     transaction_ref: str = None,
     notes: str = None,
-    proof_of_payment_wamid: str = None
+    proof_of_payment_wamid: str = None,
+    status: str = None
 ) -> tuple[Payment | None, dict | None]:
     """
     Creates a Payment record for a contact and an associated history entry.
@@ -33,6 +34,7 @@ def record_payment(
         transaction_ref: An optional external transaction reference.
         notes: Optional internal notes for the payment.
         proof_of_payment_wamid: Optional WAMID of an uploaded proof of payment image.
+        status: Optional status to set for the payment. If not provided, it's inferred.
 
     Returns:
         A tuple of (Payment object, confirmation_action_dict), or (None, None) if an error occurred.
@@ -56,19 +58,19 @@ def record_payment(
             member_profile = MemberProfile.objects.filter(contact=contact).first()
 
             # Determine status and confirmation message based on payment method
+            payment_status = status
             is_manual_payment = payment_method == 'manual_payment'
-            
-            if proof_of_payment_wamid:
-                payment_status = 'pending_verification'
-            else:
-                payment_status = 'pending' if is_manual_payment else 'completed'
+            if not payment_status:
+                if proof_of_payment_wamid:
+                    payment_status = 'pending_verification'
+                else:
+                    payment_status = 'pending' if is_manual_payment else 'completed'
 
             payment = Payment.objects.create(
                 contact=contact, member=member_profile, amount=amount, currency=currency,
                 payment_type=payment_type, payment_method=payment_method,
                 status=payment_status, transaction_reference=transaction_ref, notes=notes
             )
-
             history_note = f"Payment recorded via flow for contact {contact.whatsapp_id}."
             if payment_status == 'pending_verification':
                 history_note = f"Manual payment with proof submitted via flow for contact {contact.whatsapp_id}. Awaiting verification."

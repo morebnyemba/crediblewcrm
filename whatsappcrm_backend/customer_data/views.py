@@ -3,6 +3,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
 from django.http import Http404
 
 
@@ -64,6 +65,16 @@ class MemberProfileViewSet(viewsets.ModelViewSet):
     # or created on first update/get. If you want an explicit POST to /profiles/
     # to create one (expecting contact_id in payload), that's also possible.
     # The get_or_create in get_object handles on-demand creation for GET/PUT/PATCH.
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def paynow_ipn_webhook(request):
+    # This view will handle the Instant Payment Notification from Paynow.
+    # For now, it just logs the request and returns a 200 OK.
+    # You will need to implement the logic to process the IPN data.
+    logger.info(f"Paynow IPN received: {request.data}")
+    return Response(status=status.HTTP_200_OK)
+
 
 class FamilyViewSet(viewsets.ModelViewSet):
     """

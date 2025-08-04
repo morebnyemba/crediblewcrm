@@ -1,7 +1,7 @@
 # whatsappcrm_backend/customer_data/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import MemberProfileViewSet, FamilyViewSet
+from .views import MemberProfileViewSet, FamilyViewSet, paynow_ipn_webhook
 
 app_name = 'customer_data_api'
 
@@ -12,4 +12,5 @@ router.register(r'families', FamilyViewSet, basename='family')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('paynow-ipn/', paynow_ipn_webhook, name='paynow-ipn-webhook'),
 ]
