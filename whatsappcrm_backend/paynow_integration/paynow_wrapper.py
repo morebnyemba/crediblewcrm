@@ -74,8 +74,8 @@ class PaynowSDK: # This class will wrap the official Paynow SDK
                 return {"success": False, "message": f"Paynow error: {str(error_message)}"} # Ensure it's a string
 
         except Exception as e:
-            logger.error(f"PaynowSDK: Unexpected error during Express Checkout initiation: {e}", exc_info=True)
-            return {"success": False, "message": f"Internal error processing payment: {e}"}
+            logger.error(f"PaynowSDK: Unexpected error during Express Checkout initiation: {str(e)}", exc_info=True)
+            return {"success": False, "message": f"Internal error processing payment: {str(e)}"}
 
     def verify_ipn_callback(self, ipn_data: Dict[str, str]) -> bool:
         """
@@ -112,5 +112,5 @@ class PaynowSDK: # This class will wrap the official Paynow SDK
                 "message": status_response.status # Use the status as a message
             }
         except Exception as e:
-            logger.error(f"PaynowSDK: Error checking transaction status for {poll_url}: {e}", exc_info=True)
-            return {"success": False, "message": f"Error checking status: {e}"}
+            logger.error(f"PaynowSDK: Error checking transaction status for {poll_url}: {str(e)}", exc_info=True)
+            return {"success": False, "message": f"Error checking status: {str(e)}"}

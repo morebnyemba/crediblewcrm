@@ -71,7 +71,7 @@ class PaynowService:
             return result
         except Exception as e: # Catch any unexpected exceptions from the SDK call
             logger.error(f"Error during Paynow SDK initiate_express_checkout for reference {reference}: {type(e).__name__}: {e}", exc_info=True)
-            return {"success": False, "message": f"Paynow initiation failed: {type(e).__name__} - {e}"}
+            return {"success": False, "message": f"Paynow initiation failed: {type(e).__name__} - {str(e)}"}
     
     def check_transaction_status(self, poll_url: str) -> Dict[str, Any]:
         """
@@ -90,7 +90,7 @@ class PaynowService:
             return result
         except Exception as e:
             logger.error(f"Error during Paynow SDK check_transaction_status for {poll_url}: {type(e).__name__}: {e}", exc_info=True)
-            return {"success": False, "message": f"Error checking status: {type(e).__name__} - {e}"}
+            return {"success": False, "message": f"Error checking status: {type(e).__name__} - {str(e)}"}
 
     def verify_ipn_hash(self, ipn_data: Dict[str, Any]) -> bool:
         """
