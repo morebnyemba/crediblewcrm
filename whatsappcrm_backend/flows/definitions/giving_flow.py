@@ -6,8 +6,14 @@
 # - Asks to reuse the contact's number for EcoCash to save typing.
 
 
-giving_flow_steps = [
-    {
+GIVING_FLOW = {
+    "name": "giving",
+    "friendly_name": "Online Giving",
+    "description": "Handles online and manual giving, including EcoCash and proof of payment uploads.",
+    "trigger_keywords": ["give", "giving", "offering", "tithe", "start_giving"],
+    "is_active": True,
+    "steps": [
+        {
         "name": "show_giving_options",
         "step_type": "question",
         "is_entry_point": True,
@@ -35,8 +41,7 @@ giving_flow_steps = [
             {
                 "next_step": "ask_for_amount",
                 "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}
-            },
-            # Add transitions for "view_history" and "check_status" later
+            }
         ]
     },
     {
@@ -52,7 +57,7 @@ giving_flow_steps = [
             },
             "reply_config": {
                 "expected_type": "number",
-                "validation_regex": "^\\d+(\\.\\d{1,2})?$",
+                "validation_regex": "^(0(\\.\\d{1,2})?|[1-9]\\d*(\\.\\d{1,2})?)$",
                 "save_to_variable": "giving_amount"
             },
             "fallback_config": {
@@ -65,7 +70,7 @@ giving_flow_steps = [
         "transitions": [
             {
                 "next_step": "ask_payment_type",
-                "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}
+                "condition_config": {"type": "always_true"}
             }
         ]
     },
@@ -354,4 +359,5 @@ giving_flow_steps = [
         "step_type": "end_flow",
         "config": {}
     }
-]
+    ]
+}
