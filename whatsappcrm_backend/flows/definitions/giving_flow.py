@@ -1,15 +1,14 @@
 # whatsappcrm_backend/flows/definitions/giving_flow.py
 
-# A more robust and user-friendly giving flow.
-# - Handles automated Paynow payments for EcoCash.
-# - Handles manual payments with image proof of payment.
-# - Asks to reuse the contact's number for EcoCash to save typing.
-
+"""
+A comprehensive giving flow that allows users to give online, view their
+contribution history, and check the status of their last payment.
+"""
 
 GIVING_FLOW = {
     "name": "giving",
     "friendly_name": "Online Giving",
-    "description": "Handles online and manual giving, including EcoCash and proof of payment uploads.",
+    "description": "Handles online and manual giving, viewing history, and checking status.",
     "trigger_keywords": ["give", "giving", "offering", "tithe", "start_giving"],
     "is_active": True,
     "steps": [
@@ -22,7 +21,7 @@ GIVING_FLOW = {
                 "message_type": "interactive",
                 "interactive": {
                     "type": "button",
-                    "body": {"text": "What would you like to do?"},
+                    "body": {"text": "Welcome to the Giving section. What would you like to do?"},
                     "action": {
                         "buttons": [
                             {"type": "reply", "reply": {"id": "give_online", "title": "Give Online"}},
@@ -41,13 +40,22 @@ GIVING_FLOW = {
             {
                 "next_step": "ask_for_amount",
                 "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}
+            },
+            {
+                "next_step": "query_payment_history",
+                "condition_config": {"type": "interactive_reply_id_equals", "value": "view_history"}
+            },
+            {
+                "next_step": "query_last_payment",
+                "condition_config": {"type": "interactive_reply_id_equals", "value": "check_status"}
             }
         ]
     },
+
+    # --- Path 1: Give Online ---
     {
         "name": "ask_for_amount",
         "step_type": "question",
-        "is_entry_point": False,
         "config": {
             "message_config": {
                 "message_type": "text",
@@ -191,53 +199,11 @@ GIVING_FLOW = {
             "actions_to_run": [{
                 "action_type": "set_context_variable",
                 "variable_name": "ecocash_phone_number",
-                "value_template": "{{ contact.whatsapp_id }}"
+                # This template converts '2637...' to '07...'
+                "value_template": "{{ '0' + contact.whatsapp_id[3:] if contact.whatsapp_id and contact.whatsapp_id.startswith('263') else contact.whatsapp_id }}"
             }]
         },
-        "transitions": [{"next_step": "validate_ecocash_number", "condition_config": {"type": "always_true"}}]
-    },
-    {
-        "name": "ask_ecocash_phone_number",
-        "step_type": "question",
-        "config": {
-            "message_config": {
-                "message_type": "text",
-                "text": {"body": "Please enter the 10-digit EcoCash number you will be using to pay (e.g., 0772123456)."}
-            },
-            "reply_config": {
-                "expected_type": "text",
-                "save_to_variable": "ecocash_phone_number",
-                "validation_regex": "^(07[78])\\d{7}$"
-            },
-            "fallback_config": {
-                "action": "re_prompt",
-                "max_retries": 2,
-                "re_prompt_message_text": "That doesn't look like a valid Zimbabwean mobile number. Please enter a 10-digit number starting with 077 or 078.",
-                "fallback_message_text": "Too many invalid attempts. Please type 'give' to restart."
-            }
-        },
-        "transitions": [{"next_step": "validate_ecocash_number", "condition_config": {"type": "always_true"}}]
-    },
-        {
-        "name": "validate_ecocash_number",
-        "step_type": "action",
-        "config": {
-            "actions_to_run": [{
-                "action_type": "validate_phone_number",
-                "variable_name": "ecocash_phone_number",
-                "country_code": "ZW"
-            }]
-        },
-        "transitions": [
-            {
-                "next_step": "initiate_ecocash_payment",
-                "condition_config": {"type": "variable_equals", "variable_name": "is_valid_number", "value": "True"}
-            },
-            {
-                "next_step": "send_invalid_number_message",
-                "condition_config": {"type": "variable_equals", "variable_name": "is_valid_number", "value": "False"}
-            }
-        ]
+        "transitions": [{"next_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}]
     },
     {
         "name": "initiate_ecocash_payment",
@@ -260,7 +226,7 @@ GIVING_FLOW = {
                 "condition_config": {"type": "variable_equals", "variable_name": "paynow_initiation_success", "value": "True"}
             },
             {
-                "next_step": "send_payment_failure_message",
+                "next_step": "send_ecocash_failure_message",
                 "condition_config": {"type": "always_true"}
             }
         ]
@@ -273,26 +239,19 @@ GIVING_FLOW = {
                 "message_type": "text",
                 "text": {"body": "Thank you! Please check your phone and enter your EcoCash PIN to approve the payment of *${{ giving_amount }}*."}
             }
-        }
+        },
+        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
     {
-        "name": "send_invalid_number_message",
+        "name": "send_ecocash_failure_message",
         "step_type": "send_message",
         "config": {
-            "message_type": "text",
-            "text": {"body": "Sorry, that's not a valid Zimbabwean number. Please enter a 10-digit number starting with 077 or 078."}
+            "message_config": {
+                "message_type": "text",
+                "text": {"body": "I'm sorry, there was a problem initiating the payment with Paynow. Please try again in a few moments.\n\n*Error:* {{ paynow_initiation_error }}"}
+            }
         },
-        "transitions": [{"next_step": "ask_payment_method", "condition_config": {"type": "always_true"}}]
-    },
-    {
-        "name": "send_payment_failure_message",
-        "step_type": "send_message",
-        "config": {
-            "message_type": "text",
-            "text": {"body": "I'm sorry, there was a problem initiating the payment with Paynow. Please try again in a few moments.\n\n*Error:* {{ paynow_initiation_error }}"}
-        },
-
-        "transitions": [{"next_step": "ask_payment_method", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
 
     # --- Manual Payment Path ---
@@ -300,17 +259,19 @@ GIVING_FLOW = {
         "name": "display_manual_payment_details",
         "step_type": "send_message",
         "config": {
-            "message_type": "text",
-            "text": {
-                "body": (
-                    "Thank you. Please use one of the methods below to give:\n\n"
-                    "🏦 *Bank Transfer*\n"
-                    "Bank: Steward Bank\n"
-                    "Account: 123456789\n\n"
-                    "📱 *Merchant Code*\n"
-                    "Code: *123*456*1#\n\n"
-                    "After paying, please send a screenshot as proof of payment."
-                )
+            "message_config": {
+                "message_type": "text",
+                "text": {
+                    "body": (
+                        "Thank you. Please use one of the methods below to give:\n\n"
+                        "🏦 *Bank Transfer*\n"
+                        "Bank: Steward Bank\n"
+                        "Account: 123456789\n\n"
+                        "📱 *Merchant Code*\n"
+                        "Code: *123*456*1#\n\n"
+                        "After paying, please send a screenshot as proof of payment."
+                    )
+                }
             }
         },
         "transitions": [{"next_step": "ask_for_pop", "condition_config": {"type": "always_true"}}]
@@ -352,12 +313,157 @@ GIVING_FLOW = {
                 "proof_of_payment_wamid_template": "{{ proof_of_payment_wamid }}"
             }]
         },
-        "transitions": [{"next_step": "end_flow_after_manual", "condition_config": {"type": "always_true"}}]
+        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+    },
+
+    # --- Path 2: View History ---
+    {
+        "name": "query_payment_history",
+        "step_type": "action",
+        "config": {
+            "actions_to_run": [
+                {
+                    "action_type": "query_model",
+                    "app_label": "customer_data",
+                    "model_name": "Payment",
+                    "variable_name": "payment_history_list",
+                    "filters_template": {"contact_id": "{{ contact.id }}"},
+                    "order_by": ["-created_at"],
+                    "limit": 5
+                }
+            ]
+        },
+        "transitions": [{"next_step": "check_if_history_exists", "condition_config": {"type": "always_true"}}]
     },
     {
-        "name": "end_flow_after_manual",
-        "step_type": "end_flow",
-        "config": {}
+        "name": "check_if_history_exists",
+        "step_type": "action",
+        "config": {"actions_to_run": []},
+        "transitions": [
+            {"next_step": "display_payment_history", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "payment_history_list.0"}},
+            {"next_step": "no_payment_history_message", "priority": 20, "condition_config": {"type": "always_true"}}
+        ]
+    },
+    {
+        "name": "display_payment_history",
+        "step_type": "send_message",
+        "config": {
+            "message_config": {
+                "message_type": "text",
+                "text": {
+                    "body": (
+                        "Here are your last {{ payment_history_list|length }} contributions:\n\n"
+                        "{% for payment in payment_history_list %}"
+                        "🗓️ *{{ payment.created_at|strftime('%b %d, %Y') }}:* ${{ payment.amount }} ({{ payment.payment_type|title }})\n"
+                        "Status: *{{ payment.status|replace('_', ' ')|title }}*\n"
+                        "{% if not loop.last %}---\n{% endif %}"
+                        "{% endfor %}"
+                    )
+                }
+            }
+        },
+        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+    },
+    {
+        "name": "no_payment_history_message",
+        "step_type": "send_message",
+        "config": {
+            "message_config": {
+                "message_type": "text",
+                "text": {"body": "You do not have any giving history with us yet. We look forward to your first contribution!"}
+            }
+        },
+        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+    },
+
+    # --- Path 3: Check Status ---
+    {
+        "name": "query_last_payment",
+        "step_type": "action",
+        "config": {
+            "actions_to_run": [
+                {
+                    "action_type": "query_model",
+                    "app_label": "customer_data",
+                    "model_name": "Payment",
+                    "variable_name": "last_payment_list",
+                    "filters_template": {"contact_id": "{{ contact.id }}"},
+                    "order_by": ["-created_at"],
+                    "limit": 1
+                }
+            ]
+        },
+        "transitions": [{"next_step": "check_if_last_payment_exists", "condition_config": {"type": "always_true"}}]
+    },
+    {
+        "name": "check_if_last_payment_exists",
+        "step_type": "action",
+        "config": {"actions_to_run": []},
+        "transitions": [
+            {"next_step": "set_last_payment_variable", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "last_payment_list.0"}},
+            {"next_step": "no_payment_history_message", "priority": 20, "condition_config": {"type": "always_true"}}
+        ]
+    },
+    {
+        "name": "set_last_payment_variable",
+        "step_type": "action",
+        "config": {
+            "actions_to_run": [{
+                "action_type": "set_context_variable",
+                "variable_name": "last_payment",
+                "value_template": "{{ last_payment_list[0] }}"
+            }]
+        },
+        "transitions": [{"next_step": "display_last_payment_status", "condition_config": {"type": "always_true"}}]
+    },
+    {
+        "name": "display_last_payment_status",
+        "step_type": "send_message",
+        "config": {
+            "message_config": {
+                "message_type": "text",
+                "text": {
+                    "body": (
+                        "Here is the status of your most recent contribution:\n\n"
+                        "🗓️ *{{ last_payment.created_at|strftime('%b %d, %Y') }}:* ${{ last_payment.amount }} ({{ last_payment.payment_type|title }})\n"
+                        "Status: *{{ last_payment.status|replace('_', ' ')|title }}*"
+                    )
+                }
+            }
+        },
+        "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+    },
+
+    # --- Shared End/Loop Steps ---
+    {
+        "name": "offer_return_to_menu",
+        "step_type": "question",
+        "config": {
+            "message_config": {
+                "message_type": "interactive",
+                "interactive": {
+                    "type": "button",
+                    "body": {"text": "Is there anything else I can help you with in the giving section?"},
+                    "action": {
+                        "buttons": [
+                            {"type": "reply", "reply": {"id": "giving_menu", "title": "Giving Menu"}},
+                            {"type": "reply", "reply": {"id": "main_menu", "title": "Main Menu"}}
+                        ]
+                    }
+                }
+            },
+            "reply_config": {"save_to_variable": "final_choice", "expected_type": "interactive_id"}
+        },
+        "transitions": [
+            {"next_step": "show_giving_options", "condition_config": {"type": "interactive_reply_id_equals", "value": "giving_menu"}},
+            {"next_step": "switch_to_main_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "main_menu"}}
+        ]
+    },
+    {
+        "name": "switch_to_main_menu",
+        "step_type": "switch_flow",
+        "config": {"target_flow_name": "main_menu"},
+        "transitions": []
     }
     ]
 }
