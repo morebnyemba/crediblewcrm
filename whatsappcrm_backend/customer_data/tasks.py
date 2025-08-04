@@ -3,6 +3,7 @@
 import logging
 from celery import shared_task
 from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from uuid import UUID
 
 from .models import Payment
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 def process_proof_of_payment_image(self, payment_id: str, wamid: str):
     """
     Celery task to download a proof of payment image from WhatsApp
-    and attach it to a Payment record.
+    and save its URL to a Payment record.
     """
     try:
         payment = Payment.objects.get(id=UUID(payment_id))
@@ -23,8 +24,8 @@ def process_proof_of_payment_image(self, payment_id: str, wamid: str):
         logger.error(f"process_proof_of_payment_image: Payment with ID {payment_id} not found. Task will not be retried.")
         return f"Payment not found: {payment_id}"
 
-    if payment.proof_of_payment:
-        logger.info(f"Payment {payment_id} already has a proof of payment. Skipping download.")
+    if payment.proof_of_payment_url:
+        logger.info(f"Payment {payment_id} already has a proof of payment URL. Skipping download.")
         return f"Proof of payment already exists for Payment {payment_id}."
 
     try:
@@ -41,3 +42,17 @@ def process_proof_of_payment_image(self, payment_id: str, wamid: str):
         self.retry()
 
     image_bytes, mime_type = download_result
+    
+    file_extension = mime_type.split('/')[-1] if mime_type and '/' in mime_type else 'jpg'
+    safe_extension = ''.join(c for c in file_extension if c.isalnum())
+    filename = f"payment_proofs/{payment.created_at.year}/{payment.created_at.month}/{payment_id}.{safe_extension}"
+
+    try:
+        path = default_storage.save(filename, ContentFile(image_bytes))
+        file_url = default_storage.url(path)
+        payment.proof_of_payment_url = file_url
+        payment.save(update_fields=['proof_of_payment_url', 'updated_at'])
+        logger.info(f"Successfully saved proof of payment for Payment {payment_id} at URL: {file_url}")
+    except Exception as e:
+        logger.error(f"Failed to save proof of payment file for payment {payment_id}. Error: {e}", exc_info=True)
+        self.retry(exc=e)
