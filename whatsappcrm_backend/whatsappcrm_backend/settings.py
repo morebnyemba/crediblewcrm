@@ -251,8 +251,8 @@ JAZZMIN_SETTINGS = {
     # Path to logo, relative to static files.
     # It should not include /static/ in the path.
     "site_logo": "/admin/img/logo.png",
-    "welcome_sign": "Welcome to the AutoWhatsapp Admin",
-    "copyright": "Slyker Tech Web Services.",
+    "welcome_sign": "Welcome to the AutoWhats Admin",
+    "copyright": "Slyker Tech Web Services and Patners.",
     "search_model": ["auth.User", "meta_integration.MetaAppConfig", "conversations.Contact", "flows.Flow"],
     "user_avatar": None,
     "topmenu_links": [
@@ -311,7 +311,7 @@ JAZZMIN_UI_TWEAKS = {
 # DB_PASSWORD="your_db_password"
 # DB_HOST="localhost"
 # DB_PORT="5432"
-# CONVERSATION_EXPIRY_DAYS="60"
-# ADMIN_WHATSAPP_NUMBER="your_admin_whatsapp_number"
-# JWT_ACCESS_TOKEN_LIFETIME_MINUTES="60"
-# JWT_REFRESH_TOKEN_LIFETIME_DAYS="7"
+CONVERSATION_EXPIRY_DAYS="60"
+ADMIN_WHATSAPP_NUMBER="+263787211325"
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES="60"
+JWT_REFRESH_TOKEN_LIFETIME_DAYS="7"
