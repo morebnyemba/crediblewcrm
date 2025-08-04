@@ -67,7 +67,7 @@ class PaymentAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Transaction Details', {'fields': ('id', 'status', 'amount', 'currency', 'payment_type', 'payment_method')}),
         ('Associated Parties', {'fields': ('member', 'contact')}),
-        ('References & Proof', {'fields': ('transaction_reference', 'proof_of_payment', 'notes')}),
+        ('References & Proof', {'fields': ('transaction_reference', 'proof_of_payment_url', 'notes')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
     )
 
