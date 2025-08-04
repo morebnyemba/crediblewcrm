@@ -3,7 +3,6 @@
 import logging
 from celery import shared_task
 from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
 from uuid import UUID
 
 from .models import Payment
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 def process_proof_of_payment_image(self, payment_id: str, wamid: str):
     """
     Celery task to download a proof of payment image from WhatsApp
-    and save its URL to a Payment record.
+    and save it to the Payment record's ImageField.
     """
     try:
         payment = Payment.objects.get(id=UUID(payment_id))
@@ -24,8 +23,8 @@ def process_proof_of_payment_image(self, payment_id: str, wamid: str):
         logger.error(f"process_proof_of_payment_image: Payment with ID {payment_id} not found. Task will not be retried.")
         return f"Payment not found: {payment_id}"
 
-    if payment.proof_of_payment_url:
-        logger.info(f"Payment {payment_id} already has a proof of payment URL. Skipping download.")
+    if payment.proof_of_payment:
+        logger.info(f"Payment {payment_id} already has a proof of payment. Skipping download.")
         return f"Proof of payment already exists for Payment {payment_id}."
 
     # Get active Meta App Config
@@ -49,16 +48,16 @@ def process_proof_of_payment_image(self, payment_id: str, wamid: str):
     image_bytes, mime_type = download_result
     
     # Create a unique filename
+    # The ImageField's 'upload_to' attribute will handle the directory structure.
     file_extension = mime_type.split('/')[-1] if mime_type and '/' in mime_type else 'jpg'
-    safe_extension = ''.join(c for c in file_extension if c.isalnum()) # Sanitize file extention
-    filename = f"payment_proofs/{payment.created_at.year}/{payment.created_at.month}/{payment_id}.{safe_extension}"
+    safe_extension = ''.join(c for c in file_extension if c.isalnum()) # Sanitize file extension
+    filename = f"{payment_id}.{safe_extension}"
 
     try:
-        # Save the file and store its relative path, not the full URL.
-        saved_path = default_storage.save(filename, ContentFile(image_bytes))
-        payment.proof_of_payment_url = saved_path
-        payment.save(update_fields=['proof_of_payment_url', 'updated_at'])
-        logger.info(f"Successfully saved proof of payment for Payment {payment_id} at path: {saved_path}")
+        # Use the .save() method of the ImageField.
+        # This handles saving the file to storage and updating the model field's path.
+        payment.proof_of_payment.save(filename, ContentFile(image_bytes), save=True)
+        logger.info(f"Successfully saved proof of payment for Payment {payment_id} at path: {payment.proof_of_payment.name}")
     except Exception as e:
         logger.error(f"Failed to save proof of payment file for payment {payment_id}. Error: {e}", exc_info=True)
         self.retry(exc=e)
