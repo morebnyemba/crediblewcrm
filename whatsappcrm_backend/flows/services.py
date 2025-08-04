@@ -472,7 +472,17 @@ def _initiate_paynow_payment(contact: Contact, amount_str: str, payment_type: st
     # 5. Handle response
     if paynow_response.get('success'):
         payment.transaction_reference = paynow_response.get('paynow_reference')
-        payment.external_data = {'poll_url': paynow_response.get('poll_url'), 'initiation_response': paynow_response}
+        # Be explicit about what is saved to the JSONField to prevent serialization errors.
+        # Only store known, safe, and useful data from the response.
+        payment.external_data = {
+            'poll_url': paynow_response.get('poll_url'),
+            'initiation_response': {
+                'success': paynow_response.get('success'),
+                'status': paynow_response.get('status'),
+                'paynow_reference': paynow_response.get('paynow_reference'),
+                'message': paynow_response.get('message'),
+            }
+        }
         payment.save(update_fields=['transaction_reference', 'external_data', 'updated_at'])
         
         poll_paynow_transaction_status.delay(payment_id=str(payment.id))
