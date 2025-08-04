@@ -48,11 +48,11 @@ def process_proof_of_payment_image(self, payment_id: str, wamid: str):
     filename = f"payment_proofs/{payment.created_at.year}/{payment.created_at.month}/{payment_id}.{safe_extension}"
 
     try:
-        path = default_storage.save(filename, ContentFile(image_bytes))
-        file_url = default_storage.url(path)
-        payment.proof_of_payment_url = file_url
+        # Save the file and store its relative path, not the full URL.
+        saved_path = default_storage.save(filename, ContentFile(image_bytes))
+        payment.proof_of_payment_url = saved_path
         payment.save(update_fields=['proof_of_payment_url', 'updated_at'])
-        logger.info(f"Successfully saved proof of payment for Payment {payment_id} at URL: {file_url}")
+        logger.info(f"Successfully saved proof of payment for Payment {payment_id} at path: {saved_path}")
     except Exception as e:
         logger.error(f"Failed to save proof of payment file for payment {payment_id}. Error: {e}", exc_info=True)
         self.retry(exc=e)

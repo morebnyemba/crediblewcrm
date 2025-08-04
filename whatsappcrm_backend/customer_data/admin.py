@@ -2,6 +2,8 @@
 
 from django.contrib import admin
 from .models import Family, MemberProfile, Payment, PaymentHistory, PrayerRequest
+from django.utils.html import format_html
+from django.core.files.storage import default_storage
 
 
 @admin.register(Family)
@@ -61,15 +63,26 @@ class PaymentAdmin(admin.ModelAdmin):
     list_display = ('id', 'member', 'contact', 'amount', 'currency', 'payment_type', 'payment_method', 'status', 'created_at')
     list_filter = ('status', 'payment_type', 'currency', 'payment_method')
     search_fields = ('id', 'member__first_name', 'member__last_name', 'contact__whatsapp_id', 'transaction_reference')
-    readonly_fields = ('id', 'created_at', 'updated_at')
+    readonly_fields = ('id', 'created_at', 'updated_at', 'display_proof_of_payment')
     inlines = [PaymentHistoryInline]
     list_per_page = 30
     fieldsets = (
         ('Transaction Details', {'fields': ('id', 'status', 'amount', 'currency', 'payment_type', 'payment_method')}),
         ('Associated Parties', {'fields': ('member', 'contact')}),
-        ('References & Proof', {'fields': ('transaction_reference', 'proof_of_payment_url', 'notes')}),
+        ('References & Proof', {'fields': ('transaction_reference', 'display_proof_of_payment', 'notes')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
     )
+
+    def display_proof_of_payment(self, obj):
+        """
+        Displays the proof of payment image as a clickable thumbnail in the admin.
+        The URL is generated dynamically from the stored path.
+        """
+        if obj.proof_of_payment_url:
+            full_url = default_storage.url(obj.proof_of_payment_url)
+            return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 200px; max-height: 200px;" /></a>', full_url)
+        return "No proof uploaded."
+    display_proof_of_payment.short_description = 'Proof of Payment'
 
 
 @admin.register(PaymentHistory)
