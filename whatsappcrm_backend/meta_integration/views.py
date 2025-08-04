@@ -34,7 +34,7 @@ from .serializers import (
 # from flows.services import process_message_for_flow # Imported locally in _handle_message
 # from conversations.services import get_or_create_contact_by_wa_id # Imported locally in post
 from conversations.models import Message # Imported locally in _handle_message
-from .tasks import send_whatsapp_message_task # Used in MetaWebhookAPIView._handle_message
+from .tasks import send_whatsapp_message_task, send_read_receipt_task
 
 logger = logging.getLogger('meta_integration') # Using the app-specific logger from your original file
 
@@ -422,6 +422,24 @@ class MetaWebhookAPIView(View):
             logger.error(f"Unhandled exception in _handle_message for WAMID {whatsapp_message_id} (Contact: {contact.id}): {e}", exc_info=True)
             if log_entry and log_entry.pk:
                 self._save_log(log_entry, 'failed', f"Critical error in webhook handler: {str(e)[:200]}")
+        
+        # --- Send Read Receipt ---
+        self._send_read_receipt(whatsapp_message_id, active_config)
+
+    def _send_read_receipt(self, wamid: str, app_config: MetaAppConfig):
+        """
+        Dispatches a Celery task to send a read receipt for the given message ID.
+        """
+        if not wamid:
+            logger.warning(f"Cannot send read receipt: Missing WAMID.")
+            return
+
+        send_read_receipt_task.delay(
+            wamid=wamid,
+            config_id=app_config.id
+        )
+        logger.info(f"Dispatched read receipt task for WAMID {wamid}.")
+
 
     # --- Placeholder for other handlers from your original file ---
     def handle_status_update(self, status_data, metadata, app_config, log_entry: WebhookEventLog):
