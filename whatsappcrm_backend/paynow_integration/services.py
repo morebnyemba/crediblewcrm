@@ -3,7 +3,6 @@ import logging
 from decimal import Decimal
 from typing import Optional, Dict, Any
 
-from django.urls import reverse
 from django.conf import settings
 
 from .paynow_wrapper import PaynowSDK # Import our wrapper
@@ -15,7 +14,7 @@ class PaynowService:
     """
     Service class to interact with the Paynow API.
     """
-    def __init__(self):
+    def __init__(self, ipn_callback_url: str):
         self.config: Optional[PaynowConfig] = None
         self.paynow_sdk: Optional[PaynowSDK] = None
         try:
@@ -23,11 +22,14 @@ class PaynowService:
             if not self.config:
                 logger.error("PaynowConfig not found in database. Please configure Paynow settings.")
             else:
-                # Initialize the PaynowSDK with configuration details
-                # The SDK constructor requires result_url and return_url
-                base_url = getattr(settings, 'SITE_URL', 'https://betblitz.co.zw') # Ensure SITE_URL is configured in settings or .env
-                result_url = f"{base_url}{reverse('customer_data_api:paynow-ipn-webhook')}" # IPN callback, defined in customer_data.urls
-                return_url = f"{base_url}{reverse('paynow_integration_api:paynow-return')}" # Return URL, defined in paynow_integration.urls
+                # The full URL is constructed from the base URL and the path passed from the calling service.
+                # This is more robust than having the service guess the URL via reverse().
+                base_url = getattr(settings, 'SITE_URL', 'https://your-domain.com') # Ensure SITE_URL is configured
+                result_url = f"{base_url.rstrip('/')}{ipn_callback_url}"
+                
+                # For server-to-server API calls like this, the return_url is not used by the user's browser.
+                # It's safe to set it to the same as the result_url (IPN handler).
+                return_url = result_url
 
                 self.paynow_sdk = PaynowSDK(
                     integration_id=self.config.integration_id,

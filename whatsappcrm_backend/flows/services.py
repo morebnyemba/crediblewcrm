@@ -10,6 +10,7 @@ from django.utils.dateparse import parse_datetime
 from django.db import transaction
 from django.apps import apps
 from django.forms.models import model_to_dict
+from django.urls import reverse
 from jinja2 import Environment, select_autoescape, Undefined
 from django.core.exceptions import ValidationError as DjangoValidationError
 from pydantic import BaseModel, ValidationError, field_validator, model_validator, Field
@@ -425,7 +426,25 @@ def _initiate_paynow_payment(contact: Contact, amount_str: str, payment_type: st
     logger.info(f"Contact {contact.id}: Created pending Payment record {payment.id} for Paynow initiation.")
 
     # 3. Call Paynow Service
-    paynow_service = PaynowService()
+    try:
+        # The IPN URL is constructed here by reversing the named URL from the customer_data app.
+        # This is more robust than having the service guess the URL, which can cause NoReverseMatch errors.
+        ipn_callback_url = reverse('customer_data_api:paynow-ipn-webhook')
+        paynow_service = PaynowService(ipn_callback_url=ipn_callback_url)
+    except Exception as e:
+        logger.error(f"Failed to initialize PaynowService for contact {contact.id}. Error: {e}", exc_info=True)
+        # Update payment status to failed to reflect the initialization failure
+        payment.status = 'failed'
+        payment.notes += f"\nPaynow service failed to initialize: {e}"
+        payment.save(update_fields=['status', 'notes', 'updated_at'])
+        # Return a user-friendly error to the flow context
+        return {
+            'paynow_initiation_success': False,
+            'paynow_initiation_error': 'Paynow service could not be configured.',
+            'last_payment_id': str(payment.id)
+        }
+
+
     paynow_method_map = {'ecocash': 'ecocash'}
     paynow_method_type = paynow_method_map.get(str(payment_method).lower())
 
@@ -450,7 +469,7 @@ def _initiate_paynow_payment(contact: Contact, amount_str: str, payment_type: st
         description=f"{str(payment_type).title()} from {contact.name or contact.whatsapp_id}"
     )
 
-    # 4. Handle response
+    # 5. Handle response
     if paynow_response.get('success'):
         payment.transaction_reference = paynow_response.get('paynow_reference')
         payment.external_data = {'poll_url': paynow_response.get('poll_url'), 'initiation_response': paynow_response}
