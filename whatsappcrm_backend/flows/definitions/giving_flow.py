@@ -257,10 +257,8 @@ GIVING_FLOW = {
         "name": "send_ecocash_success_message",
         "type": "send_message",
         "config": {
-             "message_config": {
-                "message_type": "text",
-                "text": {"body": "Thank you! Please check your phone and enter your EcoCash PIN to approve the payment of *${{ giving_amount }}*."}
-            }
+            "message_type": "text",
+            "text": {"body": "Thank you! Please check your phone and enter your EcoCash PIN to approve the payment of *${{ giving_amount }}*."}
         },
         "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
@@ -268,10 +266,8 @@ GIVING_FLOW = {
         "name": "send_ecocash_failure_message",
         "type": "send_message",
         "config": {
-            "message_config": {
-                "message_type": "text",
-                "text": {"body": "I'm sorry, there was a problem initiating the payment with Paynow. Please try again in a few moments.\n\n*Error:* {{ paynow_initiation_error }}"}
-            }
+            "message_type": "text",
+            "text": {"body": "I'm sorry, there was a problem initiating the payment with Paynow. Please try again in a few moments.\n\n*Error:* {{ paynow_initiation_error }}"}
         },
         "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
@@ -281,19 +277,17 @@ GIVING_FLOW = {
         "name": "display_manual_payment_details",
         "type": "send_message",
         "config": {
-            "message_config": {
-                "message_type": "text",
-                "text": {
-                    "body": (
-                        "Thank you. Please use one of the methods below to give:\n\n"
-                        "🏦 *Bank Transfer*\n"
-                        "Bank: Steward Bank\n"
-                        "Account: 123456789\n\n"
-                        "📱 *Merchant Code*\n"
-                        "Code: *123*456*1#\n\n"
-                        "After paying, please send a screenshot as proof of payment."
-                    )
-                }
+            "message_type": "text",
+            "text": {
+                "body": (
+                    "Thank you. Please use one of the methods below to give:\n\n"
+                    "🏦 *Bank Transfer*\n"
+                    "Bank: Steward Bank\n"
+                    "Account: 123456789\n\n"
+                    "📱 *Merchant Code*\n"
+                    "Code: *123*456*1#\n\n"
+                    "After paying, please send a screenshot as proof of payment."
+                )
             }
         },
         "transitions": [{"next_step": "ask_for_pop", "condition_config": {"type": "always_true"}}]
@@ -370,18 +364,16 @@ GIVING_FLOW = {
         "name": "display_payment_history",
         "type": "send_message",
         "config": {
-            "message_config": {
-                "message_type": "text",
-                "text": {
-                    "body": (
-                        "Here are your last {{ payment_history_list|length }} contributions:\n\n"
-                        "{% for payment in payment_history_list %}"
-                        "🗓️ *{{ payment.created_at|strftime('%b %d, %Y') }}:* ${{ payment.amount }} ({{ payment.payment_type|title }})\n"
-                        "Status: *{{ payment.status|replace('_', ' ')|title }}*\n"
-                        "{% if not loop.last %}---\n{% endif %}"
-                        "{% endfor %}"
-                    )
-                }
+            "message_type": "text",
+            "text": {
+                "body": (
+                    "Here are your last {{ payment_history_list|length }} contributions:\n\n"
+                    "{% for payment in payment_history_list %}"
+                    "🗓️ *{{ payment.created_at|strftime('%b %d, %Y') }}:* ${{ payment.amount }} ({{ payment.payment_type|title }})\n"
+                    "Status: *{{ payment.status|replace('_', ' ')|title }}*\n"
+                    "{% if not loop.last %}---\n{% endif %}"
+                    "{% endfor %}"
+                )
             }
         },
         "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
@@ -390,10 +382,8 @@ GIVING_FLOW = {
         "name": "no_payment_history_message",
         "type": "send_message",
         "config": {
-            "message_config": {
-                "message_type": "text",
-                "text": {"body": "You do not have any giving history with us yet. We look forward to your first contribution!"}
-            }
+            "message_type": "text",
+            "text": {"body": "You do not have any giving history with us yet. We look forward to your first contribution!"}
         },
         "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
@@ -442,15 +432,13 @@ GIVING_FLOW = {
         "name": "display_last_payment_status",
         "type": "send_message",
         "config": {
-            "message_config": {
-                "message_type": "text",
-                "text": {
-                    "body": (
-                        "Here is the status of your most recent contribution:\n\n"
-                        "🗓️ *{{ last_payment.created_at|strftime('%b %d, %Y') }}:* ${{ last_payment.amount }} ({{ last_payment.payment_type|title }})\n"
-                        "Status: *{{ last_payment.status|replace('_', ' ')|title }}*"
-                    )
-                }
+            "message_type": "text",
+            "text": {
+                "body": (
+                    "Here is the status of your most recent contribution:\n\n"
+                    "🗓️ *{{ last_payment.created_at|strftime('%b %d, %Y') }}:* ${{ last_payment.amount }} ({{ last_payment.payment_type|title }})\n"
+                    "Status: *{{ last_payment.status|replace('_', ' ')|title }}*"
+                )
             }
         },
         "transitions": [{"next_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
