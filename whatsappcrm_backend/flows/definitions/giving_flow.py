@@ -14,7 +14,7 @@ GIVING_FLOW = {
     "steps": [
         {
         "name": "show_giving_options",
-        "step_type": "question",
+        "type": "question",
         "is_entry_point": True,
         "config": {
             "message_config": {
@@ -55,7 +55,7 @@ GIVING_FLOW = {
     # --- Path 1: Give Online ---
     {
         "name": "ask_for_amount",
-        "step_type": "question",
+        "type": "question",
         "config": {
             "message_config": {
                 "message_type": "text",
@@ -84,7 +84,7 @@ GIVING_FLOW = {
     },
     {
         "name": "ask_payment_type",
-        "step_type": "question",
+        "type": "question",
         "config": {
             "message_config": {
                 "message_type": "interactive",
@@ -114,7 +114,7 @@ GIVING_FLOW = {
     },
     {
         "name": "ask_payment_method",
-        "step_type": "question",
+        "type": "question",
         "config": {
             "message_config": {
                 "message_type": "interactive",
@@ -161,7 +161,7 @@ GIVING_FLOW = {
     # --- EcoCash (Automated) Path ---
     {
         "name": "confirm_whatsapp_as_ecocash",
-        "step_type": "question",
+        "type": "question",
         "config": {
             "message_config": {
                 "message_type": "interactive",
@@ -194,7 +194,7 @@ GIVING_FLOW = {
     },
     {
         "name": "set_ecocash_from_contact",
-        "step_type": "action",
+        "type": "action",
         "config": {
             "actions_to_run": [{
                 "action_type": "set_context_variable",
@@ -206,8 +206,30 @@ GIVING_FLOW = {
         "transitions": [{"next_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}]
     },
     {
+        "name": "ask_ecocash_phone_number",
+        "type": "question",
+        "config": {
+            "message_config": {
+                "message_type": "text",
+                "text": {"body": "Please enter the 10-digit EcoCash number you will be using to pay (e.g., 0772123456)."}
+            },
+            "reply_config": {
+                "expected_type": "text",
+                "save_to_variable": "ecocash_phone_number",
+                "validation_regex": "^(07[78])\\d{7}$"
+            },
+            "fallback_config": {
+                "action": "re_prompt",
+                "max_retries": 2,
+                "re_prompt_message_text": "That doesn't look like a valid Zimbabwean mobile number. Please enter a 10-digit number starting with 077 or 078.",
+                "fallback_message_text": "Too many invalid attempts. Please type 'give' to restart."
+            }
+        },
+        "transitions": [{"next_step": "initiate_ecocash_payment", "condition_config": {"type": "always_true"}}]
+    },
+    {
         "name": "initiate_ecocash_payment",
-        "step_type": "action",
+        "type": "action",
         "config": {
             "actions_to_run": [{
                 "action_type": "initiate_paynow_giving_payment",
@@ -233,7 +255,7 @@ GIVING_FLOW = {
     },
     {
         "name": "send_ecocash_success_message",
-        "step_type": "send_message",
+        "type": "send_message",
         "config": {
              "message_config": {
                 "message_type": "text",
@@ -244,7 +266,7 @@ GIVING_FLOW = {
     },
     {
         "name": "send_ecocash_failure_message",
-        "step_type": "send_message",
+        "type": "send_message",
         "config": {
             "message_config": {
                 "message_type": "text",
@@ -257,7 +279,7 @@ GIVING_FLOW = {
     # --- Manual Payment Path ---
     {
         "name": "display_manual_payment_details",
-        "step_type": "send_message",
+        "type": "send_message",
         "config": {
             "message_config": {
                 "message_type": "text",
@@ -278,7 +300,7 @@ GIVING_FLOW = {
     },
     {
         "name": "ask_for_pop",
-        "step_type": "question",
+        "type": "question",
         "config": {
             "message_config": {
                 "message_type": "text",
@@ -301,7 +323,7 @@ GIVING_FLOW = {
     },
     {
         "name": "record_manual_payment",
-        "step_type": "action",
+        "type": "action",
         "config": {
             "actions_to_run": [{
                 "action_type": "record_payment",
@@ -319,7 +341,7 @@ GIVING_FLOW = {
     # --- Path 2: View History ---
     {
         "name": "query_payment_history",
-        "step_type": "action",
+        "type": "action",
         "config": {
             "actions_to_run": [
                 {
@@ -337,7 +359,7 @@ GIVING_FLOW = {
     },
     {
         "name": "check_if_history_exists",
-        "step_type": "action",
+        "type": "action",
         "config": {"actions_to_run": []},
         "transitions": [
             {"next_step": "display_payment_history", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "payment_history_list.0"}},
@@ -346,7 +368,7 @@ GIVING_FLOW = {
     },
     {
         "name": "display_payment_history",
-        "step_type": "send_message",
+        "type": "send_message",
         "config": {
             "message_config": {
                 "message_type": "text",
@@ -366,7 +388,7 @@ GIVING_FLOW = {
     },
     {
         "name": "no_payment_history_message",
-        "step_type": "send_message",
+        "type": "send_message",
         "config": {
             "message_config": {
                 "message_type": "text",
@@ -379,7 +401,7 @@ GIVING_FLOW = {
     # --- Path 3: Check Status ---
     {
         "name": "query_last_payment",
-        "step_type": "action",
+        "type": "action",
         "config": {
             "actions_to_run": [
                 {
@@ -397,7 +419,7 @@ GIVING_FLOW = {
     },
     {
         "name": "check_if_last_payment_exists",
-        "step_type": "action",
+        "type": "action",
         "config": {"actions_to_run": []},
         "transitions": [
             {"next_step": "set_last_payment_variable", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "last_payment_list.0"}},
@@ -406,7 +428,7 @@ GIVING_FLOW = {
     },
     {
         "name": "set_last_payment_variable",
-        "step_type": "action",
+        "type": "action",
         "config": {
             "actions_to_run": [{
                 "action_type": "set_context_variable",
@@ -418,7 +440,7 @@ GIVING_FLOW = {
     },
     {
         "name": "display_last_payment_status",
-        "step_type": "send_message",
+        "type": "send_message",
         "config": {
             "message_config": {
                 "message_type": "text",
@@ -437,7 +459,7 @@ GIVING_FLOW = {
     # --- Shared End/Loop Steps ---
     {
         "name": "offer_return_to_menu",
-        "step_type": "question",
+        "type": "question",
         "config": {
             "message_config": {
                 "message_type": "interactive",
@@ -461,7 +483,7 @@ GIVING_FLOW = {
     },
     {
         "name": "switch_to_main_menu",
-        "step_type": "switch_flow",
+        "type": "switch_flow",
         "config": {"target_flow_name": "main_menu"},
         "transitions": []
     }
