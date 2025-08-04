@@ -248,7 +248,9 @@ JAZZMIN_SETTINGS = {
     "site_header": "AutoWhats",
     "site_brand": "A-W",
     "site_logo_classes": "img-circle",
-    "site_logo": "/whatsappcrm_backend/static/img/logo.png", # Optional: Add your logo
+    # Path to logo, relative to static files.
+    # It should not include /static/ in the path.
+    "site_logo": "img/logo.png",
     "welcome_sign": "Welcome to the AutoWhatsapp Admin",
     "copyright": "Slyker Tech Web Services.",
     "search_model": ["auth.User", "meta_integration.MetaAppConfig", "conversations.Contact", "flows.Flow"],
