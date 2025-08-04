@@ -265,9 +265,33 @@ class MetaWebhookAPIView(View):
                                     )
                                     self.handle_status_update(status_data, metadata, active_config, log_entry)
                             # Add elif for "errors" here similar to above if needed
+                            elif "errors" in value:
+                                for error_data in value["errors"]:
+                                    # This is for errors related to a specific message attempt
+                                    error_code = error_data.get('code')
+                                    log_id = f"error_{error_code}_{timezone.now().timestamp()}"
+                                    log_entry, _ = WebhookEventLog.objects.update_or_create(
+                                        event_identifier=log_id, app_config=active_config, event_type='error',
+                                        defaults={**log_defaults_for_change, 'payload': error_data, 'processing_status': 'pending'}
+                                    )
+                                    self.handle_error_notification(error_data, metadata, active_config, log_entry)
                             else:
                                 logger.warning(f"Change field is 'messages' but no 'messages' or 'statuses' key. Value keys: {value.keys()}")
                         # Add other field handlers ('message_template_status_update', etc.)
+                        elif field == "account_update":
+                            log_entry, _ = WebhookEventLog.objects.update_or_create(
+                                event_identifier=f"{field}_{value.get('event', 'unknown')}_{entry.get('id', 'unknown')}_{timezone.now().timestamp()}",
+                                app_config=active_config, event_type='account_update',
+                                defaults={**log_defaults_for_change, 'payload': value, 'processing_status': 'pending'}
+                            )
+                            self.handle_account_update(value, metadata, active_config, log_entry)
+                        elif field == "message_template_status_update":
+                            log_entry, _ = WebhookEventLog.objects.update_or_create(
+                                event_identifier=f"{field}_{value.get('message_template_id')}_{value.get('event')}",
+                                app_config=active_config, event_type='template_status',
+                                defaults={**log_defaults_for_change, 'payload': value, 'processing_status': 'pending'}
+                            )
+                            self.handle_template_status_update(value, metadata, active_config, log_entry)
                         else:
                             generic_event_id = f"{field}_{entry.get('id', 'unknown')}_{change_idx}_{timezone.now().timestamp()}"
                             log_entry, _ = WebhookEventLog.objects.update_or_create(
@@ -467,10 +491,34 @@ class MetaWebhookAPIView(View):
         logger.error(f"Received error notification from Meta: {error_data}")
         self._save_log(log_entry, 'processed', f"Meta error logged: {error_data.get('title')}")
 
-    def handle_template_status_update(self, status_data, app_config, log_entry: WebhookEventLog):
+    def handle_template_status_update(self, status_data, metadata, app_config, log_entry: WebhookEventLog):
         logger.info(f"Template Status Update: {status_data}")
         self._save_log(log_entry, 'processed', f"Template status '{status_data.get('event')}' for '{status_data.get('message_template_name')}' logged.")
     
+    def handle_account_update(self, update_data, metadata, app_config, log_entry: WebhookEventLog):
+        event = update_data.get('event')
+        logger.info(f"Account Update Received: Event='{event}', Data: {update_data}")
+        
+        notes = f"Account update event '{event}' received."
+        
+        # You can add specific logic here for different events, like sending an admin email
+        if event == 'DISABLED_UPDATE':
+            is_disabled = update_data.get('is_disabled', False)
+            if is_disabled:
+                logger.critical(f"CRITICAL: WhatsApp Business Account {app_config.waba_id} has been disabled! Reason: {update_data.get('disable_reason')}")
+                notes += f" Account DISABLED. Reason: {update_data.get('disable_reason')}. Immediate action required."
+            else:
+                logger.info(f"Account {app_config.waba_id} is no longer disabled.")
+                notes += " Account is no longer disabled."
+        
+        elif event == 'ACCOUNT_REVIEW_UPDATE':
+            decision = update_data.get('decision')
+            logger.warning(f"Account review update for {app_config.waba_id}: {decision}. Rejection reason: {update_data.get('rejection_reason')}")
+            notes += f" Review decision: {decision}."
+
+        # For now, we just log it as processed.
+        self._save_log(log_entry, 'processed', notes)
+
     # Add other handlers (handle_referral, handle_system_message, handle_flow_response, etc.) as needed,
     # ensuring they call self._save_log(log_entry, status, notes)
 
