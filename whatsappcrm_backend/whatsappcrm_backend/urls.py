@@ -7,6 +7,8 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,     # For users to refresh their access tokens
     TokenVerifyView,      # Optional: for users/clients to verify a token
 )
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     # Django Admin interface - useful for backend management via Jazzmin
@@ -46,6 +48,12 @@ path('crm-api/stats/', include('stats.urls', namespace='stats_api')),
     # They use SessionAuthentication.
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
 ]
+
+# --- Serve Media Files in Development ---
+# This is not suitable for production. In production, your web server (e.g., Nginx)
+# should be configured to serve media files directly.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # Note on Namespaces:
 # The 'namespace' argument in include() is useful for URL reversing 

@@ -994,12 +994,14 @@ def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dic
             "No valid transition was found. This indicates a flow design issue. Initiating human handover."
         )
         # This path directly triggers handover.
-        actions_to_perform.append({'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text', 'data': {'body': "Apologies, I've encountered a technical issue and can't continue. I'm alerting a team member to assist you shortly."}})
+        actions_to_perform.append({'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text', 'data': {'body': "Apologies, I've encountered a technical issue and can't continue. I'm alerting a team member to assist you."}})
         contact.needs_human_intervention = True
         contact.intervention_requested_at = timezone.now()
         contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at'])
-        actions_to_perform
-    
+        # Also clear the flow state so the user isn't stuck
+        actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
+        return actions_to_perform
+
     return actions_to_perform
 
 
@@ -1526,6 +1528,11 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                         new_contact_flow_state.flow_context_data = updated_context
                         new_contact_flow_state.save(update_fields=['flow_context_data', 'last_updated_at'])
                         logger.debug(f"Contact {contact.id}: Executed entry step '{entry_point_step.name}' and saved context.")
+
+                        # --- FIX: Check if the new entry point immediately ended the flow ---
+                        # If so, break the main loop to allow the clear_state command to be processed.
+                        if any(action.get('type') == '_internal_command_clear_flow_state' for action in entry_actions):
+                            break
                         
                         # The message is "consumed" by the first step that uses it.
                         # For subsequent automatic steps in the new flow, we need to prevent reprocessing the original message.
