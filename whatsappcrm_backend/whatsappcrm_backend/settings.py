@@ -142,7 +142,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles' # For production `collectstatic`
 
 # Media files (user-uploaded content)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'mediafiles' # A dedicated root-level directory inside the container for media
+MEDIA_ROOT = BASE_DIR / 'mediafiles' # Path where user-uploaded files will be stored.
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -250,7 +250,7 @@ JAZZMIN_SETTINGS = {
     "site_logo_classes": "img-circle",
     # Path to logo, relative to static files.
     # It should not include /static/ in the path.
-    "site_logo": "admin/img/logo.png",
+    "site_logo": "./admin/img/logo.png",
     "welcome_sign": "Welcome to the AutoWhats Admin",
     "copyright": "Slyker Tech Web Services and Patners.",
     "search_model": ["auth.User", "meta_integration.MetaAppConfig", "conversations.Contact", "flows.Flow"],
