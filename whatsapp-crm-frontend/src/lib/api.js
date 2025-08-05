@@ -1,7 +1,7 @@
 // src/lib/api.js
 import { toast } from 'sonner';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://crmbackend.lifeinternationalministries.com';
 const getAuthToken = () => localStorage.getItem('accessToken');
 
 export async function apiCall(endpoint, { method = 'GET', body = null, isPaginatedFallback = false } = {}) {

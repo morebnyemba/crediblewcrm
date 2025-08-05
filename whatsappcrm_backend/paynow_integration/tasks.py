@@ -4,6 +4,7 @@ from typing import Optional
 from celery import shared_task
 import random
 from django.db import transaction
+from django.urls import reverse
 from django.utils import timezone
 
 from .services import PaynowService
@@ -123,7 +124,15 @@ def poll_paynow_transaction_status(self, payment_id: str):
             # Lock the Payment row to prevent race conditions from IPNs or other tasks.
             pending_payment = Payment.objects.select_for_update().get(id=payment_id, status='pending')
             
-            paynow_service = PaynowService()
+            # FIX: The PaynowService requires the IPN callback URL for initialization.
+            try:
+                ipn_url = reverse('customer_data_api:paynow-ipn-webhook')
+                paynow_service = PaynowService(ipn_callback_url=ipn_url)
+            except Exception as e:
+                logger.error(f"{log_prefix} Failed to initialize PaynowService. Error: {e}", exc_info=True)
+                _fail_payment_and_notify_user(pending_payment, "Could not initialize payment service for polling.")
+                return # Stop execution
+
             poll_url = pending_payment.external_data.get('poll_url')
             if not poll_url:
                 logger.error(f"{log_prefix} Poll URL not found. Failing payment.")
