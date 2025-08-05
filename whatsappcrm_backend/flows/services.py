@@ -485,7 +485,9 @@ def _initiate_paynow_payment(contact: Contact, amount_str: str, payment_type: st
         }
         payment.save(update_fields=['transaction_reference', 'external_data', 'updated_at'])
         
-        poll_paynow_transaction_status.delay(payment_id=str(payment.id))
+        # Use transaction.on_commit to ensure the task is dispatched only after the
+        # payment record has been successfully saved to the database, preventing race conditions.
+        transaction.on_commit(lambda: poll_paynow_transaction_status.delay(payment_id=str(payment.id)))
         logger.info(f"Contact {contact.id}: Paynow initiation successful for Payment {payment.id}. Polling task scheduled.")
         return {'paynow_initiation_success': True, 'last_payment_id': str(payment.id)}
     else:

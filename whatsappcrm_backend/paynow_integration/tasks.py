@@ -193,8 +193,8 @@ def poll_paynow_transaction_status(self, payment_id: str):
 @shared_task(name="paynow_integration.process_paynow_ipn_task")
 def process_paynow_ipn_task(ipn_data: dict):
     """
-    Processes a Paynow IPN message. It verifies the IPN hash, then triggers
-    the polling task to confirm the transaction status before updating the database.
+    Processes a Paynow IPN message. It verifies the IPN hash, then updates
+    the payment status directly. This is the primary confirmation method.
     """
     reference = ipn_data.get('reference')
     if not reference:
@@ -204,21 +204,41 @@ def process_paynow_ipn_task(ipn_data: dict):
     log_prefix = f"[IPN Task - Ref: {reference}]"
     logger.info(f"{log_prefix} Starting to process IPN data: {ipn_data}")
 
-    paynow_service = PaynowService()
+    # The service needs a URL for init, even if we're just verifying a hash.
+    try:
+        ipn_url = reverse('customer_data_api:paynow-ipn-webhook')
+        paynow_service = PaynowService(ipn_callback_url=ipn_url)
+    except Exception as e:
+        logger.error(f"{log_prefix} Failed to initialize PaynowService for IPN processing. Error: {e}", exc_info=True)
+        return # Cannot proceed without the service
+
     if not paynow_service.verify_ipn_hash(ipn_data):
         logger.error(f"{log_prefix} IPN hash verification failed. Discarding message.")
         return
 
-    logger.info(f"{log_prefix} IPN hash verified successfully. Triggering status poll.")
+    logger.info(f"{log_prefix} IPN hash verified successfully.")
+    paynow_status = ipn_data.get('status', 'unknown').lower()
 
     try:
-        # Check if the payment is still in a state that needs processing.
-        # The reference from Paynow is our Payment model's UUID (pk).
-        if Payment.objects.filter(pk=reference, status='pending').exists():
-            poll_paynow_transaction_status.delay(payment_id=reference)
-            logger.info(f"{log_prefix} Polling task has been scheduled to finalize the payment.")
-        else:
-            logger.info(f"{log_prefix} Payment is not in PENDING state. It was likely already processed. No action taken.")
+        with transaction.atomic():
+            # Lock the payment record to prevent race conditions with polling tasks.
+            payment_to_update = Payment.objects.select_for_update().get(pk=reference, status='pending')
+
+            if paynow_status == 'paid':
+                payment_to_update.status = 'completed'
+                payment_to_update.transaction_reference = ipn_data.get('paynowreference')
+                payment_to_update.notes = (payment_to_update.notes or "") + f"\nConfirmed via IPN. Paynow Ref: {payment_to_update.transaction_reference}"
+                payment_to_update.save(update_fields=['status', 'transaction_reference', 'notes', 'updated_at'])
+                logger.info(f"{log_prefix} Successfully processed payment. Amount: {payment_to_update.amount}.")
+                send_giving_confirmation_whatsapp.delay(payment_id=str(payment_to_update.id))
+            
+            elif paynow_status in ['cancelled', 'failed', 'disputed']:
+                reason = f"Paynow IPN reported status: '{paynow_status}'."
+                logger.warning(f"{log_prefix} Failing payment due to IPN status: '{paynow_status}'.")
+                _fail_payment_and_notify_user(payment_to_update, reason)
+            
+            else:
+                logger.info(f"{log_prefix} Received non-final IPN status '{paynow_status}'. No action taken, polling will handle it.")
 
     except Exception as e:
-        logger.error(f"{log_prefix} An unexpected error occurred while triggering the poll task: {e}", exc_info=True)
+        logger.error(f"{log_prefix} An unexpected error occurred while processing the IPN: {e}", exc_info=True)

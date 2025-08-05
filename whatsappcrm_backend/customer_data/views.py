@@ -8,6 +8,7 @@ from django.http import Http404
 
 
 from .models import MemberProfile, Family
+from paynow_integration.tasks import process_paynow_ipn_task
 from .serializers import MemberProfileSerializer, FamilySerializer
 from conversations.models import Contact # To ensure contact exists for profile creation/retrieval
 
@@ -69,10 +70,13 @@ class MemberProfileViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def paynow_ipn_webhook(request):
-    # This view will handle the Instant Payment Notification from Paynow.
-    # For now, it just logs the request and returns a 200 OK.
-    # You will need to implement the logic to process the IPN data.
-    logger.info(f"Paynow IPN received: {request.data}")
+    """
+    Handles the Instant Payment Notification from Paynow.
+    It dispatches the processing to a Celery task to avoid blocking Paynow.
+    """
+    ipn_data = request.data
+    logger.info(f"Paynow IPN received: {ipn_data}")
+    process_paynow_ipn_task.delay(ipn_data)
     return Response(status=status.HTTP_200_OK)
 
 
