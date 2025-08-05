@@ -4,7 +4,14 @@ from django.contrib import admin
 from .models import Family, MemberProfile, Payment, PaymentHistory, PrayerRequest, PendingVerificationPayment
 from django.utils.html import format_html
 from django.core.files.storage import default_storage
+from django.utils import timezone
+import logging
 
+from conversations.models import Message
+from meta_integration.models import MetaAppConfig
+from meta_integration.tasks import send_whatsapp_message_task
+
+logger = logging.getLogger(__name__)
 
 @admin.register(Family)
 class FamilyAdmin(admin.ModelAdmin):
@@ -100,7 +107,7 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
         'id', 'created_at', 'updated_at', 'display_proof_of_payment', 'member', 'contact',
         'amount', 'currency', 'payment_type', 'payment_method', 'notes', 'status'
     )
-    actions = ['verify_selected_payments']
+    actions = ['approve_selected_payments', 'deny_selected_payments']
     list_per_page = 25
 
     def get_queryset(self, request):
@@ -130,12 +137,92 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
         return "No proof."
     display_proof_of_payment_thumbnail.short_description = 'Proof Thumbnail'
 
-    @admin.action(description='Mark selected payments as verified (Completed)')
-    def verify_selected_payments(self, request, queryset):
+    def _send_status_notification(self, payment: Payment, active_config: MetaAppConfig, message_text: str) -> bool:
+        """Helper to create and dispatch a WhatsApp notification for a payment status change."""
+        if not payment.contact:
+            logger.warning(f"Payment {payment.id} has no associated contact. Cannot send notification.")
+            return False
+
+        try:
+            message = Message.objects.create(
+                contact=payment.contact,
+                app_config=active_config,
+                direction='out',
+                message_type='text',
+                content_payload={'body': message_text},
+                status='pending_dispatch',
+                timestamp=timezone.now()
+            )
+            send_whatsapp_message_task.delay(message.id, active_config.id)
+            logger.info(f"Queued status notification for payment {payment.id} to contact {payment.contact.id}.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to create and dispatch notification for payment {payment.id}. Error: {e}", exc_info=True)
+            return False
+
+    @admin.action(description='Approve selected payments (Mark as Completed)')
+    def approve_selected_payments(self, request, queryset):
+        """Admin action to approve payments, setting status to 'completed' and adding a note."""
+        try:
+            active_config = MetaAppConfig.objects.get_active_config()
+        except (MetaAppConfig.DoesNotExist, MetaAppConfig.MultipleObjectsReturned) as e:
+            self.message_user(request, f"Action completed, but could not send notifications: {e}", level='warning')
+            active_config = None
+
+        approved_count = 0
+        notified_count = 0
         for payment in queryset:
             payment.status = 'completed'
-            payment.save(update_fields=['status']) # The model's save() method handles history creation
-        self.message_user(request, f'{queryset.count()} payments were successfully marked as completed.')
+            note = f"Payment approved by admin user '{request.user.username}' on {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}."
+            payment.notes = f"{payment.notes}\n{note}" if payment.notes else note
+            payment.save(update_fields=['status', 'notes', 'updated_at'])
+            approved_count += 1
+
+            if active_config and payment.contact:
+                message_text = (
+                    f"Hello {payment.contact.name or 'member'},\n\n"
+                    f"Your payment of *{payment.amount} {payment.currency}* for *{payment.get_payment_type_display()}* has been approved. "
+                    "Thank you for your contribution! 🙏"
+                )
+                if self._send_status_notification(payment, active_config, message_text):
+                    notified_count += 1
+        
+        message = f'{approved_count} payments were successfully marked as completed.'
+        if active_config:
+            message += f' {notified_count} notifications were queued for sending.'
+        self.message_user(request, message)
+
+    @admin.action(description='Deny selected payments (Mark as Failed)')
+    def deny_selected_payments(self, request, queryset):
+        """Admin action to deny payments, setting status to 'failed' and adding a note."""
+        try:
+            active_config = MetaAppConfig.objects.get_active_config()
+        except (MetaAppConfig.DoesNotExist, MetaAppConfig.MultipleObjectsReturned) as e:
+            self.message_user(request, f"Action completed, but could not send notifications: {e}", level='warning')
+            active_config = None
+
+        denied_count = 0
+        notified_count = 0
+        for payment in queryset:
+            payment.status = 'failed'
+            note = f"Payment denied by admin user '{request.user.username}' on {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}."
+            payment.notes = f"{payment.notes}\n{note}" if payment.notes else note
+            payment.save(update_fields=['status', 'notes', 'updated_at'])
+            denied_count += 1
+
+            if active_config and payment.contact:
+                message_text = (
+                    f"Hello {payment.contact.name or 'member'},\n\n"
+                    f"There was an issue regarding your recent payment of *{payment.amount} {payment.currency}* for *{payment.get_payment_type_display()}*. "
+                    "Please contact the church office for assistance."
+                )
+                if self._send_status_notification(payment, active_config, message_text):
+                    notified_count += 1
+        
+        message = f'{denied_count} payments were successfully denied and marked as failed.'
+        if active_config:
+            message += f' {notified_count} notifications were queued for sending.'
+        self.message_user(request, message)
 
     def has_add_permission(self, request): return False
     def has_delete_permission(self, request, obj=None): return False
