@@ -5,6 +5,7 @@ from .models import Family, MemberProfile, Payment, PaymentHistory, PrayerReques
 from django.utils.html import format_html
 from django.core.files.storage import default_storage
 from django.utils import timezone
+from django.conf import settings
 import logging
 
 from conversations.models import Message
@@ -179,10 +180,16 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
             approved_count += 1
 
             if active_config and payment.contact:
+                full_name = payment.member.get_full_name() if payment.member and payment.member.get_full_name() else payment.contact.name
+                recipient_name = full_name or 'church member'
+
                 message_text = (
-                    f"Hello {payment.contact.name or 'member'},\n\n"
-                    f"Your payment of *{payment.amount} {payment.currency}* for *{payment.get_payment_type_display()}* has been approved. "
-                    "Thank you for your contribution! 🙏"
+                    f"Dear {recipient_name},\n\n"
+                    f"Praise God! We confirm with thanks the receipt of your *{payment.get_payment_type_display()}* of *{payment.amount} {payment.currency}*.\n\n"
+                    "Your faithfulness and generosity are a blessing to the ministry. We pray for God's abundant blessings upon you and your family.\n\n"
+                    "\"Each of you should give what you have decided in your heart to give, not reluctantly or under compulsion, for God loves a cheerful giver.\" - 2 Corinthians 9:7\n\n"
+                    "In His Grace,\n"
+                    "The Church Accounts Team"
                 )
                 if self._send_status_notification(payment, active_config, message_text):
                     notified_count += 1
@@ -211,10 +218,19 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
             denied_count += 1
 
             if active_config and payment.contact:
+                full_name = payment.member.get_full_name() if payment.member and payment.member.get_full_name() else payment.contact.name
+                recipient_name = full_name or 'church member'
+                admin_contact_number = settings.ADMIN_WHATSAPP_NUMBER
+
+                contact_info = f"You can reach us on WhatsApp at: wa.me/{admin_contact_number.replace('+', '')}" if admin_contact_number else "Please visit the church office."
+
                 message_text = (
-                    f"Hello {payment.contact.name or 'member'},\n\n"
-                    f"There was an issue regarding your recent payment of *{payment.amount} {payment.currency}* for *{payment.get_payment_type_display()}*. "
-                    "Please contact the church office for assistance."
+                    f"Greetings {recipient_name},\n\n"
+                    f"We are writing to you regarding your recent submission for a *{payment.get_payment_type_display()}* of *{payment.amount} {payment.currency}*.\n\n"
+                    "There appears to be an issue with the confirmation, and we need your help to resolve it. Please contact the church accounts office at your earliest convenience so we can assist you.\n\n"
+                    f"{contact_info}\n\n"
+                    "Thank you for your understanding.\n"
+                    "The Church Accounts Team"
                 )
                 if self._send_status_notification(payment, active_config, message_text):
                     notified_count += 1
