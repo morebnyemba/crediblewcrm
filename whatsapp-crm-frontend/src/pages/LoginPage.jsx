@@ -27,14 +27,15 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    try {
-      await auth.login(username, password);
+
+    const result = await auth.login(username, password);
+
+    if (result.success) {
       toast.success("Login successful! Redirecting...");
       navigate(from, { replace: true });
-    } catch (err) {
-      const errorMessage = err.response?.data?.detail || "Login failed. Please check your credentials.";
-      setError(errorMessage);
-      toast.error(errorMessage);
+    } else {
+      // Error toast is already shown by the auth context
+      setError(result.error);
       setIsLoading(false);
       usernameInputRef.current?.focus(); // Focus username input on error
     }

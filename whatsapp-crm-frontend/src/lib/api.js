@@ -1,11 +1,7 @@
 // src/lib/api.js
 import { toast } from 'sonner';
 
-// --- DEBUGGING: Log the environment variable to check if it's loaded ---
-console.log("VITE_API_BASE_URL from import.meta.env:", import.meta.env.VITE_API_BASE_URL);
-// --- END DEBUGGING ---
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://crmbackend.lifeinternationalministries.com';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://crmbackend.lifeinternationalministries.com';
 const getAuthToken = () => localStorage.getItem('accessToken');
 
 export async function apiCall(endpoint, { method = 'GET', body = null, isPaginatedFallback = false } = {}) {

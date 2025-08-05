@@ -1,9 +1,9 @@
 // Filename: src/context/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import axios from 'axios'; // Or use your apiCall helper if it's set up for non-authed requests too
+import axios from 'axios';
 import { toast } from 'sonner';
+import { API_BASE_URL } from '../lib/api'; // Import from a central place
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const AUTH_API_URL = `${API_BASE_URL}/crm-api/auth`;
 
 const ACCESS_TOKEN_KEY = 'accessToken';
@@ -79,7 +79,6 @@ export const AuthProvider = ({ children }) => {
   }, [authState.user]); // Include authState.user to correctly use its value in closure
 
   const logoutUser = useCallback(async (informBackend = true) => {
-    console.log("AuthProvider: logoutUser called");
     const currentRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
     
     setAuthData({ access: null, refresh: null, user: null }); // Clears tokens & sets isAuthenticated: false, isLoading: false
@@ -100,13 +99,11 @@ export const AuthProvider = ({ children }) => {
   const refreshTokenInternal = useCallback(async () => {
     const currentRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
     if (!currentRefreshToken) {
-      console.log("AuthProvider: No refresh token, calling logoutUser.");
       await logoutUser(false);
       throw new Error("No refresh token available."); // Propagate error
     }
 
     try {
-      console.log("AuthProvider: Attempting token refresh...");
       const response = await axios.post(`${AUTH_API_URL}/token/refresh/`, {
         refresh: currentRefreshToken,
       });
@@ -119,12 +116,10 @@ export const AuthProvider = ({ children }) => {
           user: authState.user // Preserve current user data during refresh
         };
         setAuthData(newAuthData);
-        console.log("AuthProvider: Token refreshed successfully.");
         return access;
       }
       throw new Error("Token refresh failed: No new access token received.");
     } catch (error) {
-      console.error("AuthProvider: Token refresh error, logging out:", error.response?.data || error.message);
       await logoutUser(true); // Logout on critical refresh failure
       throw new Error(error.response?.data?.detail || "Session fully expired. Please log in again.");
     }
@@ -155,7 +150,6 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log("AuthProvider: Initializing authentication...");
       const token = localStorage.getItem(ACCESS_TOKEN_KEY);
       if (token) {
         // For more robustness, you could attempt to verify the token here:
@@ -177,7 +171,6 @@ export const AuthProvider = ({ children }) => {
         setAuthState(prev => ({ ...prev, isAuthenticated: true, isLoading: false }));
       } else {
         setAuthState(prev => ({ ...prev, isAuthenticated: false, isLoading: false }));
-        console.log("AuthProvider: No initial token found.");
       }
     };
     initializeAuth();
