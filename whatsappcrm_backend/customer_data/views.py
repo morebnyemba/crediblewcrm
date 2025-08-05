@@ -7,9 +7,11 @@ from rest_framework.decorators import api_view, permission_classes
 from django.http import Http404
 
 
-from .models import MemberProfile, Family
+from .models import MemberProfile, Family, Payment, PendingVerificationPayment, PaymentHistory, PrayerRequest
 from paynow_integration.tasks import process_paynow_ipn_task
-from .serializers import MemberProfileSerializer, FamilySerializer
+from .serializers import (
+    MemberProfileSerializer, FamilySerializer, PaymentSerializer, PaymentHistorySerializer, PrayerRequestSerializer
+)
 from conversations.models import Contact # To ensure contact exists for profile creation/retrieval
 
 import logging
@@ -87,3 +89,34 @@ class FamilyViewSet(viewsets.ModelViewSet):
     queryset = Family.objects.prefetch_related('members').all()
     serializer_class = FamilySerializer
     permission_classes = [permissions.IsAuthenticated] # Adjust permissions as needed
+
+
+class PaymentViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing Payments.
+    Provides full CRUD for payments. The model's save method handles history creation.
+    """
+    queryset = Payment.objects.select_related('member', 'contact').prefetch_related('history').all()
+    serializer_class = PaymentSerializer
+    permission_classes = [permissions.IsAuthenticated] # Adjust as needed
+
+
+class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint for viewing Payment History.
+    This is a read-only view as history is created automatically.
+    Supports filtering by payment ID, e.g., /api/payment-history/?payment_id=<uuid>
+    """
+    queryset = PaymentHistory.objects.select_related('payment').all()
+    serializer_class = PaymentHistorySerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['payment'] # Allows filtering like ?payment=<payment_id>
+
+
+class PrayerRequestViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing Prayer Requests.
+    """
+    queryset = PrayerRequest.objects.select_related('member', 'contact').all()
+    serializer_class = PrayerRequestSerializer
+    permission_classes = [permissions.IsAuthenticated] # Adjust as needed
