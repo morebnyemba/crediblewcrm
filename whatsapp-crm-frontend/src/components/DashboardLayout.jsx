@@ -1,11 +1,10 @@
-// Filename: src/components/DashboardLayout.jsx
+// src/components/DashboardLayout.jsx
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip';
 import { useMediaQuery } from 'react-responsive';
-import { ScrollArea } from './ui/scroll-area';
 
 import {
   FiSettings,
@@ -21,36 +20,33 @@ import {
   FiShare2,
   FiUsers,
   FiImage,
-  FiUser
+  FiUser,
+  FiBell,
+  FiHelpCircle,
+  FiLogOut,
+  FiBarChart2,
+  FiShoppingBag,
+  FiCalendar,
+  FiMail,
+  FiActivity,
+  FiCreditCard
 } from 'react-icons/fi';
 
-// Navigation links with optional badge counts
-const links = [
-  { to: '/dashboard', label: 'Dashboard', icon: <FiHome className="h-5 w-5" /> },
-  { to: '/conversation', label: 'Conversations', icon: <FiMessageSquare className="h-5 w-5" />, badge: 5 },
-  { to: '/contacts', label: 'Contacts', icon: <FiUsers className="h-5 w-5" /> },
-  { to: '/flows', label: 'Flows', icon: <FiShare2 className="h-5 w-5" /> },
-  { to: '/media-library', label: 'Media Library', icon: <FiImage className="h-5 w-5" />, badge: 12 },
-  { to: '/api-settings', label: 'API Settings', icon: <FiSettings className="h-5 w-5" /> },
-];
-
 const DashboardBackground = () => (
-  <div className="absolute inset-0 bg-white dark:bg-gray-950 overflow-hidden -z-10">
+  <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 overflow-hidden -z-10">
     <div
-      className="absolute inset-0 opacity-[0.06] dark:opacity-[0.04]"
+      className="absolute inset-0 opacity-10 dark:opacity-5"
       style={{
-        backgroundImage: `repeating-linear-gradient(45deg, #a855f7 0, #a855f7 1px, transparent 0, transparent 50%)`,
-        backgroundSize: '12px 12px',
+        backgroundImage: `radial-gradient(#a855f7 0.5px, transparent 0.5px)`,
+        backgroundSize: '16px 16px',
       }}
     />
-    <div className="absolute inset-0 bg-gradient-to-br from-white via-white/0 to-white dark:from-gray-950 dark:via-gray-950/0 dark:to-gray-950" />
   </div>
 );
 
 export default function DashboardLayout() {
   const isMobile = useMediaQuery({ maxWidth: 767 });
   const [collapsed, setCollapsed] = useState(() => {
-    // Initialize based on localStorage or mobile state
     if (typeof window !== 'undefined') {
       const savedState = localStorage.getItem('sidebarCollapsed');
       return savedState ? savedState === 'true' : isMobile;
@@ -59,6 +55,20 @@ export default function DashboardLayout() {
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  
+  const navigationLinks = [
+    { to: '/dashboard', label: 'Dashboard', icon: <FiHome className="h-5 w-5" /> },
+    { to: '/conversation', label: 'Conversations', icon: <FiMessageSquare className="h-5 w-5" />, badge: 5 },
+    { to: '/contacts', label: 'Contacts', icon: <FiUsers className="h-5 w-5" /> },
+    { to: '/analytics', label: 'Analytics', icon: <FiBarChart2 className="h-5 w-5" /> },
+    { to: '/orders', label: 'Orders', icon: <FiShoppingBag className="h-5 w-5" />, badge: 3 },
+    { to: '/calendar', label: 'Calendar', icon: <FiCalendar className="h-5 w-5" /> },
+    { to: '/inbox', label: 'Inbox', icon: <FiMail className="h-5 w-5" />, badge: 12 },
+    { to: '/reports', label: 'Reports', icon: <FiActivity className="h-5 w-5" /> },
+    { to: '/billing', label: 'Billing', icon: <FiCreditCard className="h-5 w-5" /> },
+    { to: '/media-library', label: 'Media Library', icon: <FiImage className="h-5 w-5" /> },
+    { to: '/api-settings', label: 'API Settings', icon: <FiSettings className="h-5 w-5" /> },
+  ];
 
   // Auto-collapse on mobile and expand on desktop
   useEffect(() => {
@@ -120,15 +130,21 @@ export default function DashboardLayout() {
           </Button>
           <Link to="/dashboard" className="flex items-center">
             <span className="font-bold text-xl bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 dark:from-purple-400 dark:via-pink-400 dark:to-red-400 bg-clip-text text-transparent">
-              AutoWhatsapp
+              CRM Dashboard
             </span>
           </Link>
         </div>
         
-        {/* User profile button for mobile */}
-        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
-          <FiUser className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="rounded-full relative">
+            <FiBell className="h-5 w-5" />
+            <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white dark:border-slate-800"></span>
+          </Button>
+          
+          <Button variant="ghost" size="icon" className="rounded-full">
+            <FiUser className="h-5 w-5" />
+          </Button>
+        </div>
       </header>
 
       {/* Mobile Overlay */}
@@ -150,20 +166,18 @@ export default function DashboardLayout() {
         }`}
       >
         <div className="h-full flex flex-col">
-          <div className={`flex items-center p-3 h-16 ${collapsed ? 'justify-center' : 'justify-between'}`}>
+          <div className={`flex items-center p-4 h-16 ${collapsed ? 'justify-center' : 'justify-between'}`}>
             <Link 
               to="/dashboard" 
               className={`flex items-center gap-2 overflow-hidden transition-opacity duration-300 ${collapsed ? 'w-auto' : 'w-full'}`}
               onClick={() => isMobile && setIsMobileMenuOpen(false)}
             >
-              <img 
-                src="https://placehold.co/36x36/A855F7/FFFFFF?text=AW&font=roboto" 
-                alt="AW Logo" 
-                className={`h-9 w-9 rounded-lg flex-shrink-0`} 
-              />
+              <div className="bg-gradient-to-r from-purple-600 to-indigo-600 h-9 w-9 rounded-lg flex items-center justify-center">
+                <span className="font-bold text-white text-lg">C</span>
+              </div>
               {!collapsed && (
                 <span className={`font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 dark:from-purple-400 dark:via-pink-400 dark:to-red-400 bg-clip-text text-transparent text-xl whitespace-nowrap`}>
-                  AutoWhatsapp
+                  CRM Dashboard
                 </span>
               )}
             </Link>
@@ -181,12 +195,13 @@ export default function DashboardLayout() {
           </div>
 
           <TooltipProvider delayDuration={100}>
-            <ScrollArea className="flex-1">
-              <nav className="space-y-1.5 p-3">
-                {links.map((link) => {
-                  const isActive = link.to === '/dashboard' 
-                    ? location.pathname === link.to 
-                    : location.pathname.startsWith(link.to);
+            <nav className="flex-1 overflow-y-auto py-4">
+              <div className="px-3 mb-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                {!collapsed ? "Navigation" : "•"}
+              </div>
+              <div className="space-y-1 px-2">
+                {navigationLinks.map((link) => {
+                  const isActive = location.pathname === link.to;
                   
                   return (
                     <Tooltip key={link.to}>
@@ -243,21 +258,19 @@ export default function DashboardLayout() {
                     </Tooltip>
                   );
                 })}
-              </nav>
-            </ScrollArea>
+              </div>
+            </nav>
 
             {/* Bottom section */}
-            <div className="p-3 border-t border-gray-200 dark:border-slate-700">
+            <div className="mt-auto pt-4 border-t border-gray-200 dark:border-slate-700 px-2 pb-4">
               {/* User profile */}
               <div className={`flex items-center gap-3 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer ${
                 collapsed ? 'justify-center' : 'px-3'
               }`}>
                 <div className="relative">
-                  <img 
-                    src="https://placehold.co/40x40/A855F7/FFFFFF?text=U" 
-                    alt="User" 
-                    className="h-8 w-8 rounded-full" 
-                  />
+                  <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-8 w-8 rounded-full flex items-center justify-center text-white font-medium">
+                    JD
+                  </div>
                   <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-white dark:border-slate-800"></div>
                 </div>
                 {!collapsed && (
@@ -268,35 +281,85 @@ export default function DashboardLayout() {
                 )}
               </div>
 
-              {/* Footer */}
-              <div className={`flex items-center gap-2 p-2 rounded-md mt-2 ${
-                collapsed ? 'justify-center' : 'px-3'
+              {/* Support */}
+              <Button variant="ghost" className={`w-full justify-start mt-2 text-sm font-medium h-10 rounded-lg ${
+                collapsed ? 'px-0 justify-center' : 'px-3 gap-3'
               }`}>
-                <FiClock className="text-gray-400 dark:text-gray-500 shrink-0 h-5 w-5" />
-                {!collapsed && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400 italic truncate">
-                    Slyker Tech CRM v2.4.1
-                  </span>
-                )}
-              </div>
+                <FiHelpCircle className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                {!collapsed && "Help & Support"}
+              </Button>
+
+              {/* Logout */}
+              <Button variant="ghost" className={`w-full justify-start text-sm font-medium h-10 rounded-lg ${
+                collapsed ? 'px-0 justify-center' : 'px-3 gap-3'
+              }`}>
+                <FiLogOut className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                {!collapsed && "Logout"}
+              </Button>
             </div>
           </TooltipProvider>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-screen">
-        <div className="flex-1 relative overflow-hidden">
-          <DashboardBackground />
-          <ScrollArea className="h-full w-full">
-            <div className="relative z-10 p-4 sm:p-6 md:p-8 mt-16 md:mt-0">
-              <React.Suspense fallback={<LayoutSkeleton />}>
-                <Outlet />
-              </React.Suspense>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* Desktop Header */}
+        <header className="hidden md:flex items-center justify-between h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-6">
+          <div className="flex items-center gap-6">
+            <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Dashboard</h1>
+            <div className="relative max-w-md w-full">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search..."
+                className="w-full pl-9 pr-4 py-2 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
             </div>
-          </ScrollArea>
-        </div>
-      </main>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" className="rounded-full relative">
+              <FiBell className="h-5 w-5" />
+              <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white dark:border-slate-800"></span>
+            </Button>
+            
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-9 w-9 rounded-full flex items-center justify-center text-white font-medium">
+                JD
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">John Doe</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Administrator</p>
+              </div>
+            </div>
+          </div>
+        </header>
+        
+        {/* Main Content */}
+        <main className="flex-1 relative overflow-y-auto mt-16 md:mt-0 pt-0 md:pt-0">
+          <DashboardBackground />
+          <div className="relative z-10 p-4 sm:p-6 md:p-8">
+            <React.Suspense fallback={<LayoutSkeleton />}>
+              <Outlet />
+            </React.Suspense>
+          </div>
+        </main>
+        
+        {/* Footer */}
+        <footer className="bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 py-4 px-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              © {new Date().getFullYear()} CRM Dashboard. All rights reserved.
+            </div>
+            <div className="flex items-center gap-4">
+              <a href="#" className="text-sm text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">Terms</a>
+              <a href="#" className="text-sm text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">Privacy</a>
+              <a href="#" className="text-sm text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">Help Center</a>
+              <a href="#" className="text-sm text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">Contact</a>
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
