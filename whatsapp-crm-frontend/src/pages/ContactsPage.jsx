@@ -24,51 +24,7 @@ import {
   FiPhone, FiTag, FiBriefcase, FiMapPin, FiInfo, FiCalendar, FiBarChart2, FiSmartphone, FiGlobe
 } from 'react-icons/fi';
 import { formatDistanceToNow, parseISO, format, isValid as isValidDate } from 'date-fns';
-
-// --- API Configuration & Helper ---
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const getAuthToken = () => localStorage.getItem('accessToken');
-
-async function apiCall(endpoint, method = 'GET', body = null, isPaginatedFallback = false) {
-    const token = getAuthToken();
-    const headers = {
-        ...(!body || !(body instanceof FormData) && { 'Content-Type': 'application/json' }),
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-    };
-    if (body && !(body instanceof FormData) && method !== 'GET') headers['Content-Type'] = 'application/json';
-    
-    const config = { method, headers, ...(body && method !== 'GET' && { body: (body instanceof FormData ? body : JSON.stringify(body)) }) };
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-        if (!response.ok) {
-            let errorData = { detail: `Request to ${endpoint} failed: ${response.status} ${response.statusText}` };
-            try {
-                const contentType = response.headers.get("content-type");
-                if (contentType && contentType.indexOf("application/json") !== -1) { errorData = await response.json(); }
-                else { errorData.detail = (await response.text()) || errorData.detail; }
-            } catch (e) { console.error("Failed to parse error response for a failed request:", e); }
-            const errorMessage = errorData.detail || 
-                               (typeof errorData === 'object' && errorData !== null && !errorData.detail ? 
-                                 Object.entries(errorData).map(([k,v])=>`${k.replace(/_/g, " ")}: ${Array.isArray(v) ? v.join(', ') : String(v)}`).join('; ') : 
-                                 `API Error ${response.status}`);
-            const err = new Error(errorMessage); err.data = errorData; err.isApiError = true; throw err;
-        }
-        if (response.status === 204 || (response.headers.get("content-length") || "0") === "0") {
-            return isPaginatedFallback ? { results: [], count: 0, next: null, previous: null } : null;
-        }
-        const data = await response.json();
-        return isPaginatedFallback ? { 
-            results: data.results || (Array.isArray(data) ? data : []), 
-            count: data.count === undefined ? (Array.isArray(data) ? data.length : 0) : data.count,
-            next: data.next, previous: data.previous 
-        } : data;
-    } catch (error) {
-        console.error(`API call to ${method} ${API_BASE_URL}${endpoint} failed:`, error);
-        if (!error.isApiError || !error.message.includes("(toasted)")) {
-            toast.error(error.message || 'API error'); error.message = (error.message || "") + " (toasted)";
-        } throw error;
-    }
-}
+import { apiCall } from '@/lib/api';
 
 const ProfileFieldDisplay = ({ label, value, icon, children, isDate = false, isTagList = false }) => {
     let displayValue = value;
@@ -132,7 +88,7 @@ export default function ContactsPage() {
       if (filterParam === 'needs_intervention') queryParams.append('needs_human_intervention', 'true');
       
       const endpoint = `/crm-api/conversations/contacts/?${queryParams.toString()}`;
-      const data = await apiCall(endpoint, 'GET', null, true);
+      const data = await apiCall(endpoint, { isPaginatedFallback: true });
       setContacts(data.results || []);
       setPagination({ count: data.count || 0, next: data.next, previous: data.previous, currentPage: page });
     } catch (error) { /* toast handled by apiCall */ } 
@@ -208,8 +164,8 @@ export default function ContactsPage() {
     try {
       // Using Promise.allSettled to ensure both calls are attempted
       const [contactUpdateResult, profileUpdateResult] = await Promise.allSettled([
-        apiCall(`/crm-api/conversations/contacts/${contactId}/`, 'PATCH', contactPayload),
-        apiCall(`/crm-api/customer-data/profiles/${contactId}/`, 'PATCH', profilePayload) // contactId is PK of CustomerProfile
+        apiCall(`/crm-api/conversations/contacts/${contactId}/`, { method: 'PATCH', body: contactPayload }),
+        apiCall(`/crm-api/customer-data/profiles/${contactId}/`, { method: 'PATCH', body: profilePayload }) // contactId is PK of CustomerProfile
       ]);
 
       let anyError = false;
