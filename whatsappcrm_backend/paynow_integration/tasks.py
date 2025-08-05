@@ -6,6 +6,7 @@ import random
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
+from django.conf import settings
 
 from .services import PaynowService
 from meta_integration.utils import send_whatsapp_message, create_text_message_data
@@ -72,14 +73,29 @@ def send_payment_failure_notification_task(payment_id: str):
     log_prefix = f"[Failure Notif Task - Ref: {payment_id}]"
     logger.info(f"{log_prefix} Preparing to send failure notification.")
     try:
-        payment = Payment.objects.get(id=payment_id)
+        # Eager load related objects to avoid extra queries
+        payment = Payment.objects.select_related('contact', 'member').get(id=payment_id)
         contact_to_notify = payment.contact
         
         if not contact_to_notify:
             logger.error(f"{log_prefix} Could not find contact associated with payment to send failure notification.")
             return
 
-        failure_message = f"❌ We're sorry, but your contribution of {payment.currency} {payment.amount:.2f} could not be processed. Please try again later. (Ref: {str(payment.id)[:8]})"
+        # Personalize the greeting
+        full_name = payment.member.get_full_name() if payment.member and payment.member.get_full_name() else payment.contact.name
+        recipient_name = full_name or 'church member'
+        admin_contact_number = settings.ADMIN_WHATSAPP_NUMBER
+        contact_info = f"You can reach us on WhatsApp at: wa.me/{admin_contact_number.replace('+', '')}" if admin_contact_number else "Please visit the church office for assistance."
+
+        failure_message = (
+            f"Greetings {recipient_name},\n\n"
+            f"We encountered an issue while processing your contribution of *{payment.currency} {payment.amount:.2f}*.\n\n"
+            "Please don't worry, no funds have been deducted for this attempt. If you'd like to try again or need help, our team is here to assist.\n\n"
+            f"{contact_info}\n\n"
+            "\"The Lord is my strength and my shield; in him my heart trusts, and I am helped.\" - Psalm 28:7\n\n"
+            "Blessings,\n"
+            "The Church Accounts Team"
+        )
         message_data = create_text_message_data(text_body=failure_message)
         send_whatsapp_message(to_phone_number=contact_to_notify.whatsapp_id, message_type='text', data=message_data)
         logger.info(f"{log_prefix} Successfully sent failure notification to user {contact_to_notify.whatsapp_id}.")
@@ -96,14 +112,26 @@ def send_giving_confirmation_whatsapp(payment_id: str):
     log_prefix = f"[Giving Confirm Task - Ref: {payment_id}]"
     logger.info(f"{log_prefix} Preparing to send giving confirmation.")
     try:
-        payment = Payment.objects.get(id=payment_id, status='completed')
+        # Eager load related objects
+        payment = Payment.objects.select_related('contact', 'member').get(id=payment_id, status='completed')
         contact_to_notify = payment.contact
 
         if not contact_to_notify:
             logger.error(f"{log_prefix} Could not find contact associated with payment to send confirmation.")
             return
 
-        confirmation_message = f"✅ Thank you for your generous contribution of {payment.currency} {payment.amount:.2f}! Your support is greatly appreciated. May God bless you. (Ref: {str(payment.id)[:8]})"
+        # Personalize the greeting
+        full_name = payment.member.get_full_name() if payment.member and payment.member.get_full_name() else payment.contact.name
+        recipient_name = full_name or 'church member'
+
+        confirmation_message = (
+            f"Dear {recipient_name},\n\n"
+            f"Praise God! We confirm with thanks the receipt of your contribution of *{payment.currency} {payment.amount:.2f}*.\n\n"
+            "Your faithfulness and generosity are a blessing to the ministry. We pray for God's abundant blessings upon you and your family.\n\n"
+            "\"Each of you should give what you have decided in your heart to give, not reluctantly or under compulsion, for God loves a cheerful giver.\" - 2 Corinthians 9:7\n\n"
+            "In His Grace,\n"
+            "The Church Accounts Team"
+        )
         message_data = create_text_message_data(text_body=confirmation_message)
         send_whatsapp_message(to_phone_number=contact_to_notify.whatsapp_id, message_type='text', data=message_data)
         logger.info(f"{log_prefix} Successfully sent giving confirmation to user {contact_to_notify.whatsapp_id}.")
