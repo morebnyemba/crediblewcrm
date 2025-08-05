@@ -38,7 +38,7 @@ GIVING_FLOW = {
         },
         "transitions": [
             {
-                "to_step": "ask_for_currency",
+                "to_step": "ask_for_amount",
                 "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}
             },
             {
@@ -53,32 +53,6 @@ GIVING_FLOW = {
     },
 
     # --- Path 1: Give Online ---
-    {
-        "name": "ask_for_currency",
-        "type": "question",
-        "config": {
-            "message_config": {
-                "message_type": "interactive",
-                "interactive": {
-                    "type": "button",
-                    "body": {"text": "Please select the currency for your contribution."},
-                    "action": {
-                        "buttons": [
-                            {"type": "reply", "reply": {"id": "usd", "title": "USD ($)"}},
-                            {"type": "reply", "reply": {"id": "zwl", "title": "ZWL (Z$)"}}
-                        ]
-                    }
-                }
-            },
-            "reply_config": {
-                "expected_type": "interactive_id",
-                "save_to_variable": "giving_currency"
-            }
-        },
-        "transitions": [
-            {"to_step": "ask_for_amount", "condition_config": {"type": "always_true"}}
-        ]
-    },
     {
         "name": "ask_for_amount",
         "type": "question",
@@ -264,7 +238,6 @@ GIVING_FLOW = {
                 "payment_method_template": "{{ payment_method }}",
                 "phone_number_template": "{{ ecocash_phone_number }}",
                 "email_template": "{{ member_profile.email }}",
-                "currency_template": "{{ giving_currency }}",
                 "notes_template": "Online giving via WhatsApp flow."
             }]
         },
@@ -284,7 +257,7 @@ GIVING_FLOW = {
         "type": "send_message",
         "config": {
             "message_type": "text",
-            "text": {"body": "Thank you! Please check your phone and enter your EcoCash PIN to approve the payment of *{{ giving_currency|upper }} {{ giving_amount }}*."}
+            "text": {"body": "Thank you! Please check your phone and enter your EcoCash PIN to approve the payment of *${{ giving_amount }}*."}
         },
         "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
@@ -348,7 +321,6 @@ GIVING_FLOW = {
             "actions_to_run": [{
                 "action_type": "record_payment",
                 "amount_template": "{{ giving_amount }}",
-                "currency_template": "{{ giving_currency }}",
                 "payment_type_template": "{{ payment_type }}",
                 "payment_method_template": "{{ payment_method }}",
                 "status_template": "pending_verification",
