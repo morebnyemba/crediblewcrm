@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
+  Separator,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger
 } from "@/components/ui/dialog";
 import {
@@ -359,9 +360,22 @@ export default function ContactsPage() {
                     <ProfileFieldDisplay label="Company" value={selectedContactDetails.customer_profile?.company_name} icon={<FiBriefcase/>}/>
                     <ProfileFieldDisplay label="Job Title" value={selectedContactDetails.customer_profile?.job_title} />
                     <ProfileFieldDisplay label="Date of Birth" value={selectedContactDetails.customer_profile?.date_of_birth} isDate icon={<FiCalendar/>}/>
-                    <ProfileFieldDisplay label="Gender" value={LIFECYCLE_STAGE_CHOICES.find(g=>g.value === selectedContactDetails.customer_profile?.gender)?.label || selectedContactDetails.customer_profile?.gender} />
+                    <ProfileFieldDisplay label="Gender" value={GENDER_CHOICES.find(g=>g.value === selectedContactDetails.customer_profile?.gender)?.label || selectedContactDetails.customer_profile?.gender} />
                     <ProfileFieldDisplay label="Address" icon={<FiMapPin/>}>
-                        {/* ... address rendering (same as before) ... */}
+                        {(() => {
+                            const profile = selectedContactDetails.customer_profile;
+                            if (!profile) return <span className="italic text-slate-400 dark:text-slate-500">Not set</span>;
+
+                            const addressLines = [
+                                profile.address_line_1,
+                                profile.address_line_2,
+                                [profile.city, profile.state_province].filter(Boolean).join(', '),
+                                [profile.postal_code, profile.country].filter(Boolean).join(' ')
+                            ].filter(Boolean);
+
+                            if (addressLines.length === 0) return <span className="italic text-slate-400 dark:text-slate-500">Not set</span>;
+                            return addressLines.map((line, i) => <div key={i}>{line}</div>);
+                        })()}
                     </ProfileFieldDisplay>
                     <ProfileFieldDisplay label="Lifecycle Stage" value={LIFECYCLE_STAGE_CHOICES.find(s=>s.value === selectedContactDetails.customer_profile?.lifecycle_stage)?.label || selectedContactDetails.customer_profile?.lifecycle_stage} icon={<FiBarChart2/>}/>
                     <ProfileFieldDisplay label="Acquisition Source" value={selectedContactDetails.customer_profile?.acquisition_source} />
