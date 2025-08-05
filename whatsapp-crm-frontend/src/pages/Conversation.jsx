@@ -18,7 +18,6 @@ import { apiCall } from '@/lib/api';
 import { selectedContactAtom } from '@/atoms/conversationAtoms';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useDebounce } from 'use-debounce';
-import { EmojiPicker } from '@/components/emoji-picker';
 
 const MessageBubble = ({ message, contactName, isLast }) => {
   const isOutgoing = message.direction === 'out';
@@ -327,12 +326,14 @@ export default function ConversationsPage() {
 
           <div className="p-3 border-t bg-background sticky bottom-0">
             <form onSubmit={handleSendMessage} className="flex items-end gap-2">
-              <div className="flex items-center gap-1">
-                <EmojiPicker onSelect={(emoji) => setNewMessage(prev => prev + emoji)} />
-                <Button type="button" variant="ghost" size="icon">
-                  <FiPaperclip className="h-5 w-5 text-muted-foreground" />
-                </Button>
-              </div>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                size="icon"
+                className="text-muted-foreground"
+              >
+                <FiPaperclip className="h-5 w-5" />
+              </Button>
               <Input
                 ref={inputRef}
                 asChild
