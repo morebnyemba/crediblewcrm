@@ -10,15 +10,11 @@ import {
   FiSearch,
   FiSettings,
   FiMessageSquare,
-  FiDatabase,
   FiMenu,
   FiHome,
-  FiLink,
-  FiClock,
   FiX,
   FiChevronLeft,
   FiChevronRight,
-  FiShare2,
   FiUsers,
   FiImage,
   FiUser,
@@ -26,7 +22,6 @@ import {
   FiHelpCircle,
   FiLogOut,
   FiBarChart2,
-  FiShoppingBag,
   FiCalendar,
   FiMail,
   FiActivity,
@@ -336,7 +331,7 @@ export default function DashboardLayout() {
         </header>
         
         {/* Main Content */}
-        <main className="flex-1 relative overflow-y-auto mt-16 md:mt-0 pt-0 md:pt-0">
+        <main className="flex-1 relative overflow-y-auto">
           <DashboardBackground />
           <div className="relative z-10 p-4 sm:p-6 md:p-8">
             <React.Suspense fallback={<LayoutSkeleton />}>
