@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAtom } from 'jotai';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from '@/components/ui/badge';
@@ -334,20 +335,15 @@ export default function ConversationsPage() {
               >
                 <FiPaperclip className="h-5 w-5" />
               </Button>
-              <Input
+              <Textarea
                 ref={inputRef}
-                asChild
-                className="flex-1 py-3 min-h-[44px] max-h-[120px] overflow-y-auto"
-              >
-                <textarea
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type a message..."
-                  rows={1}
-                  style={{ resize: 'none' }}
-                />
-              </Input>
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type a message..."
+                rows={1}
+                className="flex-1 py-3 min-h-[44px] max-h-[120px] overflow-y-auto resize-none"
+              />
               <Button 
                 type="submit" 
                 size="sm" 
