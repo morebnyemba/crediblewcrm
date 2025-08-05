@@ -142,7 +142,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles' # For production `collectstatic`
 
 # Media files (user-uploaded content)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = '/mediafiles' # A dedicated root-level directory inside the container for media
+MEDIA_ROOT = BASE_DIR / 'mediafiles' # A dedicated root-level directory inside the container for media
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
