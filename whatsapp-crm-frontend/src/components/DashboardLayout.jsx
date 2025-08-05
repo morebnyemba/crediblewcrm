@@ -7,6 +7,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/t
 import { useMediaQuery } from 'react-responsive';
 
 import {
+  FiSearch,
   FiSettings,
   FiMessageSquare,
   FiDatabase,
