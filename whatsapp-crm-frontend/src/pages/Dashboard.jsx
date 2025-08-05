@@ -21,7 +21,7 @@ import BotPerformanceDisplay from '@/components/charts/BotPerfomanceDisplay';
 
 
 // --- API Configuration & Helper ---
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '@/lib/api';
 const getAuthToken = () => localStorage.getItem('accessToken'); // IMPORTANT: Integrate with your actual auth context/store
 
 async function apiCall(endpoint, method = 'GET', body = null, isPaginatedFallback = false) {
