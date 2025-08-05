@@ -25,18 +25,8 @@ const MessageBubble = ({ message, contactName }) => {
     ? 'bg-green-600 dark:bg-green-700 text-white rounded-tr-none' 
     : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-tl-none';
   
-  let content = message.text_content || "Unsupported message type";
-  if (message.message_type !== 'text' && message.content_payload) {
-      if (message.message_type === 'image' && message.content_payload.image) {
-          content = <span className="text-xs italic flex items-center gap-1"><FiImage/> Image {message.content_payload.image.caption ? `- "${message.content_payload.image.caption}"` : ''}</span>;
-      } else if (message.message_type === 'document' && message.content_payload.document) {
-          content = <span className="text-xs italic flex items-center gap-1"><FiPaperclip/> Document: {message.content_payload.document.filename || "attachment"}</span>;
-      } else if (message.message_type === 'interactive' && message.content_payload.type) {
-          content = <span className="text-xs italic flex items-center gap-1"><FiList/> Interactive: {message.content_payload.type}</span>;
-      }
-      // TODO: Add more specific previews for other message types
-  }
-
+  // Use the content_preview from the list API, but fall back to text_content for optimistically sent messages.
+  const content = message.content_preview || message.text_content || "Unsupported message type";
 
   return (
     <div className={`flex flex-col my-1 ${alignClass}`}>

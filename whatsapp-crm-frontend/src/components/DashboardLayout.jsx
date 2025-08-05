@@ -1,4 +1,6 @@
 // Filename: src/components/DashboardLayout.jsx
+// Main layout component for the dashboard - Fully responsive with improved mobile experience
+
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
@@ -23,6 +25,7 @@ import {
   FiUser
 } from 'react-icons/fi';
 
+// Navigation links with optional badge counts
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: <FiHome className="h-5 w-5" /> },
   { to: '/conversation', label: 'Conversations', icon: <FiMessageSquare className="h-5 w-5" />, badge: 5 },
@@ -48,15 +51,17 @@ const DashboardBackground = () => (
 export default function DashboardLayout() {
   const isMobile = useMediaQuery({ maxWidth: 767 });
   const [collapsed, setCollapsed] = useState(() => {
+    // Initialize based on localStorage or mobile state
     if (typeof window !== 'undefined') {
       const savedState = localStorage.getItem('sidebarCollapsed');
       return savedState ? savedState === 'true' : isMobile;
     }
     return isMobile;
   });
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
 
+  // Auto-collapse on mobile and expand on desktop
   useEffect(() => {
     if (isMobile) {
       setCollapsed(true);
@@ -65,24 +70,32 @@ export default function DashboardLayout() {
     }
   }, [isMobile]);
 
+  // Close mobile menu when resizing to desktop
   useEffect(() => {
-    if (!isMobile) {
-      setMobileMenuOpen(false);
-    }
+    const handleResize = () => {
+      if (!isMobile) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, [isMobile]);
 
+  // Persist collapse state
   useEffect(() => {
     if (!isMobile) {
       localStorage.setItem('sidebarCollapsed', collapsed);
     }
   }, [collapsed, isMobile]);
 
+  // Close mobile menu on route change
   useEffect(() => {
-    setMobileMenuOpen(false);
+    setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
+  // Prevent body scroll when mobile menu is open
   useEffect(() => {
-    if (mobileMenuOpen) {
+    if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -90,7 +103,7 @@ export default function DashboardLayout() {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [mobileMenuOpen]);
+  }, [isMobileMenuOpen]);
 
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-gray-200">
@@ -100,11 +113,11 @@ export default function DashboardLayout() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700"
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
           >
-            {mobileMenuOpen ? <FiX className="h-6 w-6" /> : <FiMenu className="h-6 w-6" />}
+            {isMobileMenuOpen ? <FiX className="h-6 w-6" /> : <FiMenu className="h-6 w-6" />}
           </Button>
           <Link to="/dashboard" className="flex items-center">
             <span className="font-bold text-xl bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 dark:from-purple-400 dark:via-pink-400 dark:to-red-400 bg-clip-text text-transparent">
@@ -112,46 +125,45 @@ export default function DashboardLayout() {
             </span>
           </Link>
         </div>
+        
+        {/* User profile button for mobile */}
         <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
           <FiUser className="h-5 w-5" />
         </Button>
       </header>
 
       {/* Mobile Overlay */}
-      {mobileMenuOpen && (
+      {isMobileMenuOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm md:hidden z-40"
-          onClick={() => setMobileMenuOpen(false)}
+          onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
-      {/* Sidebar - Full height */}
+      {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-50 md:relative h-screen transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${
+        className={`fixed md:relative h-screen transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 z-50 ${
           collapsed ? 'md:w-20' : 'md:w-64'
         } ${
-          mobileMenuOpen
-            ? 'translate-x-0 w-full shadow-xl'
+          isMobileMenuOpen
+            ? 'translate-x-0 w-64 shadow-xl'
             : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <div className="h-full flex flex-col">
-          {/* Header */}
-          <div className={`flex items-center p-4 border-b border-gray-200 dark:border-slate-700 ${
-            collapsed ? 'justify-center' : 'justify-between'
-          }`}>
+        <div className="p-3 h-full flex flex-col">
+          <div className={`flex items-center mb-6 h-10 ${collapsed ? 'justify-center' : 'justify-between'}`}>
             <Link 
               to="/dashboard" 
-              className={`flex items-center gap-2 ${collapsed ? 'w-auto' : 'w-full'}`}
-              onClick={() => isMobile && setMobileMenuOpen(false)}
+              className={`flex items-center gap-2 overflow-hidden transition-opacity duration-300 ${collapsed ? 'w-auto' : 'w-full'}`}
+              onClick={() => isMobile && setIsMobileMenuOpen(false)}
             >
               <img 
                 src="https://placehold.co/36x36/A855F7/FFFFFF?text=AW&font=roboto" 
                 alt="AW Logo" 
-                className="h-9 w-9 rounded-lg"
+                className={`h-9 w-9 rounded-lg flex-shrink-0`} 
               />
               {!collapsed && (
-                <span className="font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 dark:from-purple-400 dark:via-pink-400 dark:to-red-400 bg-clip-text text-transparent text-xl">
+                <span className={`font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 dark:from-purple-400 dark:via-pink-400 dark:to-red-400 bg-clip-text text-transparent text-xl whitespace-nowrap`}>
                   AutoWhatsapp
                 </span>
               )}
@@ -160,7 +172,7 @@ export default function DashboardLayout() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setCollapsed(!collapsed)}
+                onClick={() => setCollapsed((prev) => !prev)}
                 className="rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
                 aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
@@ -169,9 +181,8 @@ export default function DashboardLayout() {
             )}
           </div>
 
-          {/* Navigation - Takes remaining space */}
-          <nav className="flex-1 overflow-y-auto p-2">
-            <TooltipProvider delayDuration={100}>
+          <TooltipProvider delayDuration={100}>
+            <nav className="space-y-1.5 flex-1 overflow-y-auto">
               {links.map((link) => {
                 const isActive = link.to === '/dashboard' 
                   ? location.pathname === link.to 
@@ -182,7 +193,7 @@ export default function DashboardLayout() {
                     <TooltipTrigger asChild>
                       <Button
                         variant={isActive ? 'secondary' : 'ghost'}
-                        className={`w-full justify-start text-sm font-medium h-10 group rounded-lg mb-1 ${
+                        className={`w-full justify-start text-sm font-medium h-10 group rounded-lg relative ${
                           collapsed ? 'px-0 justify-center' : 'px-3 gap-3'
                         } ${
                           isActive
@@ -193,7 +204,7 @@ export default function DashboardLayout() {
                       >
                         <Link
                           to={link.to}
-                          onClick={() => isMobile && setMobileMenuOpen(false)}
+                          onClick={() => isMobile && setIsMobileMenuOpen(false)}
                         >
                           <span className={`flex-shrink-0 h-5 w-5 ${
                             isActive 
@@ -232,41 +243,48 @@ export default function DashboardLayout() {
                   </Tooltip>
                 );
               })}
-            </TooltipProvider>
-          </nav>
+            </nav>
 
-          {/* Footer - Sticks to bottom */}
-          <div className="border-t border-gray-200 dark:border-slate-700">
-            <div className={`flex items-center gap-3 p-4 hover:bg-gray-100 dark:hover:bg-slate-700 ${
-              collapsed ? 'justify-center' : 'px-3'
-            }`}>
-              <div className="relative">
-                <img 
-                  src="https://placehold.co/40x40/A855F7/FFFFFF?text=U" 
-                  alt="User" 
-                  className="h-8 w-8 rounded-full" 
-                />
-                <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-white dark:border-slate-800"></div>
-              </div>
-              {!collapsed && (
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">John Doe</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Admin</p>
+            {/* Bottom section */}
+            <div className="mt-auto pt-4 border-t border-gray-200 dark:border-slate-700">
+              {/* User profile */}
+              <div className={`flex items-center gap-3 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer ${
+                collapsed ? 'justify-center' : 'px-3'
+              }`}>
+                <div className="relative">
+                  <img 
+                    src="https://placehold.co/40x40/A855F7/FFFFFF?text=U" 
+                    alt="User" 
+                    className="h-8 w-8 rounded-full" 
+                  />
+                  <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-white dark:border-slate-800"></div>
                 </div>
-              )}
+                {!collapsed && (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">John Doe</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Admin</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className={`flex items-center gap-2 p-2 rounded-md mt-2 ${
+                collapsed ? 'justify-center' : 'px-3'
+              }`}>
+                <FiClock className="text-gray-400 dark:text-gray-500 shrink-0 h-5 w-5" />
+                {!collapsed && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 italic truncate">
+                    Slyker Tech CRM v2.4.1
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
+          </TooltipProvider>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className={`flex-1 overflow-y-auto transition-all duration-300 ${
-        isMobile 
-          ? 'mt-16' 
-          : collapsed 
-            ? 'md:ml-20' 
-            : 'md:ml-64'
-      } min-h-[calc(100vh-4rem)] md:min-h-screen`}>
+      <main className="flex-1 relative overflow-y-auto mt-16 md:mt-0 pt-0 md:pt-0">
         <DashboardBackground />
         <div className="relative z-10 p-4 sm:p-6 md:p-8">
           <React.Suspense fallback={<LayoutSkeleton />}>
