@@ -52,27 +52,29 @@ class ContactViewSet(viewsets.ModelViewSet):
         return ContactSerializer
 
     def get_queryset(self):
+        """
+        Dynamically filter the queryset based on the action.
+        - For 'list', apply search and other filters.
+        - For 'retrieve', just prefetch related data.
+        """
         queryset = super().get_queryset()
-        # Added search capability from your original file
-        search_term = self.request.query_params.get('search', None)
-        if search_term:
-            queryset = queryset.filter(
-                Q(name__icontains=search_term) | 
-                Q(whatsapp_id__icontains=search_term)
-            )
-        
-        # Added filter for needs_human_intervention from your original file
-        needs_intervention_filter = self.request.query_params.get('needs_human_intervention', None)
-        if needs_intervention_filter is not None:
-            if needs_intervention_filter.lower() == 'true':
-                queryset = queryset.filter(needs_human_intervention=True)
-            elif needs_intervention_filter.lower() == 'false':
-                queryset = queryset.filter(needs_human_intervention=False)
-        
-        if self.action == 'retrieve':
-            # If ContactDetailSerializer uses a source like 'get_recent_messages_for_serializer'
-            # which fetches messages, prefetching can be beneficial here.
-            # Example for your 'recent_messages' in ContactDetailSerializer
+
+        if self.action == 'list':
+            search_term = self.request.query_params.get('search', None)
+            if search_term:
+                queryset = queryset.filter(
+                    Q(name__icontains=search_term) | 
+                    Q(whatsapp_id__icontains=search_term)
+                )
+            
+            needs_intervention_filter = self.request.query_params.get('needs_human_intervention', None)
+            if needs_intervention_filter is not None:
+                if needs_intervention_filter.lower() == 'true':
+                    queryset = queryset.filter(needs_human_intervention=True)
+                elif needs_intervention_filter.lower() == 'false':
+                    queryset = queryset.filter(needs_human_intervention=False)
+
+        elif self.action == 'retrieve':
             queryset = queryset.prefetch_related(
                 Prefetch('messages', queryset=Message.objects.order_by('-timestamp')[:5])
             )
