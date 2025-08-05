@@ -1,12 +1,11 @@
 // Filename: src/components/DashboardLayout.jsx
-// Main layout component for the dashboard - Fully responsive with improved mobile experience
-
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip';
 import { useMediaQuery } from 'react-responsive';
+import { ScrollArea } from './ui/scroll-area';
 
 import {
   FiSettings,
@@ -150,8 +149,8 @@ export default function DashboardLayout() {
             : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <div className="p-3 h-full flex flex-col">
-          <div className={`flex items-center mb-6 h-10 ${collapsed ? 'justify-center' : 'justify-between'}`}>
+        <div className="h-full flex flex-col">
+          <div className={`flex items-center p-3 h-16 ${collapsed ? 'justify-center' : 'justify-between'}`}>
             <Link 
               to="/dashboard" 
               className={`flex items-center gap-2 overflow-hidden transition-opacity duration-300 ${collapsed ? 'w-auto' : 'w-full'}`}
@@ -182,71 +181,73 @@ export default function DashboardLayout() {
           </div>
 
           <TooltipProvider delayDuration={100}>
-            <nav className="space-y-1.5 flex-1 overflow-y-auto">
-              {links.map((link) => {
-                const isActive = link.to === '/dashboard' 
-                  ? location.pathname === link.to 
-                  : location.pathname.startsWith(link.to);
-                
-                return (
-                  <Tooltip key={link.to}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={isActive ? 'secondary' : 'ghost'}
-                        className={`w-full justify-start text-sm font-medium h-10 group rounded-lg relative ${
-                          collapsed ? 'px-0 justify-center' : 'px-3 gap-3'
-                        } ${
-                          isActive
-                            ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300'
-                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700/80'
-                        }`}
-                        asChild
-                      >
-                        <Link
-                          to={link.to}
-                          onClick={() => isMobile && setIsMobileMenuOpen(false)}
+            <ScrollArea className="flex-1">
+              <nav className="space-y-1.5 p-3">
+                {links.map((link) => {
+                  const isActive = link.to === '/dashboard' 
+                    ? location.pathname === link.to 
+                    : location.pathname.startsWith(link.to);
+                  
+                  return (
+                    <Tooltip key={link.to}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={isActive ? 'secondary' : 'ghost'}
+                          className={`w-full justify-start text-sm font-medium h-10 group rounded-lg relative ${
+                            collapsed ? 'px-0 justify-center' : 'px-3 gap-3'
+                          } ${
+                            isActive
+                              ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300'
+                              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700/80'
+                          }`}
+                          asChild
                         >
-                          <span className={`flex-shrink-0 h-5 w-5 ${
-                            isActive 
-                              ? 'text-purple-600 dark:text-purple-300' 
-                              : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'
-                          }`}>
-                            {link.icon}
-                          </span>
-                          {!collapsed && (
-                            <span className="truncate flex-1 text-left">
-                              {link.label}
-                              {link.badge && (
-                                <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
-                                  {link.badge}
-                                </span>
-                              )}
+                          <Link
+                            to={link.to}
+                            onClick={() => isMobile && setIsMobileMenuOpen(false)}
+                          >
+                            <span className={`flex-shrink-0 h-5 w-5 ${
+                              isActive 
+                                ? 'text-purple-600 dark:text-purple-300' 
+                                : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'
+                            }`}>
+                              {link.icon}
                             </span>
-                          )}
-                          {collapsed && link.badge && (
-                            <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-4 w-4 items-center justify-center rounded-full bg-purple-500 text-xs text-white">
-                              {link.badge > 9 ? '9+' : link.badge}
-                            </span>
-                          )}
-                        </Link>
-                      </Button>
-                    </TooltipTrigger>
-                    {collapsed && (
-                      <TooltipContent 
-                        side="right" 
-                        className="bg-gray-800 dark:bg-slate-900 text-white text-xs rounded-md px-2 py-1 shadow-lg border border-transparent dark:border-slate-700"
-                      >
-                        {link.label}
-                        {link.badge && ` (${link.badge})`}
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                );
-              })}
-            </nav>
+                            {!collapsed && (
+                              <span className="truncate flex-1 text-left">
+                                {link.label}
+                                {link.badge && (
+                                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                                    {link.badge}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                            {collapsed && link.badge && (
+                              <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-4 w-4 items-center justify-center rounded-full bg-purple-500 text-xs text-white">
+                                {link.badge > 9 ? '9+' : link.badge}
+                              </span>
+                            )}
+                          </Link>
+                        </Button>
+                      </TooltipTrigger>
+                      {collapsed && (
+                        <TooltipContent 
+                          side="right" 
+                          className="bg-gray-800 dark:bg-slate-900 text-white text-xs rounded-md px-2 py-1 shadow-lg border border-transparent dark:border-slate-700"
+                        >
+                          {link.label}
+                          {link.badge && ` (${link.badge})`}
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  );
+                })}
+              </nav>
+            </ScrollArea>
 
             {/* Bottom section */}
-            <div className="mt-auto pt-4 border-t border-gray-200 dark:border-slate-700">
+            <div className="p-3 border-t border-gray-200 dark:border-slate-700">
               {/* User profile */}
               <div className={`flex items-center gap-3 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer ${
                 collapsed ? 'justify-center' : 'px-3'
@@ -284,12 +285,16 @@ export default function DashboardLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 relative overflow-y-auto mt-16 md:mt-0 pt-0 md:pt-0">
-        <DashboardBackground />
-        <div className="relative z-10 p-4 sm:p-6 md:p-8">
-          <React.Suspense fallback={<LayoutSkeleton />}>
-            <Outlet />
-          </React.Suspense>
+      <main className="flex-1 flex flex-col min-h-screen">
+        <div className="flex-1 relative overflow-hidden">
+          <DashboardBackground />
+          <ScrollArea className="h-full w-full">
+            <div className="relative z-10 p-4 sm:p-6 md:p-8 mt-16 md:mt-0">
+              <React.Suspense fallback={<LayoutSkeleton />}>
+                <Outlet />
+              </React.Suspense>
+            </div>
+          </ScrollArea>
         </div>
       </main>
     </div>

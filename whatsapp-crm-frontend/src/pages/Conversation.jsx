@@ -1,7 +1,7 @@
 // src/pages/ConversationsPage.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAtom } from 'jotai';
-import { Link } from 'react-router-dom'; // If you need to link to contact details page
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,36 +11,112 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
-  FiSend, FiUser, FiUsers, FiMessageSquare, FiSearch, FiLoader, FiAlertCircle, FiPaperclip, FiSmile, FiArrowLeft
+  FiSend, 
+  FiUser, 
+  FiUsers, 
+  FiMessageSquare, 
+  FiSearch, 
+  FiLoader, 
+  FiAlertCircle, 
+  FiPaperclip, 
+  FiSmile, 
+  FiArrowLeft,
+  FiCheck,
+  FiClock,
+  FiMoreVertical
 } from 'react-icons/fi';
-import { formatDistanceToNow, parseISO } from 'date-fns'; // For relative timestamps
-import { apiCall } from '@/lib/api'; // Use the centralized API helper
+import { formatDistanceToNow, parseISO } from 'date-fns';
+import { apiCall } from '@/lib/api';
 import { selectedContactAtom } from '@/atoms/conversationAtoms';
-
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const MessageBubble = ({ message, contactName }) => {
   const isOutgoing = message.direction === 'out';
   const alignClass = isOutgoing ? 'items-end' : 'items-start';
   const bubbleClass = isOutgoing 
-    ? 'bg-green-600 dark:bg-green-700 text-white rounded-tr-none' 
-    : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-tl-none';
+    ? 'bg-primary text-white rounded-tr-none' 
+    : 'bg-muted text-foreground rounded-tl-none';
   
-  // Use the content_preview from the list API, but fall back to text_content for optimistically sent messages.
+  const statusIcon = {
+    sent: <FiCheck className="h-3 w-3 text-muted-foreground" />,
+    delivered: <FiCheck className="h-3 w-3 text-muted-foreground" />,
+    read: <FiCheck className="h-3 w-3 text-blue-500" />,
+    failed: <FiAlertCircle className="h-3 w-3 text-red-500" />,
+    pending: <FiClock className="h-3 w-3 text-muted-foreground animate-pulse" />
+  };
+
   const content = message.content_preview || message.text_content || "Unsupported message type";
 
   return (
-    <div className={`flex flex-col my-1 ${alignClass}`}>
-      <div className={`max-w-[70%] md:max-w-[60%] px-3 py-2 rounded-xl shadow ${bubbleClass}`}>
+    <div className={`flex flex-col my-1.5 ${alignClass}`}>
+      <div className={`max-w-[80%] px-3 py-2 rounded-xl shadow-sm ${bubbleClass}`}>
         <p className="text-sm whitespace-pre-wrap">{content}</p>
       </div>
-      <span className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 px-1">
-        {isOutgoing ? "You" : contactName || message.contact_details?.name }
-        {' · '}
-        {message.timestamp ? formatDistanceToNow(parseISO(message.timestamp), { addSuffix: true }) : 'sending...'}
-        {isOutgoing && message.status && message.status !== 'pending' && (
-            <span className="ml-1 text-xs">({message.status_display || message.status})</span>
+      <div className="flex items-center gap-1 mt-1 px-1">
+        <span className="text-xs text-muted-foreground">
+          {isOutgoing ? "You" : contactName || message.contact_details?.name}
+          {' · '}
+          {message.timestamp ? formatDistanceToNow(parseISO(message.timestamp), { addSuffix: true }) : 'sending...'}
+        </span>
+        {isOutgoing && message.status && (
+          <span className="text-xs">
+            {statusIcon[message.status] || null}
+          </span>
         )}
-      </span>
+      </div>
+    </div>
+  );
+};
+
+const ContactListItem = ({ contact, isSelected, onSelect }) => {
+  const lastSeenText = contact.last_seen 
+    ? formatDistanceToNow(parseISO(contact.last_seen), { addSuffix: true })
+    : 'Never';
+
+  return (
+    <div
+      onClick={() => onSelect(contact)}
+      className={`p-3 border-b cursor-pointer transition-colors
+        ${isSelected 
+          ? 'bg-accent border-l-4 border-primary' 
+          : 'hover:bg-muted/50'}`}
+    >
+      <div className="flex items-center gap-3">
+        <Avatar className="h-10 w-10">
+          <AvatarImage 
+            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || contact.whatsapp_id)}&background=random`} 
+            alt={contact.name} 
+          />
+          <AvatarFallback>
+            {(contact.name || contact.whatsapp_id || 'U').substring(0,2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <p className="font-medium truncate">{contact.name || contact.whatsapp_id}</p>
+            {contact.unread_count > 0 && (
+              <Badge variant="default" className="h-5 w-5 p-0 flex items-center justify-center">
+                {contact.unread_count > 9 ? '9+' : contact.unread_count}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground truncate">
+              {lastSeenText}
+            </p>
+            {contact.needs_human_intervention && (
+              <Badge variant="destructive" className="text-xs px-1.5 py-0.5">
+                Needs Help
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -50,18 +126,18 @@ export default function ConversationsPage() {
   const [selectedContact, setSelectedContact] = useAtom(selectedContactAtom);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  
   const [isLoadingContacts, setIsLoadingContacts] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-  
   const [searchTerm, setSearchTerm] = useState('');
-  const messagesEndRef = useRef(null); // To scroll to bottom of messages
+  const messagesEndRef = useRef(null);
 
   const fetchContacts = useCallback(async (search = '') => {
     setIsLoadingContacts(true);
     try {
-      const endpoint = search ? `/crm-api/conversations/contacts/?search=${encodeURIComponent(search)}` : '/crm-api/conversations/contacts/';
+      const endpoint = search 
+        ? `/crm-api/conversations/contacts/?search=${encodeURIComponent(search)}` 
+        : '/crm-api/conversations/contacts/';
       const data = await apiCall(endpoint, 'GET', null, true);
       setContacts(data.results || []);
     } catch (error) {
@@ -71,18 +147,18 @@ export default function ConversationsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchContacts();
-  }, [fetchContacts]);
-
   const fetchMessagesForContact = useCallback(async (contactId) => {
     if (!contactId) return;
     setIsLoadingMessages(true);
-    setMessages([]); // Clear previous messages
+    setMessages([]);
     try {
-      // Using the custom action from ContactViewSet: /crm-api/conversations/contacts/{pk}/messages/
-      const data = await apiCall(`/crm-api/conversations/contacts/${contactId}/messages/`, 'GET', null, true);
-      setMessages((data.results || []).reverse()); // API returns newest first, reverse for display
+      const data = await apiCall(
+        `/crm-api/conversations/contacts/${contactId}/messages/`, 
+        'GET', 
+        null, 
+        true
+      );
+      setMessages((data.results || []).reverse());
     } catch (error) {
       toast.error("Failed to fetch messages for this contact.");
     } finally {
@@ -91,59 +167,67 @@ export default function ConversationsPage() {
   }, []);
 
   useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
+
+  useEffect(() => {
     if (selectedContact) {
       fetchMessagesForContact(selectedContact.id);
     }
   }, [selectedContact, fetchMessagesForContact]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-
-  const handleSelectContact = (contact) => {
-    setSelectedContact(contact);
-  };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedContact) return;
 
     setIsSendingMessage(true);
-    const tempMessageId = `temp_${Date.now()}`; // For optimistic update
+    const tempMessageId = `temp_${Date.now()}`;
 
-    // Optimistic UI update
     const optimisticMessage = {
-        id: tempMessageId,
-        contact: selectedContact.id,
-        direction: 'out',
-        message_type: 'text',
-        text_content: newMessage,
-        content_payload: { body: newMessage, preview_url: false }, // Structure for text message
-        timestamp: new Date().toISOString(),
-        status: 'pending',
+      id: tempMessageId,
+      contact: selectedContact.id,
+      direction: 'out',
+      message_type: 'text',
+      text_content: newMessage,
+      content_payload: { body: newMessage, preview_url: false },
+      timestamp: new Date().toISOString(),
+      status: 'pending',
     };
+    
     setMessages(prev => [...prev, optimisticMessage]);
     setNewMessage('');
 
     try {
       const payload = {
-        contact: selectedContact.id, // Send contact PK
-        message_type: 'text', // For now, only sending text messages from here
+        contact: selectedContact.id,
+        message_type: 'text',
         content_payload: { body: optimisticMessage.text_content, preview_url: false },
-        // Backend will set direction and initial status
       };
-      const sentMessage = await apiCall('/crm-api/conversations/messages/', 'POST', payload);
       
-      // Replace optimistic message with actual message from server
-      setMessages(prev => prev.map(msg => msg.id === tempMessageId ? {...sentMessage, timestamp: sentMessage.timestamp || optimisticMessage.timestamp} : msg));
-      toast.success("Message submitted for sending!");
-
+      const sentMessage = await apiCall(
+        '/crm-api/conversations/messages/', 
+        'POST', 
+        payload
+      );
+      
+      setMessages(prev => prev.map(msg => 
+        msg.id === tempMessageId 
+          ? {...sentMessage, timestamp: sentMessage.timestamp || optimisticMessage.timestamp} 
+          : msg
+      ));
+      
+      toast.success("Message sent successfully!");
     } catch (error) {
       toast.error(`Failed to send message: ${error.message}`);
-      // Revert optimistic update or mark as failed
-      setMessages(prev => prev.map(msg => msg.id === tempMessageId ? {...msg, status: 'failed', error_details: {detail: error.message} } : msg));
+      setMessages(prev => prev.map(msg => 
+        msg.id === tempMessageId 
+          ? {...msg, status: 'failed', error_details: {detail: error.message}} 
+          : msg
+      ));
     } finally {
       setIsSendingMessage(false);
     }
@@ -151,119 +235,165 @@ export default function ConversationsPage() {
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
-    // Optional: Debounce this call
     fetchContacts(e.target.value);
   };
 
   return (
-    <div className="flex h-[calc(100vh-var(--header-height,4rem)-2rem)] border dark:border-slate-700 rounded-lg shadow-md overflow-hidden bg-white dark:bg-slate-900"> {/* Adjust height based on your header */}
+    <div className="flex h-[calc(100vh-var(--header-height,4rem))] overflow-hidden">
       {/* Contacts List Panel */}
       <div className={`
-        w-full md:w-1/3 md:min-w-[280px] md:max-w-[400px] border-r dark:border-slate-700 flex-col bg-slate-50 dark:bg-slate-800/50
+        w-full md:w-96 border-r flex flex-col bg-background
         ${selectedContact ? 'hidden md:flex' : 'flex'}
       `}>
-        <div className="p-3 border-b dark:border-slate-700 flex-shrink-0">
+        <div className="p-3 border-b">
           <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               type="search" 
               placeholder="Search contacts..." 
-              className="pl-9 dark:bg-slate-700 dark:border-slate-600"
+              className="pl-9"
               value={searchTerm}
               onChange={handleSearchChange}
             />
           </div>
         </div>
+        
         <ScrollArea className="flex-1">
-          {isLoadingContacts && contacts.length === 0 && (
-            <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
-              <FiLoader className="animate-spin h-6 w-6 mx-auto my-3" /> Loading contacts...
+          {isLoadingContacts && contacts.length === 0 ? (
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              <FiLoader className="animate-spin h-6 w-6 mx-auto my-3" /> 
+              Loading contacts...
             </div>
-          )}
-          {!isLoadingContacts && contacts.length === 0 && (
-            <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">No contacts found.</div>
-          )}
-          {contacts.map(contact => (
-            <div
-              key={contact.id}
-              onClick={() => handleSelectContact(contact)}
-              className={`p-3 border-b dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
-                          ${selectedContact?.id === contact.id ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500 dark:border-blue-400' : ''}`}
-            >
-              <div className="flex items-center space-x-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || contact.whatsapp_id)}&background=random`} alt={contact.name} />
-                  <AvatarFallback>{(contact.name || contact.whatsapp_id || 'U').substring(0,2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate dark:text-slate-100">{contact.name || contact.whatsapp_id}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                    {contact.whatsapp_id} - Last seen: {contact.last_seen ? formatDistanceToNow(parseISO(contact.last_seen), { addSuffix: true }) : 'N/A'}
-                  </p>
-                </div>
-                {contact.needs_human_intervention && (
-                    <FiAlertCircle title="Needs Human Intervention" className="h-5 w-5 text-red-500 flex-shrink-0"/>
-                )}
-              </div>
+          ) : contacts.length === 0 ? (
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              No contacts found
             </div>
-          ))}
+          ) : (
+            contacts.map(contact => (
+              <ContactListItem
+                key={contact.id}
+                contact={contact}
+                isSelected={selectedContact?.id === contact.id}
+                onSelect={setSelectedContact}
+              />
+            ))
+          )}
         </ScrollArea>
       </div>
 
       {/* Message Display and Input Panel */}
       <div className={`
-        w-full md:flex-1 flex-col bg-white dark:bg-slate-900
+        flex-1 flex flex-col bg-background
         ${selectedContact ? 'flex' : 'hidden md:flex'}
       `}>
         {selectedContact ? (
           <>
-            <div className="p-3 border-b dark:border-slate-700 flex items-center space-x-2 flex-shrink-0">
-              <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedContact(null)}>
-                <FiArrowLeft className="h-5 w-5" />
-              </Button>
-              <Avatar>
-                <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(selectedContact.name || selectedContact.whatsapp_id)}&background=random`} alt={selectedContact.name} />
-                <AvatarFallback>{(selectedContact.name || selectedContact.whatsapp_id || 'U').substring(0,2).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div>
-                <h2 className="font-semibold dark:text-slate-50">{selectedContact.name || selectedContact.whatsapp_id}</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{selectedContact.whatsapp_id}</p>
+            <div className="p-3 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="md:hidden" 
+                  onClick={() => setSelectedContact(null)}
+                >
+                  <FiArrowLeft className="h-5 w-5" />
+                </Button>
+                <Avatar>
+                  <AvatarImage 
+                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(selectedContact.name || selectedContact.whatsapp_id)}&background=random`} 
+                    alt={selectedContact.name} 
+                  />
+                  <AvatarFallback>
+                    {(selectedContact.name || selectedContact.whatsapp_id || 'U').substring(0,2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h2 className="font-semibold">{selectedContact.name || selectedContact.whatsapp_id}</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedContact.whatsapp_id}
+                  </p>
+                </div>
               </div>
-              {/* TODO: Add link to full contact profile/details page */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <FiMoreVertical className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>
+                    View Contact Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    Mark as Resolved
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive">
+                    Delete Conversation
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             
-            <ScrollArea className="flex-1 p-4 space-y-2 bg-slate-50/50 dark:bg-slate-800/30">
-              {isLoadingMessages && <div className="text-center p-4"><FiLoader className="animate-spin h-6 w-6 mx-auto my-3" /> Loading messages...</div>}
-              {!isLoadingMessages && messages.length === 0 && <p className="text-center text-sm text-slate-500 dark:text-slate-400 py-10">No messages with this contact yet. Start the conversation!</p>}
-              {messages.map(msg => (
-                <MessageBubble key={msg.id} message={msg} contactName={selectedContact.name} />
-              ))}
-              <div ref={messagesEndRef} /> {/* Anchor to scroll to */}
+            <ScrollArea className="flex-1 p-4 space-y-3 bg-muted/20">
+              {isLoadingMessages ? (
+                <div className="text-center p-4">
+                  <FiLoader className="animate-spin h-6 w-6 mx-auto my-3" /> 
+                  Loading messages...
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <FiMessageSquare className="h-12 w-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">No messages yet</p>
+                  <p className="text-sm">Start a conversation with {selectedContact.name || 'this contact'}</p>
+                </div>
+              ) : (
+                messages.map(msg => (
+                  <MessageBubble 
+                    key={msg.id} 
+                    message={msg} 
+                    contactName={selectedContact.name} 
+                  />
+                ))
+              )}
+              <div ref={messagesEndRef} />
             </ScrollArea>
 
-            <form onSubmit={handleSendMessage} className="p-3 border-t dark:border-slate-700 flex items-center space-x-2 bg-slate-50 dark:bg-slate-800 flex-shrink-0">
-              {/* TODO: Add emoji picker, attachment button */}
-              {/* <Button variant="ghost" size="icon" type="button" className="dark:text-slate-400"><FiSmile className="h-5 w-5"/></Button> */}
-              {/* <Button variant="ghost" size="icon" type="button" className="dark:text-slate-400"><FiPaperclip className="h-5 w-5"/></Button> */}
+            <form 
+              onSubmit={handleSendMessage} 
+              className="p-3 border-t flex items-center gap-2 bg-background"
+            >
+              <Button variant="ghost" size="icon" type="button">
+                <FiPaperclip className="h-5 w-5 text-muted-foreground"/>
+              </Button>
               <Input
                 type="text"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 dark:bg-slate-700 dark:border-slate-600"
+                className="flex-1"
                 autoComplete="off"
               />
-              <Button type="submit" disabled={isSendingMessage || !newMessage.trim()} className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white">
-                {isSendingMessage ? <FiLoader className="animate-spin h-4 w-4" /> : <FiSend className="h-4 w-4" />}
-                <span className="ml-2 hidden sm:inline">Send</span>
+              <Button 
+                type="submit" 
+                disabled={isSendingMessage || !newMessage.trim()}
+                className="gap-2"
+              >
+                {isSendingMessage ? (
+                  <FiLoader className="animate-spin h-4 w-4" />
+                ) : (
+                  <FiSend className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">Send</span>
               </Button>
             </form>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 p-10 text-center">
-            <FiMessageSquare className="h-24 w-24 mb-4 text-slate-300 dark:text-slate-600" />
-            <p className="text-lg">Select a contact to view messages.</p>
-            <p className="text-sm">Or search for a contact to start a new conversation.</p>
+          <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-muted-foreground">
+            <FiMessageSquare className="h-24 w-24 mb-4 opacity-30" />
+            <h3 className="text-xl font-medium mb-2">No conversation selected</h3>
+            <p className="max-w-md">
+              Select a contact from the list to view messages or start a new conversation.
+            </p>
           </div>
         )}
       </div>
