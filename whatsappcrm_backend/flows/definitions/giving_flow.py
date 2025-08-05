@@ -38,7 +38,7 @@ GIVING_FLOW = {
         },
         "transitions": [
             {
-                "to_step": "ask_for_amount",
+                "to_step": "ask_for_currency",
                 "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}
             },
             {
@@ -53,6 +53,32 @@ GIVING_FLOW = {
     },
 
     # --- Path 1: Give Online ---
+    {
+        "name": "ask_for_currency",
+        "type": "question",
+        "config": {
+            "message_config": {
+                "message_type": "interactive",
+                "interactive": {
+                    "type": "button",
+                    "body": {"text": "Please select the currency for your contribution."},
+                    "action": {
+                        "buttons": [
+                            {"type": "reply", "reply": {"id": "usd", "title": "USD ($)"}},
+                            {"type": "reply", "reply": {"id": "zwl", "title": "ZWL (Z$)"}}
+                        ]
+                    }
+                }
+            },
+            "reply_config": {
+                "expected_type": "interactive_id",
+                "save_to_variable": "giving_currency"
+            }
+        },
+        "transitions": [
+            {"to_step": "ask_for_amount", "condition_config": {"type": "always_true"}}
+        ]
+    },
     {
         "name": "ask_for_amount",
         "type": "question",
@@ -238,7 +264,7 @@ GIVING_FLOW = {
                 "payment_method_template": "{{ payment_method }}",
                 "phone_number_template": "{{ ecocash_phone_number }}",
                 "email_template": "{{ member_profile.email }}",
-                "currency_template": "USD",
+                "currency_template": "{{ giving_currency }}",
                 "notes_template": "Online giving via WhatsApp flow."
             }]
         },
@@ -258,7 +284,7 @@ GIVING_FLOW = {
         "type": "send_message",
         "config": {
             "message_type": "text",
-            "text": {"body": "Thank you! Please check your phone and enter your EcoCash PIN to approve the payment of *${{ giving_amount }}*."}
+            "text": {"body": "Thank you! Please check your phone and enter your EcoCash PIN to approve the payment of *{{ giving_currency|upper }} {{ giving_amount }}*."}
         },
         "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
@@ -322,6 +348,7 @@ GIVING_FLOW = {
             "actions_to_run": [{
                 "action_type": "record_payment",
                 "amount_template": "{{ giving_amount }}",
+                "currency_template": "{{ giving_currency }}",
                 "payment_type_template": "{{ payment_type }}",
                 "payment_method_template": "{{ payment_method }}",
                 "status_template": "pending_verification",
@@ -369,7 +396,7 @@ GIVING_FLOW = {
                 "body": (
                     "Here are your last {{ payment_history_list|length }} contributions:\n\n"
                     "{% for payment in payment_history_list %}"
-                    "🗓️ *{{ payment.created_at|strftime('%b %d, %Y') }}:* ${{ payment.amount }} ({{ payment.payment_type|title }})\n"
+                    "🗓️ *{{ payment.created_at|strftime('%b %d, %Y') }}:* {{ payment.currency }} {{ payment.amount }} ({{ payment.payment_type|title }})\n"
                     "Status: *{{ payment.status|replace('_', ' ')|title }}*\n"
                     "{% if not loop.last %}---\n{% endif %}"
                     "{% endfor %}"
@@ -436,7 +463,7 @@ GIVING_FLOW = {
             "text": {
                 "body": (
                     "Here is the status of your most recent contribution:\n\n"
-                    "🗓️ *{{ last_payment.created_at|strftime('%b %d, %Y') }}:* ${{ last_payment.amount }} ({{ last_payment.payment_type|title }})\n"
+                    "🗓️ *{{ last_payment.created_at|strftime('%b %d, %Y') }}:* {{ last_payment.currency }} {{ last_payment.amount }} ({{ last_payment.payment_type|title }})\n"
                     "Status: *{{ last_payment.status|replace('_', ' ')|title }}*"
                 )
             }

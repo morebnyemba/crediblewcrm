@@ -78,7 +78,7 @@ def send_payment_failure_notification_task(payment_id: str):
             logger.error(f"{log_prefix} Could not find contact associated with payment to send failure notification.")
             return
 
-        failure_message = f"❌ We're sorry, but your contribution of ${payment.amount:.2f} could not be processed. Please try again later. (Ref: {str(payment.id)[:8]})"
+        failure_message = f"❌ We're sorry, but your contribution of {payment.currency} {payment.amount:.2f} could not be processed. Please try again later. (Ref: {str(payment.id)[:8]})"
         message_data = create_text_message_data(text_body=failure_message)
         send_whatsapp_message(to_phone_number=contact_to_notify.whatsapp_id, message_type='text', data=message_data)
         logger.info(f"{log_prefix} Successfully sent failure notification to user {contact_to_notify.whatsapp_id}.")
@@ -102,7 +102,7 @@ def send_giving_confirmation_whatsapp(payment_id: str):
             logger.error(f"{log_prefix} Could not find contact associated with payment to send confirmation.")
             return
 
-        confirmation_message = f"✅ Thank you for your generous contribution of ${payment.amount:.2f}! Your support is greatly appreciated. May God bless you. (Ref: {str(payment.id)[:8]})"
+        confirmation_message = f"✅ Thank you for your generous contribution of {payment.currency} {payment.amount:.2f}! Your support is greatly appreciated. May God bless you. (Ref: {str(payment.id)[:8]})"
         message_data = create_text_message_data(text_body=confirmation_message)
         send_whatsapp_message(to_phone_number=contact_to_notify.whatsapp_id, message_type='text', data=message_data)
         logger.info(f"{log_prefix} Successfully sent giving confirmation to user {contact_to_notify.whatsapp_id}.")
