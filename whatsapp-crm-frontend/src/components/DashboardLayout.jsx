@@ -1,40 +1,40 @@
 // Filename: src/components/DashboardLayout.jsx
-// Main layout component for the dashboard - Enhanced and Updated Navigation
+// Main layout component for the dashboard - Fully responsive with improved mobile experience
 
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Button } from './ui/button'; // Assuming shadcn/ui
-import { Skeleton } from './ui/skeleton'; // Assuming shadcn/ui
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip'; // Assuming shadcn/ui
+import { Button } from './ui/button';
+import { Skeleton } from './ui/skeleton';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip';
+import { useMediaQuery } from 'react-responsive';
 
 import {
   FiSettings,
-  FiMessageSquare, // For Conversation
-  FiDatabase,     // For Saved Data (if kept)
+  FiMessageSquare,
+  FiDatabase,
   FiMenu,
-  FiHome,         // For Dashboard
-  FiLink,         // Example icon from your header
-  FiClock,        // Example icon from your footer
+  FiHome,
+  FiLink,
+  FiClock,
   FiX,
   FiChevronLeft,
   FiChevronRight,
-  FiShare2,       // Good for Flows (diagram/connections)
-  FiUsers,        // Good for Contacts
-  FiImage         // Good for Media Library
+  FiShare2,
+  FiUsers,
+  FiImage,
+  FiUser
 } from 'react-icons/fi';
 
-// Updated navigation links
+// Navigation links with optional badge counts
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: <FiHome className="h-5 w-5" /> },
-  { to: '/conversation', label: 'Conversations', icon: <FiMessageSquare className="h-5 w-5" /> },
+  { to: '/conversation', label: 'Conversations', icon: <FiMessageSquare className="h-5 w-5" />, badge: 5 },
   { to: '/contacts', label: 'Contacts', icon: <FiUsers className="h-5 w-5" /> },
-  { to: '/flows', label: 'Flows', icon: <FiShare2 className="h-5 w-5" /> }, // Changed from Bot Builder
-  { to: '/media-library', label: 'Media Library', icon: <FiImage className="h-5 w-5" /> },
+  { to: '/flows', label: 'Flows', icon: <FiShare2 className="h-5 w-5" /> },
+  { to: '/media-library', label: 'Media Library', icon: <FiImage className="h-5 w-5" />, badge: 12 },
   { to: '/api-settings', label: 'API Settings', icon: <FiSettings className="h-5 w-5" /> },
-  // { to: '/saved-data', label: 'Saved Data', icon: <FiDatabase className="h-5 w-5" /> }, // Uncomment if you use this route
 ];
 
-// Background Component (no changes needed here, it's for aesthetics)
 const DashboardBackground = () => (
   <div className="absolute inset-0 bg-white dark:bg-gray-950 overflow-hidden -z-10">
     <div
@@ -49,31 +49,61 @@ const DashboardBackground = () => (
 );
 
 export default function DashboardLayout() {
-  const [collapsed, setCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === 'true'); // Persist collapse state
+  const isMobile = useMediaQuery({ maxWidth: 767 });
+  const [collapsed, setCollapsed] = useState(() => {
+    // Initialize based on localStorage or mobile state
+    if (typeof window !== 'undefined') {
+      const savedState = localStorage.getItem('sidebarCollapsed');
+      return savedState ? savedState === 'true' : isMobile;
+    }
+    return isMobile;
+  });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
 
+  // Auto-collapse on mobile and expand on desktop
+  useEffect(() => {
+    if (isMobile) {
+      setCollapsed(true);
+    } else {
+      setCollapsed(localStorage.getItem('sidebarCollapsed') === 'true');
+    }
+  }, [isMobile]);
+
+  // Close mobile menu when resizing to desktop
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 768) { // md breakpoint
+      if (!isMobile) {
         setIsMobileMenuOpen(false);
       }
     };
     window.addEventListener('resize', handleResize);
-    handleResize();
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [isMobile]);
 
-  // Effect to save collapsed state to localStorage
+  // Persist collapse state
   useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', collapsed);
-  }, [collapsed]);
+    if (!isMobile) {
+      localStorage.setItem('sidebarCollapsed', collapsed);
+    }
+  }, [collapsed, isMobile]);
 
   // Close mobile menu on route change
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
 
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-gray-200">
@@ -89,109 +119,162 @@ export default function DashboardLayout() {
           >
             {isMobileMenuOpen ? <FiX className="h-6 w-6" /> : <FiMenu className="h-6 w-6" />}
           </Button>
-          <Link to="/dashboard" className="flex items-center"> {/* Link to dashboard from logo */}
+          <Link to="/dashboard" className="flex items-center">
             <span className="font-bold text-xl bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 dark:from-purple-400 dark:via-pink-400 dark:to-red-400 bg-clip-text text-transparent">
               AutoWhatsapp
             </span>
           </Link>
         </div>
-        {/* Placeholder for other mobile header items if needed */}
-        {/* <div className="flex items-center gap-2">
-          <FiLink className="text-gray-400 dark:text-gray-500" />
-          <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-            Status
-          </span>
-        </div> */}
+        
+        {/* User profile button for mobile */}
+        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
+          <FiUser className="h-5 w-5" />
+        </Button>
       </header>
 
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm md:hidden z-30"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm md:hidden z-40"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:relative h-screen transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 z-40 shadow-lg md:shadow-none ${
+        className={`fixed md:relative h-screen transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 z-50 ${
           collapsed ? 'md:w-20' : 'md:w-64'
         } ${
           isMobileMenuOpen
-            ? 'translate-x-0 w-64'
+            ? 'translate-x-0 w-64 shadow-xl'
             : '-translate-x-full md:translate-x-0'
         }`}
       >
         <div className="p-3 h-full flex flex-col">
           <div className={`flex items-center mb-6 h-10 ${collapsed ? 'justify-center' : 'justify-between'}`}>
-            {/* Logo behavior for collapsed/expanded */}
-            <Link to="/dashboard" className={`flex items-center gap-2 overflow-hidden transition-opacity duration-300 ${collapsed ? 'w-auto' : 'w-full'}`}>
-              {/* Always visible small logo for collapsed state */}
-              <img src="https://placehold.co/36x36/A855F7/FFFFFF?text=AW&font=roboto" alt="AW Logo" className={`h-9 w-9 rounded-lg flex-shrink-0`} />
-              {/* Text logo for expanded state */}
+            <Link 
+              to="/dashboard" 
+              className={`flex items-center gap-2 overflow-hidden transition-opacity duration-300 ${collapsed ? 'w-auto' : 'w-full'}`}
+              onClick={() => isMobile && setIsMobileMenuOpen(false)}
+            >
+              <img 
+                src="https://placehold.co/36x36/A855F7/FFFFFF?text=AW&font=roboto" 
+                alt="AW Logo" 
+                className={`h-9 w-9 rounded-lg flex-shrink-0`} 
+              />
               {!collapsed && (
                 <span className={`font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 dark:from-purple-400 dark:via-pink-400 dark:to-red-400 bg-clip-text text-transparent text-xl whitespace-nowrap`}>
                   AutoWhatsapp
                 </span>
               )}
             </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCollapsed((prev) => !prev)}
-              className="rounded-md hidden md:flex text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {collapsed ? <FiChevronRight className="h-5 w-5" /> : <FiChevronLeft className="h-5 w-5" />}
-            </Button>
+            {!isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setCollapsed((prev) => !prev)}
+                className="rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {collapsed ? <FiChevronRight className="h-5 w-5" /> : <FiChevronLeft className="h-5 w-5" />}
+              </Button>
+            )}
           </div>
 
           <TooltipProvider delayDuration={100}>
-            <nav className="space-y-1.5 flex-1">
+            <nav className="space-y-1.5 flex-1 overflow-y-auto">
               {links.map((link) => {
-                // Improved active link detection: exact match for dashboard, startsWith for others
-                const isActive = link.to === '/dashboard' ? location.pathname === link.to : location.pathname.startsWith(link.to);
+                const isActive = link.to === '/dashboard' 
+                  ? location.pathname === link.to 
+                  : location.pathname.startsWith(link.to);
+                
                 return (
                   <Tooltip key={link.to}>
                     <TooltipTrigger asChild>
                       <Button
                         variant={isActive ? 'secondary' : 'ghost'}
-                        className={`w-full justify-start text-sm font-medium h-10 group rounded-lg ${
+                        className={`w-full justify-start text-sm font-medium h-10 group rounded-lg relative ${
                           collapsed ? 'px-0 justify-center' : 'px-3 gap-3'
-                        } ${isActive
+                        } ${
+                          isActive
                             ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300'
                             : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700/80'
-                          }`}
+                        }`}
                         asChild
                       >
                         <Link
                           to={link.to}
-                          onClick={() => { if (isMobileMenuOpen) setIsMobileMenuOpen(false); }}
+                          onClick={() => isMobile && setIsMobileMenuOpen(false)}
                         >
-                          <span className={`flex-shrink-0 h-5 w-5 ${isActive ? 'text-purple-600 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'}`}>{link.icon}</span>
-                          {!collapsed && <span className="truncate">{link.label}</span>}
+                          <span className={`flex-shrink-0 h-5 w-5 ${
+                            isActive 
+                              ? 'text-purple-600 dark:text-purple-300' 
+                              : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'
+                          }`}>
+                            {link.icon}
+                          </span>
+                          {!collapsed && (
+                            <span className="truncate flex-1 text-left">
+                              {link.label}
+                              {link.badge && (
+                                <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                                  {link.badge}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {collapsed && link.badge && (
+                            <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-4 w-4 items-center justify-center rounded-full bg-purple-500 text-xs text-white">
+                              {link.badge > 9 ? '9+' : link.badge}
+                            </span>
+                          )}
                         </Link>
                       </Button>
                     </TooltipTrigger>
-                    {/* Show tooltip only when sidebar is collapsed */}
                     {collapsed && (
-                      <TooltipContent side="right" className="bg-gray-800 dark:bg-slate-900 text-white text-xs rounded-md px-2 py-1 shadow-lg border border-transparent dark:border-slate-700">
+                      <TooltipContent 
+                        side="right" 
+                        className="bg-gray-800 dark:bg-slate-900 text-white text-xs rounded-md px-2 py-1 shadow-lg border border-transparent dark:border-slate-700"
+                      >
                         {link.label}
+                        {link.badge && ` (${link.badge})`}
                       </TooltipContent>
                     )}
                   </Tooltip>
-                )
+                );
               })}
             </nav>
 
+            {/* Bottom section */}
             <div className="mt-auto pt-4 border-t border-gray-200 dark:border-slate-700">
-              <div className={`flex items-center gap-2 p-2 rounded-md ${
+              {/* User profile */}
+              <div className={`flex items-center gap-3 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer ${
+                collapsed ? 'justify-center' : 'px-3'
+              }`}>
+                <div className="relative">
+                  <img 
+                    src="https://placehold.co/40x40/A855F7/FFFFFF?text=U" 
+                    alt="User" 
+                    className="h-8 w-8 rounded-full" 
+                  />
+                  <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-white dark:border-slate-800"></div>
+                </div>
+                {!collapsed && (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">John Doe</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Admin</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className={`flex items-center gap-2 p-2 rounded-md mt-2 ${
                 collapsed ? 'justify-center' : 'px-3'
               }`}>
                 <FiClock className="text-gray-400 dark:text-gray-500 shrink-0 h-5 w-5" />
                 {!collapsed && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400 italic">
-                    Slyker Tech CRM
+                  <span className="text-xs text-gray-500 dark:text-gray-400 italic truncate">
+                    Slyker Tech CRM v2.4.1
                   </span>
                 )}
               </div>
@@ -201,27 +284,30 @@ export default function DashboardLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 relative overflow-y-auto mt-16 md:mt-0"> {/* Added relative for DashboardBackground */}
-        <DashboardBackground /> {/* Background component */}
-        <div className="relative z-10 p-4 sm:p-6 md:p-8"> {/* Content container */}
-          <React.Suspense fallback={<LayoutSkeleton />}> {/* For lazy loaded routes */}
+      <main className="flex-1 relative overflow-y-auto mt-16 md:mt-0 pt-0 md:pt-0">
+        <DashboardBackground />
+        <div className="relative z-10 p-4 sm:p-6 md:p-8">
+          <React.Suspense fallback={<LayoutSkeleton />}>
             <Outlet />
           </React.Suspense>
         </div>
       </main>
     </div>
-  )
+  );
 }
 
-// Placeholder for a loading skeleton for the main content area
 const LayoutSkeleton = () => (
-  <div className="space-y-6 p-1">
-    <Skeleton className="h-10 w-1/3 rounded-lg bg-gray-200 dark:bg-slate-700" />
-    <Skeleton className="h-6 w-2/3 rounded-lg bg-gray-200 dark:bg-slate-700" />
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <Skeleton className="h-64 w-full rounded-xl bg-gray-200 dark:bg-slate-700" />
-      <Skeleton className="h-64 w-full rounded-xl hidden md:block bg-gray-200 dark:bg-slate-700" />
+  <div className="space-y-6 p-1 animate-pulse">
+    <div className="flex justify-between items-center">
+      <Skeleton className="h-8 w-48 rounded-lg bg-gray-200 dark:bg-slate-700" />
+      <Skeleton className="h-10 w-32 rounded-lg bg-gray-200 dark:bg-slate-700" />
     </div>
-    <Skeleton className="h-40 w-full rounded-xl bg-gray-200 dark:bg-slate-700" />
+    <Skeleton className="h-6 w-2/3 rounded-lg bg-gray-200 dark:bg-slate-700" />
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {[1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-40 w-full rounded-xl bg-gray-200 dark:bg-slate-700" />
+      ))}
+    </div>
+    <Skeleton className="h-96 w-full rounded-xl bg-gray-200 dark:bg-slate-700" />
   </div>
 );
