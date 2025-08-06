@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip';
 import { useMediaQuery } from 'react-responsive';
+import { useAuth } from '@/context/AuthContext';
 
 import {
   FiSearch,
@@ -51,6 +52,7 @@ export default function DashboardLayout() {
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
   
   const navigationLinks = [
     { to: '/dashboard', label: 'Dashboard', icon: <FiHome className="h-5 w-5" /> },
@@ -110,6 +112,22 @@ export default function DashboardLayout() {
     };
   }, [isMobileMenuOpen]);
 
+  const getInitials = (name = '') => {
+    if (!name) return 'U';
+    // Handles names like "John Doe" or "john.doe"
+    const parts = name.split(/[\s._-]+/);
+    if (parts.length > 1 && parts[0] && parts[1]) {
+      return parts[0][0].toUpperCase() + parts[1][0].toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  const userInitials = getInitials(user?.username);
+  const userRole = user?.is_staff ? 'Administrator' : 'User';
+
+  // Find the current page title from navigation links
+  const currentPage = navigationLinks.find(link => location.pathname.startsWith(link.to));
+  const pageTitle = currentPage ? currentPage.label : 'Dashboard';
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-gray-200">
       {/* Mobile Header */}
@@ -262,15 +280,15 @@ export default function DashboardLayout() {
                 collapsed ? 'justify-center' : 'px-3'
               }`}>
                 <div className="relative">
-                  <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-8 w-8 rounded-full flex items-center justify-center text-white font-medium">
-                    JD
+                  <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-8 w-8 rounded-full flex items-center justify-center text-white font-semibold">
+                    {userInitials}
                   </div>
                   <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-white dark:border-slate-800"></div>
                 </div>
                 {!collapsed && (
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">John Doe</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Admin</p>
+                    <p className="text-sm font-medium truncate">{user?.username || 'User'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userRole}</p>
                   </div>
                 )}
               </div>
@@ -284,10 +302,14 @@ export default function DashboardLayout() {
               </Button>
 
               {/* Logout */}
-              <Button variant="ghost" className={`w-full justify-start text-sm font-medium h-10 rounded-lg ${
-                collapsed ? 'px-0 justify-center' : 'px-3 gap-3'
-              }`}>
-                <FiLogOut className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              <Button 
+                variant="ghost" 
+                className={`w-full justify-start text-sm font-medium h-10 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-700 dark:hover:text-red-300 ${
+                  collapsed ? 'px-0 justify-center' : 'px-3 gap-3'
+                }`}
+                onClick={logout}
+              >
+                <FiLogOut className="h-5 w-5" />
                 {!collapsed && "Logout"}
               </Button>
             </div>
@@ -300,7 +322,7 @@ export default function DashboardLayout() {
         {/* Desktop Header */}
         <header className="hidden md:flex items-center justify-between h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-6">
           <div className="flex items-center gap-6">
-            <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Dashboard</h1>
+            <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{pageTitle}</h1>
             <div className="relative max-w-md w-full">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -318,12 +340,12 @@ export default function DashboardLayout() {
             </Button>
             
             <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-9 w-9 rounded-full flex items-center justify-center text-white font-medium">
-                JD
+              <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-9 w-9 rounded-full flex items-center justify-center text-white font-semibold">
+                {userInitials}
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">John Doe</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Administrator</p>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{user?.username || 'User'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{userRole}</p>
               </div>
             </div>
           </div>
