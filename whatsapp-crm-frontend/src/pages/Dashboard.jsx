@@ -242,8 +242,22 @@ export default function Dashboard() {
         // Merge new data with existing data, as the payload might be partial
         setBotPerformanceData(prevData => ({ ...prevData, ...payload }));
       }
+
+      if (type === 'human_intervention_needed' && payload) {
+        toast.warning(payload.message, {
+          description: `Click to view conversation with ${payload.name}.`,
+          duration: 20000, // 20 seconds
+          icon: <FiAlertTriangle className="h-5 w-5" />,
+          action: {
+            label: 'View Conversation',
+            onClick: () => navigate(`/conversation/${payload.contact_id}`),
+          },
+          // Prevents duplicate toasts for the same contact if signal fires rapidly
+          id: `intervention-${payload.contact_id}` 
+        });
+      }
     }
-  }, [lastJsonMessage]);
+  }, [lastJsonMessage, navigate]);
 
   const connectionStatus = {
     [ReadyState.CONNECTING]: { text: 'Connecting...', color: 'text-yellow-500', icon: <FiLoader className="animate-spin" /> },

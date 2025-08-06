@@ -119,3 +119,19 @@ def on_payment_change(sender, instance, created, **kwargs):
     # For simplicity, we are not implementing the full financial stat recalculation here,
     # but this is where you would add it.
     pass
+
+@receiver(post_save, sender=Contact)
+def on_contact_change_for_intervention(sender, instance, created, **kwargs):
+    """
+    Specifically checks for human intervention changes to send a real-time notification.
+    This relies on the save() call using update_fields=['needs_human_intervention', ...].
+    """
+    update_fields = kwargs.get('update_fields') or set()
+    if instance.needs_human_intervention and ('needs_human_intervention' in update_fields or created):
+        logger.info(f"Human intervention needed for contact {instance.id}. Broadcasting notification.")
+        notification_payload = {
+            "contact_id": instance.id,
+            "name": instance.name or instance.whatsapp_id,
+            "message": f"Contact '{instance.name or instance.whatsapp_id}' requires human assistance."
+        }
+        broadcast_update('human_intervention_needed', notification_payload)
