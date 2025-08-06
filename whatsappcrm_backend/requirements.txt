@@ -42,5 +42,5 @@ django-prometheus # For monitoring
 Pillow
 jinja2
 paynow
-install channels
+channels
 channels_redis
