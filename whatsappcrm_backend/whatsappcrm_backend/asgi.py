@@ -3,8 +3,10 @@
 import os
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.auth import AuthMiddlewareStack
 from channels.security.websocket import AllowedHostsOriginValidator
+
+# Import our custom middleware
+from whatsappcrm_backend.middleware import TokenAuthMiddleware
 
 # Set the DJANGO_SETTINGS_MODULE environment variable.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'whatsappcrm_backend.settings')
@@ -21,7 +23,7 @@ application = ProtocolTypeRouter({
 
     # WebSocket chat handler
     "websocket": AllowedHostsOriginValidator(
-        AuthMiddlewareStack(URLRouter(
+        TokenAuthMiddleware(URLRouter(
             stats.routing.websocket_urlpatterns + conversations.routing.websocket_urlpatterns
         ))
     ),

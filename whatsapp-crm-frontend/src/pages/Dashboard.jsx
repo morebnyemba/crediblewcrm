@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,10 +24,9 @@ import BotPerformanceDisplay from '@/components/charts/BotPerfomanceDisplay';
 
 // --- API Configuration & Helper ---
 import { API_BASE_URL } from '@/lib/api';
-const getAuthToken = () => localStorage.getItem('accessToken'); // IMPORTANT: Integrate with your actual auth context/store
 
 async function apiCall(endpoint, method = 'GET', body = null, isPaginatedFallback = false) {
-  const token = getAuthToken();
+  const token = localStorage.getItem('accessToken');
   const headers = {
     ...(!body || !(body instanceof FormData) && { 'Content-Type': 'application/json' }),
     ...(token && { 'Authorization': `Bearer ${token}` }),
@@ -109,11 +109,18 @@ export default function Dashboard() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [loadingError, setLoadingError] = useState('');
   const navigate = useNavigate();
+  const { accessToken } = useAuth();
 
   // --- WebSocket Setup ---
-  const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/ws/stats/dashboard/`;
-  const { lastJsonMessage, readyState } = useWebSocket(wsUrl, { shouldReconnect: (closeEvent) => true });
+  const getSocketUrl = useCallback(() => {
+    if (accessToken) {
+      return `${API_BASE_URL.replace(/^http/, 'ws')}/ws/stats/dashboard/?token=${accessToken}`;
+    }
+    return null; // Don't connect if no token
+  }, [accessToken]);
 
+  const { lastJsonMessage, readyState } = useWebSocket(getSocketUrl, { shouldReconnect: (closeEvent) => true });
+  
   const fetchData = useCallback(async () => {
     setIsLoadingData(true); setLoadingError('');
     try {
