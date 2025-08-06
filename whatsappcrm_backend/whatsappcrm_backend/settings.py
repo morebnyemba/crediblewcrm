@@ -213,7 +213,10 @@ CHANNEL_LAYERS = {
         # Use Redis in production for a robust, scalable channel layer
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [os.getenv('REDIS_URL', 'redis://localhost:6379/1')],
+            # In a Docker environment, 'localhost' refers to the container itself.
+            # You must use the service name of the Redis container (e.g., 'redis')
+            # as defined in your docker-compose.yml file.
+            "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/1')],
         },
         # Use in-memory for local development if you don't have Redis running
         # "BACKEND": "channels.layers.InMemoryChannelLayer"
