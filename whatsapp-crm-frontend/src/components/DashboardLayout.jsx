@@ -54,11 +54,12 @@ export default function DashboardLayout() {
   
   const navigationLinks = [
     { to: '/dashboard', label: 'Dashboard', icon: <FiHome className="h-5 w-5" /> },
-    { to: '/conversation', label: 'Conversations', icon: <FiMessageSquare className="h-5 w-5" />, badge: 5 },
+    { to: '/conversation', label: 'Conversations', icon: <FiMessageSquare className="h-5 w-5" /> },
     { to: '/contacts', label: 'Contacts', icon: <FiUsers className="h-5 w-5" /> },
     { to: '/analytics', label: 'Analytics', icon: <FiBarChart2 className="h-5 w-5" /> },
     { to: '/events', label: 'Events', icon: <FiCalendar className="h-5 w-5" /> },
-    { to: '/sermons', label: 'Sermons', icon: <FiMail className="h-5 w-5" />, badge: 12 },
+    { to: '/sermons', label: 'Sermons', icon: <FiMail className="h-5 w-5" />},
+    { to: '/ministries', label: 'ministries', icon: <FiActivity className="h-5 w-5" /> },
     { to: '/reports', label: 'Reports', icon: <FiActivity className="h-5 w-5" /> },
     { to: '/billing', label: 'Billing', icon: <FiCreditCard className="h-5 w-5" /> },
     { to: '/media-library', label: 'Media Library', icon: <FiImage className="h-5 w-5" /> },

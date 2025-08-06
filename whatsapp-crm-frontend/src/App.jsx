@@ -17,6 +17,8 @@ import LoginPage from './pages/LoginPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import SermonsPage from './pages/SermonsPage';
 import SermonFormPage from './pages/SermonFormPage';
+import EventsPage from './pages/EventsPage';
+import EventFormPage from './pages/EventFormPage';
 
 const NotFoundPage = () => (
   <div className="p-10 text-center">
@@ -62,6 +64,11 @@ const router = createBrowserRouter([
       { path: 'sermons', element: <SermonsPage /> },
       { path: 'sermons/new', element: <SermonFormPage /> },
       { path: 'sermons/edit/:sermonId', element: <SermonFormPage /> },
+
+      // Event Management
+      { path: 'events', element: <EventsPage /> },
+      { path: 'events/new', element: <EventFormPage /> },
+      { path: 'events/edit/:eventId', element: <EventFormPage /> },
 
       { path: 'saved-data', element: <SavedData /> },
       { path: 'conversation', element: <Conversation /> },
