@@ -12,7 +12,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'whatsappcrm_backend.settings')
 # Initialize Django's ASGI application early to populate the apps registry.
 django_asgi_app = get_asgi_application()
 
-import stats.routing # Import your app's routing
+import stats.routing
+import conversations.routing
 
 application = ProtocolTypeRouter({
     # Django's ASGI application to handle traditional HTTP requests
@@ -20,6 +21,8 @@ application = ProtocolTypeRouter({
 
     # WebSocket chat handler
     "websocket": AllowedHostsOriginValidator(
-        AuthMiddlewareStack(URLRouter(stats.routing.websocket_urlpatterns))
+        AuthMiddlewareStack(URLRouter(
+            stats.routing.websocket_urlpatterns + conversations.routing.websocket_urlpatterns
+        ))
     ),
 })

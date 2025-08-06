@@ -8,6 +8,7 @@ class ConversationsConfig(AppConfig):
     verbose_name = "Conversations Management"
 
     def ready(self):
-        # You can import signals here if needed in the future
-        # For example: from . import signals
-        pass
+        """
+        Import signals so they are connected when the app is ready.
+        """
+        import conversations.signals  # noqa
