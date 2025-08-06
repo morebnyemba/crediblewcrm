@@ -25,6 +25,6 @@ COPY . /app/
 EXPOSE 8000
 
 # Command to run the application
-# Replace 'whatsappcrm_backend.wsgi:application' with your actual WSGI application path
-# For production, Gunicorn is a common choice. For Daphne (if using Channels for WebSockets), adjust accordingly.
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "whatsappcrm_backend.wsgi:application"]
+# Use Daphne as the ASGI server to support both HTTP and WebSockets (for Django Channels).
+# Gunicorn is a WSGI server and cannot handle the ASGI application.
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "whatsappcrm_backend.asgi:application"]
