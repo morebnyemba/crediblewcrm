@@ -40,6 +40,7 @@ CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS_STRING
 
 # Application definition
 INSTALLED_APPS = [
+    'channels', # Channels must be listed first
     'jazzmin', # Jazzmin must be before django.contrib.admin
     'django.contrib.admin',
     'django.contrib.auth',
@@ -100,7 +101,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'whatsappcrm_backend.wsgi.application'
-ASGI_APPLICATION = 'whatsappcrm_backend.asgi.application' # For Celery with Django 4+ (though not strictly needed for basic Celery worker)
+ASGI_APPLICATION = 'whatsappcrm_backend.asgi.application' # Crucial for Django Channels
 
 
 # Database
@@ -204,6 +205,20 @@ CELERY_TASK_TIME_LIMIT = int(os.getenv('CELERY_TASK_TIME_LIMIT_SECONDS', '1800')
 CELERY_RESULT_EXTENDED = True
 CELERY_CACHE_BACKEND = 'django-cache'
 
+# --- Channels (WebSocket) Configuration ---
+# For development, you can use the in-memory backend.
+# For production, Redis is strongly recommended.
+CHANNEL_LAYERS = {
+    "default": {
+        # Use Redis in production for a robust, scalable channel layer
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.getenv('REDIS_URL', 'redis://localhost:6379/1')],
+        },
+        # Use in-memory for local development if you don't have Redis running
+        # "BACKEND": "channels.layers.InMemoryChannelLayer"
+    },
+}
 
 # For Celery Beat (scheduled tasks)
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'

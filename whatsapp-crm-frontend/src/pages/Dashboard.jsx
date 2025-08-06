@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import useWebSocket, { ReadyState } from 'react-use-websocket';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -109,6 +110,10 @@ export default function Dashboard() {
   const [loadingError, setLoadingError] = useState('');
   const navigate = useNavigate();
 
+  // --- WebSocket Setup ---
+  const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/ws/stats/dashboard/`;
+  const { lastJsonMessage, readyState } = useWebSocket(wsUrl, { shouldReconnect: (closeEvent) => true });
+
   const fetchData = useCallback(async () => {
     setIsLoadingData(true); setLoadingError('');
     try {
@@ -197,6 +202,31 @@ export default function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
+  // --- WebSocket Message Handling ---
+  useEffect(() => {
+    if (lastJsonMessage) {
+      const { type, payload } = lastJsonMessage;
+      console.log("WebSocket message received:", type, payload);
+
+      if (type === 'stats_update' && payload) {
+        setStatsCardsData(prevData =>
+          prevData.map(card =>
+            payload[card.id] !== undefined ? { ...card, value: payload[card.id].toString() } : card
+          )
+        );
+      }
+      // Add handlers for other update types like 'activity_log_update' here
+    }
+  }, [lastJsonMessage]);
+
+  const connectionStatus = {
+    [ReadyState.CONNECTING]: { text: 'Connecting...', color: 'text-yellow-500', icon: <FiLoader className="animate-spin" /> },
+    [ReadyState.OPEN]: { text: 'Live', color: 'text-green-500', icon: <FiCheckCircle /> },
+    [ReadyState.CLOSING]: { text: 'Closing...', color: 'text-orange-500', icon: <FiAlertCircle /> },
+    [ReadyState.CLOSED]: { text: 'Disconnected', color: 'text-red-500', icon: <FiAlertCircle /> },
+    [ReadyState.UNINSTANTIATED]: { text: 'Uninstantiated', color: 'text-gray-500', icon: <FiAlertCircle /> },
+  }[readyState];
+
   const CardLinkWrapper = ({ linkTo, children, className }) => {
     const baseClasses = "block h-full";
     if (linkTo) { return <Link to={linkTo} className={`${baseClasses} hover:shadow-2xl transition-shadow duration-300 ${className || ''}`}>{children}</Link>; }
@@ -220,9 +250,15 @@ export default function Dashboard() {
             Welcome! Here's a real-time summary of your CRM activity.
           </p>
         </div>
-        <div className={`flex items-center gap-2 py-1.5 px-3 rounded-full text-xs font-medium ${systemStatus.color}`}>
-          {systemStatus.icon && React.isValidElement(systemStatus.icon) ? React.cloneElement(systemStatus.icon, { className: "h-4 w-4"}) : <FiActivity className="h-4 w-4"/>}
-          <span>System: {systemStatus.status}</span>
+        <div className="flex items-center gap-4">
+          <div className={`flex items-center gap-2 py-1.5 px-3 rounded-full text-xs font-medium ${connectionStatus.color}`}>
+            {connectionStatus.icon && React.cloneElement(connectionStatus.icon, { className: "h-4 w-4"})}
+            <span>Live Feed: {connectionStatus.text}</span>
+          </div>
+          <div className={`flex items-center gap-2 py-1.5 px-3 rounded-full text-xs font-medium ${systemStatus.color}`}>
+            {systemStatus.icon && React.isValidElement(systemStatus.icon) ? React.cloneElement(systemStatus.icon, { className: "h-4 w-4"}) : <FiActivity className="h-4 w-4"/>}
+            <span>System: {systemStatus.status}</span>
+          </div>
         </div>
       </div>
 

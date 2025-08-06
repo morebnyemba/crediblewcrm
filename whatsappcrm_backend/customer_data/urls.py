@@ -18,5 +18,5 @@ urlpatterns = [
     path('', include(router.urls)),
     # The Paynow IPN webhook is a standalone function-based view, so it's added separately.
     # It's important that this URL is publicly accessible without authentication.
-    path('paynow-ipn/', views.paynow_ipn_webhook, name='paynow-ipn-webhook'),
+    path('webhooks/paynow-ipn/', views.paynow_ipn_webhook, name='paynow-ipn-webhook'),
 ]
