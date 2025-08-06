@@ -102,7 +102,7 @@ export default function SermonFormPage() {
               <FormField control={form.control} name="sermon_date" render={({ field }) => (<FormItem><FormLabel>Sermon Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="A brief summary of the sermon..." {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="video_link" render={({ field }) => (<FormItem><FormLabel>Video Link (YouTube, etc.)</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="audio_link" render={({ field }) => (<FormItem><FormLabel>Audio Link (SoundCloud, etc.)</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormMessage>)} />
+              <FormField control={form.control} name="audio_link" render={({ field }) => (<FormItem><FormLabel>Audio Link (SoundCloud, etc.)</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField
                 control={form.control}
                 name="is_published"
