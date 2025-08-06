@@ -35,11 +35,13 @@ def on_new_message(sender, instance, created, **kwargs):
         logger.debug(f"Signal triggered: New message {instance.id}")
         now = timezone.now()
         twenty_four_hours_ago = now - timedelta(hours=24)
+        four_hours_ago = now - timedelta(hours=4)
         
         # --- Stats Card Payload ---
         stats_payload = {
             'messages_sent_24h': Message.objects.filter(direction='out', timestamp__gte=twenty_four_hours_ago).count(),
             'messages_received_24h': Message.objects.filter(direction='in', timestamp__gte=twenty_four_hours_ago).count(),
+            'active_conversations_count': Message.objects.filter(timestamp__gte=four_hours_ago).values('contact_id').distinct().count(),
         }
         broadcast_update('stats_update', stats_payload)
 
