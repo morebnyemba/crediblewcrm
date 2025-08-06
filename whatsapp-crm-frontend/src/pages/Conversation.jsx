@@ -15,10 +15,12 @@ import {
   FiChevronRight
 } from 'react-icons/fi';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { apiCall } from '@/lib/api';
+import { apiCall, API_BASE_URL } from '@/lib/api';
 import { selectedContactAtom } from '@/atoms/conversationAtoms';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useDebounce } from 'use-debounce';
+import { useAuth } from '@/context/AuthContext';
+import useWebSocket, { ReadyState } from 'react-use-websocket';
 
 const MessageBubble = ({ message, contactName, isLast }) => {
   const isOutgoing = message.direction === 'out';
@@ -27,7 +29,7 @@ const MessageBubble = ({ message, contactName, isLast }) => {
     : 'bg-muted text-foreground rounded-ss-none';
 
   const statusIcons = {
-    sent: <FiCheck className="h-3 w-3 text-muted-foreground" />,
+    sent: <FiCheck className="h-3 w-3 text-muted-foreground" title="Sent" />,
     delivered: <div className="flex gap-0.5"><FiCheck className="h-3 w-3 text-muted-foreground" /><FiCheck className="h-3 w-3 text-muted-foreground -ml-1" /></div>,
     read: <div className="flex gap-0.5"><FiCheck className="h-3 w-3 text-blue-500" /><FiCheck className="h-3 w-3 text-blue-500 -ml-1" /></div>,
     failed: <FiAlertCircle className="h-3 w-3 text-destructive" />,
@@ -36,7 +38,7 @@ const MessageBubble = ({ message, contactName, isLast }) => {
 
   return (
     <div className={`flex flex-col my-1.5 ${isOutgoing ? 'items-end' : 'items-start'}`}>
-      <div className={`max-w-[85%] px-3 py-2 rounded-xl shadow-sm ${bubbleClass}`}>
+      <div className={`max-w-[85%] px-3 py-2 rounded-xl shadow-sm ${bubbleClass}`} title={message.timestamp ? new Date(message.timestamp).toLocaleString() : ''}>
         <p className="text-sm whitespace-pre-wrap">{message.content_preview || message.text_content || "Unsupported message"}</p>
       </div>
       <div className={`flex items-center gap-1 mt-1 px-1 ${isOutgoing ? 'flex-row-reverse' : ''}`}>
@@ -100,9 +102,23 @@ export default function ConversationsPage() {
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const contactsScrollRef = useRef(null);
   const messagesScrollRef = useRef(null);
+  const { accessToken } = useAuth();
 
+  // --- WebSocket Setup ---
+  const getSocketUrl = useCallback(() => {
+    if (accessToken && selectedContact?.id) {
+      return `${API_BASE_URL.replace(/^http/, 'ws')}/ws/conversations/${selectedContact.id}/?token=${accessToken}`;
+    }
+    return null; // Don't connect if no contact is selected
+  }, [accessToken, selectedContact]);
+
+  const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(getSocketUrl, {
+    onOpen: () => console.log(`WebSocket opened for contact ${selectedContact?.id}`),
+    onClose: () => console.log(`WebSocket closed for contact ${selectedContact?.id}`),
+    shouldReconnect: (closeEvent) => true,
+  });
+  
   const fetchContacts = useCallback(async (search = '') => {
     setIsLoading(prev => ({ ...prev, contacts: true }));
     try {
@@ -140,10 +156,31 @@ export default function ConversationsPage() {
 
   useEffect(() => {
     if (selectedContact) {
+      // Fetch initial message history when a contact is selected
       fetchMessages(selectedContact.id);
       inputRef.current?.focus();
+    } else {
+      // Clear messages when no contact is selected
+      setMessages([]);
     }
   }, [selectedContact, fetchMessages]);
+
+  useEffect(() => {
+    // Handle incoming WebSocket messages
+    if (lastJsonMessage) {
+      setMessages(prevMessages => {
+        const existingMessageIndex = prevMessages.findIndex(msg => msg.id === lastJsonMessage.id);
+        if (existingMessageIndex !== -1) {
+          // Update existing message (e.g., for a status change)
+          const updatedMessages = [...prevMessages];
+          updatedMessages[existingMessageIndex] = lastJsonMessage;
+          return updatedMessages;
+        }
+        // Add new message to the list
+        return [...prevMessages, lastJsonMessage];
+      });
+    }
+  }, [lastJsonMessage]);
 
   useEffect(() => {
     if (messagesScrollRef.current) {
@@ -154,42 +191,17 @@ export default function ConversationsPage() {
     }
   }, [messages]);
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedContact) return;
 
-    const tempId = `temp-${Date.now()}`;
-    const optimisticMessage = {
-      id: tempId,
-      contact: selectedContact.id,
-      direction: 'out',
-      text_content: newMessage,
-      timestamp: new Date().toISOString(),
-      status: 'pending'
-    };
-
-    setMessages(prev => [...prev, optimisticMessage]);
-    setNewMessage('');
-
-    try {
-      const sentMessage = await apiCall(
-        '/crm-api/conversations/messages/',
-        'POST',
-        {
-          contact: selectedContact.id,
-          message_type: 'text',
-          content_payload: { body: newMessage }
-        }
-      );
-
-      setMessages(prev => prev.map(msg => 
-        msg.id === tempId ? { ...sentMessage, timestamp: sentMessage.timestamp || optimisticMessage.timestamp } : msg
-      ));
-    } catch (error) {
-      setMessages(prev => prev.map(msg => 
-        msg.id === tempId ? { ...msg, status: 'failed' } : msg
-      ));
-      toast.error("Message failed to send");
+    if (readyState === ReadyState.OPEN) {
+      sendJsonMessage({
+        message: newMessage.trim(),
+      });
+      setNewMessage('');
+    } else {
+      toast.error("Cannot send message. Connection is not live.");
     }
   };
 
@@ -199,6 +211,14 @@ export default function ConversationsPage() {
       handleSendMessage(e);
     }
   };
+
+  const connectionStatus = {
+    [ReadyState.CONNECTING]: { text: 'Connecting...', color: 'text-yellow-500', bgColor: 'bg-yellow-500' },
+    [ReadyState.OPEN]: { text: 'Live', color: 'text-green-500', bgColor: 'bg-green-500' },
+    [ReadyState.CLOSING]: { text: 'Closing...', color: 'text-orange-500', bgColor: 'bg-orange-500' },
+    [ReadyState.CLOSED]: { text: 'Disconnected', color: 'text-red-500', bgColor: 'bg-red-500' },
+    [ReadyState.UNINSTANTIATED]: { text: 'Offline', color: 'text-gray-500', bgColor: 'bg-gray-500' },
+  }[readyState];
 
   return (
     <div className="flex h-[calc(100vh-var(--header-height))] overflow-hidden">
@@ -219,10 +239,7 @@ export default function ConversationsPage() {
           </div>
         </div>
         
-        <ScrollArea 
-          ref={contactsScrollRef}
-          className="flex-1 h-full"
-        >
+        <ScrollArea className="flex-1 h-full">
           {isLoading.contacts ? (
             <div className="space-y-2 p-4">
               {[...Array(5)].map((_, i) => (
@@ -275,11 +292,17 @@ export default function ConversationsPage() {
               </Avatar>
               <div>
                 <h2 className="font-semibold">{selectedContact.name || selectedContact.whatsapp_id}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {selectedContact.last_seen ? 
-                    `Active ${formatDistanceToNow(parseISO(selectedContact.last_seen), { addSuffix: true })}` : 
-                    'Offline'}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {selectedContact.last_seen ? 
+                      `Active ${formatDistanceToNow(parseISO(selectedContact.last_seen), { addSuffix: true })}` : 
+                      'Offline'}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${connectionStatus.bgColor}`}></span>
+                    <span className={`text-xs ${connectionStatus.color}`}>{connectionStatus.text}</span>
+                  </div>
+                </div>
               </div>
             </div>
             <DropdownMenu>
@@ -340,6 +363,7 @@ export default function ConversationsPage() {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
+                disabled={readyState !== ReadyState.OPEN}
                 placeholder="Type a message..."
                 rows={1}
                 className="flex-1 py-3 min-h-[44px] max-h-[120px] overflow-y-auto resize-none"
@@ -347,7 +371,7 @@ export default function ConversationsPage() {
               <Button 
                 type="submit" 
                 size="sm" 
-                disabled={!newMessage.trim()}
+                disabled={!newMessage.trim() || readyState !== ReadyState.OPEN}
                 className="h-[44px]"
               >
                 <FiSend className="h-4 w-4" />
