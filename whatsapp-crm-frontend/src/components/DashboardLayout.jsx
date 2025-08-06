@@ -168,9 +168,7 @@ export default function DashboardLayout() {
               className={`flex items-center gap-2 overflow-hidden transition-opacity duration-300 ${collapsed ? 'w-auto' : 'w-full'}`}
               onClick={() => isMobile && setIsMobileMenuOpen(false)}
             >
-              <div className="bg-gradient-to-r from-purple-600 to-indigo-600 h-9 w-9 rounded-lg flex items-center justify-center">
-                <span className="font-bold text-white text-lg">C</span>
-              </div>
+              <img src="/img/logo.png" alt="CRM Logo" className="h-9 w-9 flex-shrink-0" />
               {!collapsed && (
                 <span className={`font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 dark:from-purple-400 dark:via-pink-400 dark:to-red-400 bg-clip-text text-transparent text-xl whitespace-nowrap`}>
                   CRM Dashboard
@@ -345,7 +343,11 @@ export default function DashboardLayout() {
         <footer className="bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 py-4 px-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              © {new Date().getFullYear()} CRM Dashboard. All rights reserved.
+              © {new Date().getFullYear()} <a 
+                href="https://slykertech.co.zw" 
+                target="_blank" rel="noopener noreferrer" 
+                className="font-medium text-purple-600 hover:underline dark:text-purple-400"
+              >Slyker Tech Web Services</a>. All rights reserved.
             </div>
             <div className="flex items-center gap-4">
               <a href="#" className="text-sm text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">Terms</a>
