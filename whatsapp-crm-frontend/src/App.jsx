@@ -14,6 +14,7 @@ import ContactsPage from './pages/ContactsPage';
 import SavedData from './pages/SavedData';
 import Conversation from './pages/Conversation';
 import LoginPage from './pages/LoginPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 
 const NotFoundPage = () => (
   <div className="p-10 text-center">
@@ -53,7 +54,7 @@ const router = createBrowserRouter([
       // Other sections
       { path: 'media-library', element: <MediaLibraryPage /> },
       { path: 'contacts', element: <ContactsPage /> },
-      
+      { path: 'analytics', element: <AnalyticsPage />}, // Added Analytics Page
       { path: 'saved-data', element: <SavedData /> },
       { path: 'conversation', element: <Conversation /> },
       { path: '*', element: <NotFoundPage /> } // Catch-all for paths under DashboardLayout
