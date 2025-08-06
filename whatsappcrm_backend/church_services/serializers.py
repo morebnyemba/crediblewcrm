@@ -21,3 +21,41 @@ class SermonSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+class EventSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Event model.
+    """
+    class Meta:
+        model = Event
+        fields = [
+            'id',
+            'title',
+            'description',
+            'start_time',
+            'end_time',
+            'location',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+class MinistrySerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Ministry model.
+    """
+    class Meta:
+        model = Ministry
+        fields = [
+            'id',
+            'name',
+            'description',
+            'leader_name',
+            'contact_info',
+            'meeting_schedule',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ('id', 'created_at', 'updated_at')
