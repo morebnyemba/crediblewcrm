@@ -222,7 +222,26 @@ export default function Dashboard() {
           )
         );
       }
-      // Add handlers for other update types like 'activity_log_update' here
+
+      if (type === 'activity_log_add' && payload) {
+        // Recreate the icon component for the new activity
+        const IconComponent = activityIcons[payload.iconName] || activityIcons.default;
+        const newActivity = {
+            ...payload,
+            icon: <IconComponent className={`${payload.iconColor || "text-gray-500"} h-5 w-5`} />
+        };
+        // Add the new activity to the start of the list and cap the length
+        setRecentActivities(prevActivities => [newActivity, ...prevActivities].slice(0, 10));
+      }
+
+      if (type === 'chart_update_conversation_trends' && payload) {
+        setConversationTrendsData(payload);
+      }
+
+      if (type === 'chart_update_bot_performance' && payload) {
+        // Merge new data with existing data, as the payload might be partial
+        setBotPerformanceData(prevData => ({ ...prevData, ...payload }));
+      }
     }
   }, [lastJsonMessage]);
 
