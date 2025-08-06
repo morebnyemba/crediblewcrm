@@ -156,6 +156,20 @@ class MessageListSerializer(MessageSerializer):
 
         return f"({obj.get_message_type_display()})"
 
+class ContactListSerializer(ContactSerializer):
+    """
+    Serializer for the contact list view. It adds extra context like
+    the last message preview and unread count, which are expected to be
+    annotated onto the queryset by the view.
+    """
+    last_message_preview = serializers.CharField(read_only=True, default="No messages yet")
+    unread_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta(ContactSerializer.Meta):
+        # Inherit all fields from the base ContactSerializer and add the new ones.
+        fields = ContactSerializer.Meta.fields + ['last_message_preview', 'unread_count']
+
+
 
 class ContactDetailSerializer(ContactSerializer):
     """
