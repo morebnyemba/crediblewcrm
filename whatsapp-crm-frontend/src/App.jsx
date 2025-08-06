@@ -19,6 +19,8 @@ import SermonsPage from './pages/SermonsPage';
 import SermonFormPage from './pages/SermonFormPage';
 import EventsPage from './pages/EventsPage';
 import EventFormPage from './pages/EventFormPage';
+import MinistriesPage from './pages/MinistriesPage';
+import MinistryFormPage from './pages/MinistryFormPage';
 
 const NotFoundPage = () => (
   <div className="p-10 text-center">
@@ -69,6 +71,11 @@ const router = createBrowserRouter([
       { path: 'events', element: <EventsPage /> },
       { path: 'events/new', element: <EventFormPage /> },
       { path: 'events/edit/:eventId', element: <EventFormPage /> },
+
+      // Ministry Management
+      { path: 'ministries', element: <MinistriesPage /> },
+      { path: 'ministries/new', element: <MinistryFormPage /> },
+      { path: 'ministries/edit/:ministryId', element: <MinistryFormPage /> },
 
       { path: 'saved-data', element: <SavedData /> },
       { path: 'conversation', element: <Conversation /> },
