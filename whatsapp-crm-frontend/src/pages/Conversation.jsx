@@ -102,7 +102,6 @@ export default function ConversationsPage() {
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const messagesScrollRef = useRef(null);
   const { accessToken } = useAuth();
 
   // --- WebSocket Setup ---
