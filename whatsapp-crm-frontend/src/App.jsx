@@ -15,6 +15,8 @@ import SavedData from './pages/SavedData';
 import Conversation from './pages/Conversation';
 import LoginPage from './pages/LoginPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import SermonsPage from './pages/SermonsPage';
+import SermonFormPage from './pages/SermonFormPage';
 
 const NotFoundPage = () => (
   <div className="p-10 text-center">
@@ -55,6 +57,12 @@ const router = createBrowserRouter([
       { path: 'media-library', element: <MediaLibraryPage /> },
       { path: 'contacts', element: <ContactsPage /> },
       { path: 'analytics', element: <AnalyticsPage />}, // Added Analytics Page
+      
+      // Sermon Management
+      { path: 'sermons', element: <SermonsPage /> },
+      { path: 'sermons/new', element: <SermonFormPage /> },
+      { path: 'sermons/edit/:sermonId', element: <SermonFormPage /> },
+
       { path: 'saved-data', element: <SavedData /> },
       { path: 'conversation', element: <Conversation /> },
       { path: '*', element: <NotFoundPage /> } // Catch-all for paths under DashboardLayout
