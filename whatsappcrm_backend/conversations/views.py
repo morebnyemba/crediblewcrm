@@ -3,7 +3,7 @@
 from rest_framework import viewsets, permissions, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Q, Prefetch
+from django.db.models import Q, Prefetch, Subquery, OuterRef, Count, F
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 import logging # Make sure logging is imported
@@ -13,7 +13,8 @@ from .serializers import (
     ContactSerializer,
     MessageSerializer,
     MessageListSerializer,
-    ContactDetailSerializer,    
+    ContactDetailSerializer,
+    ContactListSerializer,
     BroadcastCreateSerializer,
 )
 # For dispatching Celery task
@@ -47,26 +48,45 @@ class ContactViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
     def get_serializer_class(self):
+        if self.action == 'list':
+            return ContactListSerializer
         if self.action == 'retrieve':
             return ContactDetailSerializer
         return ContactSerializer
 
     def get_queryset(self):
         """
-        Dynamically filter the queryset based on the action.
-        - For 'list', apply search and other filters.
-        - For 'retrieve', just prefetch related data.
+        Dynamically filter and annotate the queryset based on the action.
+        - For 'list', add message previews and unread counts, and order by last message time.
+        - For 'retrieve', prefetch related data for a detailed view.
         """
-        queryset = super().get_queryset()
+        queryset = Contact.objects.all()
 
         if self.action == 'list':
+            # Subquery to get the text content of the latest message for each contact
+            latest_message_subquery = Message.objects.filter(
+                contact=OuterRef('pk')
+            ).order_by('-timestamp')
+            
+            latest_message_preview = latest_message_subquery.values('text_content')[:1]
+            latest_message_timestamp = latest_message_subquery.values('timestamp')[:1]
+
+            queryset = queryset.annotate(
+                last_message_preview=Subquery(latest_message_preview),
+                # A simple unread count: incoming messages with 'received' status.
+                # A more complex implementation might track read status per agent.
+                unread_count=Count('messages', filter=Q(messages__direction='in', messages__status='received')),
+                # Annotate the latest message timestamp to order by it
+                latest_message_ts=Subquery(latest_message_timestamp)
+            ).order_by(F('latest_message_ts').desc(nulls_last=True), '-last_seen')
+
             search_term = self.request.query_params.get('search', None)
             if search_term:
                 queryset = queryset.filter(
                     Q(name__icontains=search_term) | 
                     Q(whatsapp_id__icontains=search_term)
                 )
-            
+
             needs_intervention_filter = self.request.query_params.get('needs_human_intervention', None)
             if needs_intervention_filter is not None:
                 if needs_intervention_filter.lower() == 'true':
@@ -75,16 +95,21 @@ class ContactViewSet(viewsets.ModelViewSet):
                     queryset = queryset.filter(needs_human_intervention=False)
 
         elif self.action == 'retrieve':
+            # For the detail view, prefetch messages in chronological order
             queryset = queryset.prefetch_related(
-                Prefetch('messages', queryset=Message.objects.order_by('-timestamp')[:5])
+                Prefetch('messages', queryset=Message.objects.order_by('timestamp'))
             )
+        else:
+            # Fallback for other actions, use default ordering
+            queryset = queryset.order_by('-last_seen')
+            
         return queryset
-
 
     @action(detail=True, methods=['get'], url_path='messages', permission_classes=[permissions.IsAuthenticated])
     def list_messages_for_contact(self, request, pk=None):
         contact = get_object_or_404(Contact, pk=pk)
-        messages_queryset = Message.objects.filter(contact=contact).select_related('contact').order_by('-timestamp')
+        # Return messages in chronological order for chat display
+        messages_queryset = Message.objects.filter(contact=contact).select_related('contact').order_by('timestamp')
         
         page = self.paginate_queryset(messages_queryset)
         if page is not None:

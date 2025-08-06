@@ -142,7 +142,7 @@ export default function ConversationsPage() {
         `/crm-api/conversations/contacts/${contactId}/messages/`,
         'GET'
       );
-      setMessages(data.results?.reverse() || []);
+      setMessages(data.results || []);
     } catch (error) {
       toast.error("Couldn't load messages");
     } finally {
