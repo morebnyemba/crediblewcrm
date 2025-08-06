@@ -143,9 +143,7 @@ export default function DashboardLayout() {
             {isMobileMenuOpen ? <FiX className="h-6 w-6" /> : <FiMenu className="h-6 w-6" />}
           </Button>
           <Link to="/dashboard" className="flex items-center">
-            <span className="font-bold text-xl bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 dark:from-purple-400 dark:via-pink-400 dark:to-red-400 bg-clip-text text-transparent">
-              CRM Dashboard
-            </span>
+            <img src="/img/logo.png" alt="CRM Logo" className="h-8 w-8" />
           </Link>
         </div>
         
@@ -183,15 +181,10 @@ export default function DashboardLayout() {
           <div className={`flex items-center p-4 h-16 ${collapsed ? 'justify-center' : 'justify-between'}`}>
             <Link 
               to="/dashboard" 
-              className={`flex items-center gap-2 overflow-hidden transition-opacity duration-300 ${collapsed ? 'w-auto' : 'w-full'}`}
+              className={`flex items-center overflow-hidden transition-opacity duration-300 ${collapsed ? 'w-auto' : 'w-full'}`}
               onClick={() => isMobile && setIsMobileMenuOpen(false)}
             >
               <img src="/img/logo.png" alt="CRM Logo" className="h-9 w-9 flex-shrink-0" />
-              {!collapsed && (
-                <span className={`font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 dark:from-purple-400 dark:via-pink-400 dark:to-red-400 bg-clip-text text-transparent text-xl whitespace-nowrap`}>
-                  CRM Dashboard
-                </span>
-              )}
             </Link>
             {!isMobile && (
               <Button
