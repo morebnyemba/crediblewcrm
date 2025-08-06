@@ -24,8 +24,11 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-fallback-key-for-de
 DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True' # Default to True for dev if not set
 
 # --- Allowed Hosts ---
-# Add your backend domain here. The frontend domain is NOT needed here.
-ALLOWED_HOSTS_STRING = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,crmbackend.lifeinternationalministries.com')
+# Add your backend domain here. For WebSocket connections to work with
+# AllowedHostsOriginValidator, you must also include your frontend domain.
+ALLOWED_HOSTS_STRING = os.getenv('DJANGO_ALLOWED_HOSTS',
+    'localhost,127.0.0.1,crmbackend.lifeinternationalministries.com,crmfrontend.lifeinternationalministries.com'
+)
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STRING.split(',') if host.strip()]
 
 # --- CSRF Trusted Origins ---
