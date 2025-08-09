@@ -182,12 +182,8 @@ export default function ConversationsPage() {
   }, [lastJsonMessage]);
 
   useEffect(() => {
-    if (messagesScrollRef.current) {
-      messagesScrollRef.current.scrollTo({
-        top: messagesScrollRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
-    }
+    // Automatically scroll to the bottom of the messages
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSendMessage = (e) => {
@@ -318,34 +314,33 @@ export default function ConversationsPage() {
             </DropdownMenu>
           </div>
           
-          <ScrollArea 
-            ref={messagesScrollRef}
-            className="flex-1 p-4"
-          >
-            {isLoading.messages ? (
-              <div className="flex justify-center items-center h-full">
-                <FiLoader className="animate-spin h-6 w-6 text-muted-foreground" />
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <FiMessageSquare className="h-12 w-12 mb-4 opacity-30" />
-                <h3 className="text-lg font-medium">No messages yet</h3>
-                <p className="text-sm mt-1">Send your first message to {selectedContact.name || 'this contact'}</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {messages.map((msg, i) => (
-                  <MessageBubble 
-                    key={msg.id} 
-                    message={msg} 
-                    contactName={selectedContact.name}
-                    isLast={i === messages.length - 1}
-                  />
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
-            )}
-          </ScrollArea>
+          {/* Message List Area */}
+          <div className="flex-1 overflow-y-auto p-4">
+              {isLoading.messages ? (
+                <div className="flex justify-center items-center h-full">
+                  <FiLoader className="animate-spin h-6 w-6 text-muted-foreground" />
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <FiMessageSquare className="h-12 w-12 mb-4 opacity-30" />
+                  <h3 className="text-lg font-medium">No messages yet</h3>
+                  <p className="text-sm mt-1">Send your first message to {selectedContact.name || 'this contact'}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {messages.map((msg, i) => (
+                    <MessageBubble 
+                      key={msg.id} 
+                      message={msg} 
+                      contactName={selectedContact.name}
+                      isLast={i === messages.length - 1}
+                    />
+                  ))}
+                  {/* This empty div is the target for scrolling to the bottom */}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+          </div>
 
           <div className="p-3 border-t bg-background sticky bottom-0">
             <form onSubmit={handleSendMessage} className="flex items-end gap-2">
