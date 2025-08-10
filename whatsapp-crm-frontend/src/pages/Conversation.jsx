@@ -58,7 +58,6 @@ const InteractiveMessageContent = ({ payload }) => {
 
   const { type, header, body, footer, action } = payload.interactive;
 
-  // This is for an outgoing message (sent by bot) with buttons or a list to choose from.
   if (type === 'button' || type === 'list') {
     return (
       <div className="space-y-2">
@@ -82,7 +81,6 @@ const InteractiveMessageContent = ({ payload }) => {
     );
   }
 
-  // This is for an incoming reply (sent by user) from an interactive message.
   if (type === 'button_reply' || type === 'list_reply') {
     return <InteractiveReplyContent reply={payload.interactive} />;
   }
@@ -180,12 +178,12 @@ export default function ConversationsPage() {
   const inputRef = useRef(null);
   const { accessToken } = useAuth();
 
-  // --- WebSocket Setup ---
+  // WebSocket Setup
   const getSocketUrl = useCallback(() => {
     if (accessToken && selectedContact?.id) {
       return `${API_BASE_URL.replace(/^http/, 'ws')}/ws/conversations/${selectedContact.id}/?token=${accessToken}`;
     }
-    return null; // Don't connect if no contact is selected
+    return null;
   }, [accessToken, selectedContact]);
 
   const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(getSocketUrl, {
@@ -217,7 +215,6 @@ export default function ConversationsPage() {
         `/crm-api/conversations/contacts/${contactId}/messages/`,
         'GET'
       );
-      // Reverse the array because the API sends newest first for pagination
       setMessages((data.results || []).reverse());
     } catch (error) {
       toast.error("Couldn't load messages");
@@ -232,34 +229,28 @@ export default function ConversationsPage() {
 
   useEffect(() => {
     if (selectedContact) {
-      // Fetch initial message history when a contact is selected
       fetchMessages(selectedContact.id);
       inputRef.current?.focus();
     } else {
-      // Clear messages when no contact is selected
       setMessages([]);
     }
   }, [selectedContact, fetchMessages]);
 
   useEffect(() => {
-    // Handle incoming WebSocket messages
     if (lastJsonMessage) {
       setMessages(prevMessages => {
         const existingMessageIndex = prevMessages.findIndex(msg => msg.id === lastJsonMessage.id);
         if (existingMessageIndex !== -1) {
-          // Update existing message (e.g., for a status change)
           const updatedMessages = [...prevMessages];
           updatedMessages[existingMessageIndex] = lastJsonMessage;
           return updatedMessages;
         }
-        // Add new message to the list
         return [...prevMessages, lastJsonMessage];
       });
     }
   }, [lastJsonMessage]);
 
   useEffect(() => {
-    // Automatically scroll to the bottom of the messages
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -293,7 +284,7 @@ export default function ConversationsPage() {
   }[readyState];
 
   return (
-    <div className="flex h-[calc(100vh-var(--header-height))] overflow-hidden">
+    <div className="flex flex-1 h-full overflow-hidden">
       {/* Conversations Panel */}
       <div className={`
         ${selectedContact ? 'hidden md:flex md:w-96' : 'flex w-full'} 
@@ -355,6 +346,7 @@ export default function ConversationsPage() {
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setSelectedContact(null)}
+                className="md:hidden"
               >
                 <FiArrowLeft className="h-5 w-5" />
               </Button>
@@ -413,7 +405,6 @@ export default function ConversationsPage() {
                       isLast={i === messages.length - 1}
                     />
                   ))}
-                  {/* This empty div is the target for scrolling to the bottom */}
                   <div ref={messagesEndRef} />
                 </div>
               )}
