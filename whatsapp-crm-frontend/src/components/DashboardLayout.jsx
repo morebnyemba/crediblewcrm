@@ -30,7 +30,8 @@ import {
 } from 'react-icons/fi';
 
 const DashboardBackground = () => (
-  <div className="fixed inset-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 overflow-hidden -z-10 pointer-events-none">
+  <div className="fixed inset-0 -z-10 pointer-events-none">
+    <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900" />
     <div
       className="absolute inset-0 opacity-10 dark:opacity-5"
       style={{
@@ -129,7 +130,7 @@ export default function DashboardLayout() {
   const pageTitle = currentPage ? currentPage.label : 'Dashboard';
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-gray-200 overflow-hidden">
+    <div className="relative flex h-screen w-full overflow-hidden bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-gray-200">
       <DashboardBackground />
       
       {/* Mobile Header */}
@@ -171,7 +172,7 @@ export default function DashboardLayout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:relative h-screen transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 z-50 ${
+        className={`fixed md:relative h-full transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 z-40 ${
           collapsed ? 'md:w-20' : 'md:w-64'
         } ${
           isMobileMenuOpen
@@ -310,9 +311,11 @@ export default function DashboardLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col min-h-0 md:pt-0 pt-16">
+      <div className={`flex flex-col flex-1 h-full transition-all duration-300 ${
+        collapsed ? 'md:ml-20' : 'md:ml-64'
+      }`}>
         {/* Desktop Header */}
-        <header className="hidden md:flex items-center justify-between h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-6 z-10">
+        <header className="hidden md:flex items-center justify-between h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-6 sticky top-0 z-30">
           <div className="flex items-center gap-6">
             <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{pageTitle}</h1>
             <div className="relative max-w-md w-full">
@@ -343,9 +346,9 @@ export default function DashboardLayout() {
           </div>
         </header>
         
-        {/* Main Content */}
-        <div className="flex-1 min-h-0 overflow-auto relative">
-          <div className="p-4 sm:p-6 md:p-8 min-h-full">
+        {/* Content Container */}
+        <div className="flex-1 overflow-y-auto relative">
+          <div className="p-4 sm:p-6 md:p-8">
             <React.Suspense fallback={<LayoutSkeleton />}>
               <Outlet />
             </React.Suspense>
@@ -353,7 +356,7 @@ export default function DashboardLayout() {
         </div>
         
         {/* Footer */}
-        <footer className="bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 py-4 px-6 z-10">
+        <footer className="bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 py-4 px-6 sticky bottom-0 z-20">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="text-sm text-gray-600 dark:text-gray-400">
               © {new Date().getFullYear()} <a 
