@@ -22,6 +22,35 @@ import { useDebounce } from 'use-debounce';
 import { useAuth } from '@/context/AuthContext';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
 
+const InteractiveReplyContent = ({ reply }) => {
+  const { type, button_reply, list_reply } = reply;
+
+  if (type === 'button_reply' && button_reply) {
+    return (
+      <div className="flex items-center gap-2 p-1 rounded-md bg-black/5 dark:bg-white/5">
+        <FiArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <span className="font-medium text-sm">{button_reply.title}</span>
+      </div>
+    );
+  }
+
+  if (type === 'list_reply' && list_reply) {
+    return (
+      <div className="flex flex-col gap-1 p-2 rounded-md bg-black/5 dark:bg-white/5">
+        <div className="flex items-center gap-2">
+          <FiArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <span className="font-medium text-sm">{list_reply.title}</span>
+        </div>
+        {list_reply.description && (
+          <span className="text-xs text-muted-foreground pl-6">{list_reply.description}</span>
+        )}
+      </div>
+    );
+  }
+
+  return <span className="italic text-muted-foreground/80">[Interactive Reply: {type}]</span>;
+};
+
 const InteractiveMessageContent = ({ payload }) => {
   if (!payload || !payload.interactive) {
     return <span className="italic text-muted-foreground/80">[Unsupported interactive message]</span>;
@@ -29,38 +58,36 @@ const InteractiveMessageContent = ({ payload }) => {
 
   const { type, header, body, footer, action } = payload.interactive;
 
-  return (
-    <div className="space-y-2">
-      {header && (
-        <div className="font-bold">
-          {header.type === 'text' && header.text}
-          {header.type === 'image' && <span className="italic">[Image Header]</span>}
-        </div>
-      )}
-      {body && <p className="text-sm">{body.text}</p>}
-      {footer && <p className="text-xs italic text-muted-foreground/80 pt-1">{footer.text}</p>}
-      
-      {type === 'button' && action.buttons && (
-        <div className="pt-2 space-y-1.5">
-          {action.buttons.map(button => (
-            <div key={button.reply.id} className="w-full text-center bg-background/20 dark:bg-background/50 rounded-md p-2 text-sm font-medium cursor-pointer hover:bg-background/40">
-              {button.reply.title}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {type === 'list' && action.sections && (
-        <div className="pt-2">
-          <div className="w-full text-left bg-background/20 dark:bg-background/50 rounded-md p-2 text-sm font-medium cursor-pointer hover:bg-background/40 flex items-center justify-between">
-            <span><FiList className="inline mr-2" /> {action.button || 'View Options'}</span>
-            <FiChevronRight />
+  // This is for an outgoing message (sent by bot) with buttons or a list to choose from.
+  if (type === 'button' || type === 'list') {
+    return (
+      <div className="space-y-2">
+        {header && <div className="font-bold">{header.type === 'text' ? header.text : `[${header.type} Header]`}</div>}
+        {body && <p className="text-sm">{body.text}</p>}
+        {footer && <p className="text-xs italic text-muted-foreground/80 pt-1">{footer.text}</p>}
+        
+        {type === 'button' && action?.buttons && (
+          <div className="pt-2 space-y-1.5">
+            {action.buttons.map(button => (
+              <div key={button.reply.id} className="w-full text-center bg-background/20 dark:bg-background/50 rounded-md p-2 text-sm font-medium cursor-pointer hover:bg-background/40">
+                {button.reply.title}
+              </div>
+            ))}
           </div>
-          {/* We don't render the full list here for brevity, just an indicator */}
-        </div>
-      )}
-    </div>
-  );
+        )}
+        {type === 'list' && action?.sections && (
+          <div className="pt-2"><div className="w-full text-left bg-background/20 dark:bg-background/50 rounded-md p-2 text-sm font-medium cursor-pointer hover:bg-background/40 flex items-center justify-between"><span><FiList className="inline mr-2" /> {action.button || 'View Options'}</span><FiChevronRight /></div></div>
+        )}
+      </div>
+    );
+  }
+
+  // This is for an incoming reply (sent by user) from an interactive message.
+  if (type === 'button_reply' || type === 'list_reply') {
+    return <InteractiveReplyContent reply={payload.interactive} />;
+  }
+
+  return <span className="italic text-muted-foreground/80">[Unsupported interactive type: {type}]</span>;
 };
 
 const MessageBubble = ({ message, contactName, isLast }) => {
