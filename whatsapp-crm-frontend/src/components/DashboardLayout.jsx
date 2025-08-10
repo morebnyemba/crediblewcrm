@@ -114,7 +114,6 @@ export default function DashboardLayout() {
 
   const getInitials = (name = '') => {
     if (!name) return 'U';
-    // Handles names like "John Doe" or "john.doe"
     const parts = name.split(/[\s._-]+/);
     if (parts.length > 1 && parts[0] && parts[1]) {
       return parts[0][0].toUpperCase() + parts[1][0].toUpperCase();
@@ -128,6 +127,7 @@ export default function DashboardLayout() {
   // Find the current page title from navigation links
   const currentPage = navigationLinks.find(link => location.pathname.startsWith(link.to));
   const pageTitle = currentPage ? currentPage.label : 'Dashboard';
+
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-gray-200">
       {/* Mobile Header */}
@@ -185,6 +185,9 @@ export default function DashboardLayout() {
               onClick={() => isMobile && setIsMobileMenuOpen(false)}
             >
               <img src="/img/logo.png" alt="CRM Logo" className="h-9 w-9 flex-shrink-0" />
+              {!collapsed && (
+                <span className="ml-3 text-lg font-semibold whitespace-nowrap">CRM Dashboard</span>
+              )}
             </Link>
             {!isMobile && (
               <Button
@@ -236,28 +239,22 @@ export default function DashboardLayout() {
                             {!collapsed && (
                               <span className="truncate flex-1 text-left">
                                 {link.label}
-                                {link.badge && (
-                                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
-                                    {link.badge}
-                                  </span>
-                                )}
                               </span>
                             )}
-                            {collapsed && link.badge && (
-                              <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-4 w-4 items-center justify-center rounded-full bg-purple-500 text-xs text-white">
-                                {link.badge > 9 ? '9+' : link.badge}
+                            {isMobileMenuOpen && (
+                              <span className="truncate flex-1 text-left ml-3">
+                                {link.label}
                               </span>
                             )}
                           </Link>
                         </Button>
                       </TooltipTrigger>
-                      {collapsed && (
+                      {collapsed && !isMobileMenuOpen && (
                         <TooltipContent 
                           side="right" 
                           className="bg-gray-800 dark:bg-slate-900 text-white text-xs rounded-md px-2 py-1 shadow-lg border border-transparent dark:border-slate-700"
                         >
                           {link.label}
-                          {link.badge && ` (${link.badge})`}
                         </TooltipContent>
                       )}
                     </Tooltip>
@@ -270,7 +267,7 @@ export default function DashboardLayout() {
             <div className="mt-auto pt-4 border-t border-gray-200 dark:border-slate-700 px-2 pb-4">
               {/* User profile */}
               <div className={`flex items-center gap-3 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer ${
-                collapsed ? 'justify-center' : 'px-3'
+                collapsed && !isMobileMenuOpen ? 'justify-center' : 'px-3'
               }`}>
                 <div className="relative">
                   <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-8 w-8 rounded-full flex items-center justify-center text-white font-semibold">
@@ -278,7 +275,7 @@ export default function DashboardLayout() {
                   </div>
                   <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-green-500 border border-white dark:border-slate-800"></div>
                 </div>
-                {!collapsed && (
+                {(!collapsed || isMobileMenuOpen) && (
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{user?.username || 'User'}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userRole}</p>
@@ -288,22 +285,22 @@ export default function DashboardLayout() {
 
               {/* Support */}
               <Button variant="ghost" className={`w-full justify-start mt-2 text-sm font-medium h-10 rounded-lg ${
-                collapsed ? 'px-0 justify-center' : 'px-3 gap-3'
+                collapsed && !isMobileMenuOpen ? 'px-0 justify-center' : 'px-3 gap-3'
               }`}>
                 <FiHelpCircle className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                {!collapsed && "Help & Support"}
+                {(isMobileMenuOpen || !collapsed) && "Help & Support"}
               </Button>
 
               {/* Logout */}
               <Button 
                 variant="ghost" 
                 className={`w-full justify-start text-sm font-medium h-10 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-700 dark:hover:text-red-300 ${
-                  collapsed ? 'px-0 justify-center' : 'px-3 gap-3'
+                  collapsed && !isMobileMenuOpen ? 'px-0 justify-center' : 'px-3 gap-3'
                 }`}
                 onClick={logout}
               >
                 <FiLogOut className="h-5 w-5" />
-                {!collapsed && "Logout"}
+                {(isMobileMenuOpen || !collapsed) && "Logout"}
               </Button>
             </div>
           </TooltipProvider>
@@ -311,7 +308,7 @@ export default function DashboardLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen md:pt-0 pt-16 overflow-hidden">
         {/* Desktop Header */}
         <header className="hidden md:flex items-center justify-between h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-6">
           <div className="flex items-center gap-6">
