@@ -30,7 +30,7 @@ import {
 } from 'react-icons/fi';
 
 const DashboardBackground = () => (
-  <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 overflow-hidden -z-10">
+  <div className="fixed inset-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 overflow-hidden -z-10 pointer-events-none">
     <div
       className="absolute inset-0 opacity-10 dark:opacity-5"
       style={{
@@ -129,7 +129,9 @@ export default function DashboardLayout() {
   const pageTitle = currentPage ? currentPage.label : 'Dashboard';
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-gray-200">
+    <div className="flex flex-col h-screen bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-gray-200 overflow-hidden">
+      <DashboardBackground />
+      
       {/* Mobile Header */}
       <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 p-4 flex items-center justify-between z-50 shadow-sm">
         <div className="flex items-center gap-3">
@@ -310,7 +312,7 @@ export default function DashboardLayout() {
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col min-h-0 md:pt-0 pt-16">
         {/* Desktop Header */}
-        <header className="hidden md:flex items-center justify-between h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-6">
+        <header className="hidden md:flex items-center justify-between h-16 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-6 z-10">
           <div className="flex items-center gap-6">
             <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{pageTitle}</h1>
             <div className="relative max-w-md w-full">
@@ -342,19 +344,16 @@ export default function DashboardLayout() {
         </header>
         
         {/* Main Content */}
-        <div className="flex-1 min-h-0 overflow-hidden relative">
-          <DashboardBackground />
-          <div className="absolute inset-0 overflow-auto z-10">
-            <div className="p-4 sm:p-6 md:p-8 min-h-full">
-              <React.Suspense fallback={<LayoutSkeleton />}>
-                <Outlet />
-              </React.Suspense>
-            </div>
+        <div className="flex-1 min-h-0 overflow-auto relative">
+          <div className="p-4 sm:p-6 md:p-8 min-h-full">
+            <React.Suspense fallback={<LayoutSkeleton />}>
+              <Outlet />
+            </React.Suspense>
           </div>
         </div>
         
         {/* Footer */}
-        <footer className="bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 py-4 px-6">
+        <footer className="bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 py-4 px-6 z-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="text-sm text-gray-600 dark:text-gray-400">
               © {new Date().getFullYear()} <a 
