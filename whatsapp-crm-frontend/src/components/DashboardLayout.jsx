@@ -342,14 +342,16 @@ export default function DashboardLayout() {
         </header>
         
         {/* Main Content */}
-        <main className="flex-1 min-h-0 overflow-auto relative">
+        <div className="flex-1 min-h-0 overflow-hidden relative">
           <DashboardBackground />
-          <div className="relative z-10 p-4 sm:p-6 md:p-8 min-h-full">
-            <React.Suspense fallback={<LayoutSkeleton />}>
-              <Outlet />
-            </React.Suspense>
+          <div className="absolute inset-0 overflow-auto z-10">
+            <div className="p-4 sm:p-6 md:p-8 min-h-full">
+              <React.Suspense fallback={<LayoutSkeleton />}>
+                <Outlet />
+              </React.Suspense>
+            </div>
           </div>
-        </main>
+        </div>
         
         {/* Footer */}
         <footer className="bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 py-4 px-6">
