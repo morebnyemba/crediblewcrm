@@ -11,8 +11,8 @@ import { toast } from 'sonner';
 import {
   FiSend, FiUsers, FiMessageSquare, FiSearch, 
   FiLoader, FiAlertCircle, FiPaperclip, 
-  FiArrowLeft, FiCheck, FiClock, FiMoreVertical,
-  FiChevronRight
+  FiArrowLeft, FiCheck, FiClock, FiMoreVertical, FiChevronRight,
+  FiList, FiArrowRight, FiMessageCircle
 } from 'react-icons/fi';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { apiCall, API_BASE_URL } from '@/lib/api';
@@ -21,6 +21,47 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useDebounce } from 'use-debounce';
 import { useAuth } from '@/context/AuthContext';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
+
+const InteractiveMessageContent = ({ payload }) => {
+  if (!payload || !payload.interactive) {
+    return <span className="italic text-muted-foreground/80">[Unsupported interactive message]</span>;
+  }
+
+  const { type, header, body, footer, action } = payload.interactive;
+
+  return (
+    <div className="space-y-2">
+      {header && (
+        <div className="font-bold">
+          {header.type === 'text' && header.text}
+          {header.type === 'image' && <span className="italic">[Image Header]</span>}
+        </div>
+      )}
+      {body && <p className="text-sm">{body.text}</p>}
+      {footer && <p className="text-xs italic text-muted-foreground/80 pt-1">{footer.text}</p>}
+      
+      {type === 'button' && action.buttons && (
+        <div className="pt-2 space-y-1.5">
+          {action.buttons.map(button => (
+            <div key={button.reply.id} className="w-full text-center bg-background/20 dark:bg-background/50 rounded-md p-2 text-sm font-medium cursor-pointer hover:bg-background/40">
+              {button.reply.title}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {type === 'list' && action.sections && (
+        <div className="pt-2">
+          <div className="w-full text-left bg-background/20 dark:bg-background/50 rounded-md p-2 text-sm font-medium cursor-pointer hover:bg-background/40 flex items-center justify-between">
+            <span><FiList className="inline mr-2" /> {action.button || 'View Options'}</span>
+            <FiChevronRight />
+          </div>
+          {/* We don't render the full list here for brevity, just an indicator */}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const MessageBubble = ({ message, contactName, isLast }) => {
   const isOutgoing = message.direction === 'out';
@@ -39,7 +80,15 @@ const MessageBubble = ({ message, contactName, isLast }) => {
   return (
     <div className={`flex flex-col my-1.5 ${isOutgoing ? 'items-end' : 'items-start'}`}>
       <div className={`max-w-[85%] px-3 py-2 rounded-xl shadow-sm ${bubbleClass}`} title={message.timestamp ? new Date(message.timestamp).toLocaleString() : ''}>
-        <p className="text-sm whitespace-pre-wrap">{message.content_preview || message.text_content || "Unsupported message"}</p>
+        <div className="text-sm break-words">
+          {message.message_type === 'interactive' ? (
+            <InteractiveMessageContent payload={message.content_payload} />
+          ) : message.text_content ? (
+            <p>{message.text_content}</p>
+          ) : (
+            <p className="italic text-muted-foreground/80">{message.content_preview || '[Unsupported message type]'}</p>
+          )}
+        </div>
       </div>
       <div className={`flex items-center gap-1 mt-1 px-1 ${isOutgoing ? 'flex-row-reverse' : ''}`}>
         <span className="text-xs text-muted-foreground">
@@ -141,7 +190,8 @@ export default function ConversationsPage() {
         `/crm-api/conversations/contacts/${contactId}/messages/`,
         'GET'
       );
-      setMessages(data.results || []);
+      // Reverse the array because the API sends newest first for pagination
+      setMessages((data.results || []).reverse());
     } catch (error) {
       toast.error("Couldn't load messages");
     } finally {

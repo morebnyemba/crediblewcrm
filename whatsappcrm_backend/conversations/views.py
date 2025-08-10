@@ -108,8 +108,8 @@ class ContactViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='messages', permission_classes=[permissions.IsAuthenticated])
     def list_messages_for_contact(self, request, pk=None):
         contact = get_object_or_404(Contact, pk=pk)
-        # Return messages in chronological order for chat display
-        messages_queryset = Message.objects.filter(contact=contact).select_related('contact').order_by('timestamp')
+        # Return messages in REVERSE chronological order for pagination (most recent first)
+        messages_queryset = Message.objects.filter(contact=contact).select_related('contact').order_by('-timestamp')
         
         page = self.paginate_queryset(messages_queryset)
         if page is not None:

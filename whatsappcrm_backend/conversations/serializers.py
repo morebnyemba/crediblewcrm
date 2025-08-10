@@ -121,6 +121,8 @@ class MessageListSerializer(MessageSerializer):
             'status',
             'status_display',
             'content_preview', # Custom preview field
+            'text_content',
+            'content_payload',
             'is_internal_note',
         ]
         # read_only_fields are inherited and all listed fields are effectively read_only here.
