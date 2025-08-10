@@ -6,13 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
   FiSend, FiUsers, FiMessageSquare, FiSearch, 
   FiLoader, FiAlertCircle, FiPaperclip, 
   FiArrowLeft, FiCheck, FiClock, FiMoreVertical, FiChevronRight,
-  FiList, FiArrowRight, FiMessageCircle
+  FiList, FiArrowRight
 } from 'react-icons/fi';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { apiCall, API_BASE_URL } from '@/lib/api';
@@ -288,7 +287,7 @@ export default function ConversationsPage() {
       {/* Conversations Panel */}
       <div className={`
         ${selectedContact ? 'hidden md:flex md:w-96' : 'flex w-full'} 
-        border-r flex-col bg-background transition-all duration-300
+        border-r flex-col bg-background transition-all duration-300 h-full
       `}>
         <div className="p-3 border-b sticky top-0 bg-background z-10">
           <div className="relative">
@@ -302,44 +301,46 @@ export default function ConversationsPage() {
           </div>
         </div>
         
-        <ScrollArea className="flex-1 h-full">
-          {isLoading.contacts ? (
-            <div className="space-y-2 p-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="flex items-center gap-3 p-3">
-                  <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
-                    <div className="h-3 w-1/2 bg-muted rounded animate-pulse" />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ScrollArea className="h-full">
+            {isLoading.contacts ? (
+              <div className="space-y-2 p-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3">
+                    <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
+                      <div className="h-3 w-1/2 bg-muted rounded animate-pulse" />
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : contacts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-              <FiUsers className="h-12 w-12 mb-4 text-muted-foreground/30" />
-              <p className="text-muted-foreground">No contacts found</p>
-              <p className="text-sm text-muted-foreground/70 mt-1">
-                {searchTerm ? 'Try a different search' : 'Start by adding contacts'}
-              </p>
-            </div>
-          ) : (
-            contacts.map(contact => (
-              <ContactListItem
-                key={contact.id}
-                contact={contact}
-                isSelected={selectedContact?.id === contact.id}
-                onSelect={setSelectedContact}
-                hasUnread={contact.unread_count > 0}
-              />
-            ))
-          )}
-        </ScrollArea>
+                ))}
+              </div>
+            ) : contacts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                <FiUsers className="h-12 w-12 mb-4 text-muted-foreground/30" />
+                <p className="text-muted-foreground">No contacts found</p>
+                <p className="text-sm text-muted-foreground/70 mt-1">
+                  {searchTerm ? 'Try a different search' : 'Start by adding contacts'}
+                </p>
+              </div>
+            ) : (
+              contacts.map(contact => (
+                <ContactListItem
+                  key={contact.id}
+                  contact={contact}
+                  isSelected={selectedContact?.id === contact.id}
+                  onSelect={setSelectedContact}
+                  hasUnread={contact.unread_count > 0}
+                />
+              ))
+            )}
+          </ScrollArea>
+        </div>
       </div>
 
       {/* Messages Panel */}
       {selectedContact ? (
-        <div className="flex-1 flex flex-col bg-background">
+        <div className="flex-1 flex flex-col bg-background h-full">
           <div className="p-3 border-b flex items-center justify-between sticky top-0 bg-background z-10">
             <div className="flex items-center gap-3">
               <Button 
@@ -384,18 +385,19 @@ export default function ConversationsPage() {
           </div>
           
           {/* Message List Area */}
-          <div className="flex-1 overflow-y-auto p-4">
-              {isLoading.messages ? (
-                <div className="flex justify-center items-center h-full">
-                  <FiLoader className="animate-spin h-6 w-6 text-muted-foreground" />
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                  <FiMessageSquare className="h-12 w-12 mb-4 opacity-30" />
-                  <h3 className="text-lg font-medium">No messages yet</h3>
-                  <p className="text-sm mt-1">Send your first message to {selectedContact.name || 'this contact'}</p>
-                </div>
-              ) : (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {isLoading.messages ? (
+              <div className="flex justify-center items-center h-full">
+                <FiLoader className="animate-spin h-6 w-6 text-muted-foreground" />
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                <FiMessageSquare className="h-12 w-12 mb-4 opacity-30" />
+                <h3 className="text-lg font-medium">No messages yet</h3>
+                <p className="text-sm mt-1">Send your first message to {selectedContact.name || 'this contact'}</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-full p-4">
                 <div className="space-y-3">
                   {messages.map((msg, i) => (
                     <MessageBubble 
@@ -407,7 +409,8 @@ export default function ConversationsPage() {
                   ))}
                   <div ref={messagesEndRef} />
                 </div>
-              )}
+              </ScrollArea>
+            )}
           </div>
 
           <div className="p-3 border-t bg-background sticky bottom-0">
