@@ -28,6 +28,7 @@ class FamilyAdmin(admin.ModelAdmin):
     member_count.short_description = 'Members'
 
 
+
 class PaymentInline(admin.TabularInline):
     """
     Inline admin for displaying payments directly on the MemberProfile page.
@@ -39,7 +40,7 @@ class PaymentInline(admin.TabularInline):
     show_change_link = True
     ordering = ('-created_at',)
 
-
+    
 @admin.register(MemberProfile)
 class MemberProfileAdmin(admin.ModelAdmin):
     """
@@ -60,7 +61,7 @@ class MemberProfileAdmin(admin.ModelAdmin):
         ('System Timestamps', {'fields': ('created_at', 'updated_at', 'last_updated_from_conversation'), 'classes': ('collapse',)}),
     )
 
-
+    
 class PaymentHistoryInline(admin.TabularInline):
     model = PaymentHistory
     extra = 0
@@ -243,7 +244,6 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
     def has_add_permission(self, request): return False
     def has_delete_permission(self, request, obj=None): return False
 
-
 @admin.register(PaymentHistory)
 class PaymentHistoryAdmin(admin.ModelAdmin):
     list_display = ('payment', 'status', 'timestamp', 'notes')
@@ -252,15 +252,50 @@ class PaymentHistoryAdmin(admin.ModelAdmin):
     readonly_fields = ('payment', 'status', 'timestamp', 'notes')
 
 
+
 @admin.register(PrayerRequest)
 class PrayerRequestAdmin(admin.ModelAdmin):
     list_display = ('__str__', 'contact', 'category', 'status', 'is_anonymous', 'created_at')
     list_filter = ('status', 'category', 'is_anonymous', 'created_at')
     search_fields = ('request_text', 'contact__whatsapp_id', 'member__first_name', 'member__last_name')
     readonly_fields = ('id', 'created_at', 'updated_at')
+    actions = ['mark_as_in_progress', 'mark_as_completed']
     list_per_page = 30
     fieldsets = (
         ('Request Details', {'fields': ('id', 'status', 'category', 'request_text')}),
         ('Submitter', {'fields': ('contact', 'member', 'is_anonymous')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
     )
+
+    def mark_as_in_progress(self, request, queryset):
+        for prayer_request in queryset:
+            if prayer_request.status != 'in_progress':
+                prayer_request.status = 'in_progress'
+                prayer_request.save()
+                # Send WhatsApp notification
+                message = f"Your prayer request '{prayer_request.request_text[:50]}...' is now being prayed for."
+                prayer_request.send_whatsapp_notification(message)
+            else:
+                self.message_user(request, f"Prayer request {prayer_request.id} is already in progress.", level='WARNING')
+
+    mark_as_in_progress.short_description = "Mark as In Progress and Notify"
+
+    def mark_as_completed(self, request, queryset):
+        for prayer_request in queryset:
+            if prayer_request.status != 'completed':
+                prayer_request.status = 'completed'
+                prayer_request.save()
+                # Send WhatsApp notification
+                message = f"Your prayer request '{prayer_request.request_text[:50]}...' has been completed. God bless you!"
+                prayer_request.send_whatsapp_notification(message)
+            else:
+                self.message_user(request, f"Prayer request {prayer_request.id} is already completed.", level='WARNING')
+
+    mark_as_completed.short_description = "Mark as Completed and Notify"
+
+    def send_whatsapp_notification(self, prayer_request, message):
+        # Implementation here using your Meta integration
+        #  Example:  Assuming you have a function in meta_integration to send messages
+        from meta_integration.tasks import send_whatsapp_message_task
+        send_whatsapp_message_task.delay(prayer_request.contact.id, message)
+        print(f"Simulating sending WhatsApp to {prayer_request.contact.whatsapp_id}: {message}")
