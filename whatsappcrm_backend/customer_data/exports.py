@@ -77,8 +77,13 @@ def _draw_pdf_footer(canvas, doc):
     y1 = doc.bottomMargin - 12
     canvas.drawCentredString(doc.width / 2 + doc.leftMargin, y1, line1_text)
 
+    canvas.setFont('Helvetica', 8)
     y2 = doc.bottomMargin - 24
     canvas.drawCentredString(doc.width / 2 + doc.leftMargin, y2, contact_line)
+
+    canvas.setFont('Helvetica-Oblique', 7)
+    y3 = doc.bottomMargin - 34
+    canvas.drawCentredString(doc.width / 2 + doc.leftMargin, y3, "Powered by Slyker Tech Web Services")
 
     canvas.restoreState()
 
@@ -111,7 +116,11 @@ def export_members_to_excel(queryset):
     church_name = _get_church_name()
     title_font = Font(bold=True, size=16)
     sheet.cell(row=1, column=1, value=f"{church_name} - Member Details Report").font = title_font
-    sheet.merge_cells('A1:G1')
+    sheet.merge_cells('A1:L1')
+
+    powered_by_font = Font(italic=True, size=9)
+    sheet.cell(row=2, column=1, value="Powered by Slyker Tech Web Services").font = powered_by_font
+    sheet.merge_cells('A2:L2')
 
     headers = [
         "First Name", "Last Name", "WhatsApp ID", "Email", "Date of Birth",
@@ -119,12 +128,12 @@ def export_members_to_excel(queryset):
         "City", "Country", "Notes"
     ]
     bold_font = Font(bold=True)
-    # Start headers from row 3 to leave space for title
+    # Start headers from row 4 to leave space for title
     for col_num, header in enumerate(headers, 1):
-        cell = sheet.cell(row=3, column=col_num, value=header)
+        cell = sheet.cell(row=4, column=col_num, value=header)
         cell.font = bold_font
 
-    for row_num, member in enumerate(queryset.select_related('contact'), 4):
+    for row_num, member in enumerate(queryset.select_related('contact'), 5):
         sheet.cell(row=row_num, column=1, value=member.first_name)
         sheet.cell(row=row_num, column=2, value=member.last_name)
         sheet.cell(row=row_num, column=3, value=member.contact.whatsapp_id if member.contact else "")
@@ -210,14 +219,18 @@ def export_payment_summary_to_excel(queryset, period_name):
     sheet.cell(row=2, column=1, value=f"Payment Summary for {period_name.replace('_', ' ').title()}").font = bold_font
     sheet.merge_cells('A2:C2')
 
+    powered_by_font = Font(italic=True, size=9)
+    sheet.cell(row=3, column=1, value="Powered by Slyker Tech Web Services").font = powered_by_font
+    sheet.merge_cells('A3:C3')
+
     headers = ["Payment Type", "Total Amount (USD)", "Transaction Count"]
     for col_num, header in enumerate(headers, 1):
-        cell = sheet.cell(row=4, column=col_num, value=header)
+        cell = sheet.cell(row=5, column=col_num, value=header)
         cell.font = header_font
 
     summary_data = queryset.values('payment_type').annotate(total_amount=Sum('amount'), transaction_count=Count('id')).order_by('payment_type')
 
-    row_num = 5
+    row_num = 6
     grand_total_amount = Decimal('0.00')
     grand_total_count = 0
     payment_type_display_map = dict(Payment.PAYMENT_TYPE_CHOICES)
@@ -319,9 +332,13 @@ def export_givers_list_finance_excel(queryset, period_name):
     sheet.cell(row=2, column=1, value=f"Givers Report (Finance) for {period_name.replace('_', ' ').title()}").font = bold_font
     sheet.merge_cells('A2:B2')
 
+    powered_by_font = Font(italic=True, size=9)
+    sheet.cell(row=3, column=1, value="Powered by Slyker Tech Web Services").font = powered_by_font
+    sheet.merge_cells('A3:B3')
+
     headers = ["Giver Name", "Total Amount (USD)"]
     for col_num, header in enumerate(headers, 1):
-        cell = sheet.cell(row=4, column=col_num, value=header)
+        cell = sheet.cell(row=5, column=col_num, value=header)
         cell.font = header_font
 
     givers = {}
@@ -333,7 +350,7 @@ def export_givers_list_finance_excel(queryset, period_name):
 
     sorted_givers = sorted(givers.values(), key=lambda x: x['name'])
     
-    row_num = 5
+    row_num = 6
     for giver in sorted_givers:
         sheet.cell(row=row_num, column=1, value=giver['name'])
         sheet.cell(row=row_num, column=2, value=giver['total']).number_format = '"$"#,##0.00'
@@ -413,11 +430,15 @@ def export_givers_list_publication_excel(queryset, period_name):
     sheet.cell(row=2, column=1, value=f"Thank You To Our Givers for {period_name.replace('_', ' ').title()}").font = bold_font
     sheet.merge_cells('A2:A2')
 
-    sheet.cell(row=4, column=1, value="Giver Name").font = header_font
+    powered_by_font = Font(italic=True, size=9)
+    sheet.cell(row=3, column=1, value="Powered by Slyker Tech Web Services").font = powered_by_font
+    sheet.merge_cells('A3:A3')
+
+    sheet.cell(row=5, column=1, value="Giver Name").font = header_font
 
     giver_names = sorted(list(set(get_giver_name(p) for p in queryset.select_related('member', 'contact'))))
 
-    for row_num, name in enumerate(giver_names, 5):
+    for row_num, name in enumerate(giver_names, 6):
         sheet.cell(row=row_num, column=1, value=name)
 
     _auto_adjust_excel_columns(sheet)
