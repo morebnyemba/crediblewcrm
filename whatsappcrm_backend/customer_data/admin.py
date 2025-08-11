@@ -270,10 +270,11 @@ class PrayerRequestAdmin(admin.ModelAdmin):
     def mark_as_in_progress(self, request, queryset):
         for prayer_request in queryset:
             if prayer_request.status != 'in_progress':
+                from meta_integration.tasks import send_whatsapp_message_task
                 prayer_request.status = 'in_progress'
                 prayer_request.save()
                 # Send WhatsApp notification
-                message = f"Your prayer request '{prayer_request.request_text[:50]}...' is now being prayed for."
+                message = f"Your prayer request '{prayer_request.request_text[:50]}...' is now being prayed for."                
                 prayer_request.send_whatsapp_notification(message)
             else:
                 self.message_user(request, f"Prayer request {prayer_request.id} is already in progress.", level='WARNING')
@@ -283,19 +284,12 @@ class PrayerRequestAdmin(admin.ModelAdmin):
     def mark_as_completed(self, request, queryset):
         for prayer_request in queryset:
             if prayer_request.status != 'completed':
+                from meta_integration.tasks import send_whatsapp_message_task
                 prayer_request.status = 'completed'
                 prayer_request.save()
                 # Send WhatsApp notification
-                message = f"Your prayer request '{prayer_request.request_text[:50]}...' has been completed. God bless you!"
-                prayer_request.send_whatsapp_notification(message)
+                message = f"Your prayer request '{prayer_request.request_text[:50]}...' has been completed. God bless you!"                
             else:
                 self.message_user(request, f"Prayer request {prayer_request.id} is already completed.", level='WARNING')
 
     mark_as_completed.short_description = "Mark as Completed and Notify"
-
-    def send_whatsapp_notification(self, prayer_request, message):
-        # Implementation here using your Meta integration
-        #  Example:  Assuming you have a function in meta_integration to send messages
-        from meta_integration.tasks import send_whatsapp_message_task
-        send_whatsapp_message_task.delay(prayer_request.contact.id, message)
-        print(f"Simulating sending WhatsApp to {prayer_request.contact.whatsapp_id}: {message}")
