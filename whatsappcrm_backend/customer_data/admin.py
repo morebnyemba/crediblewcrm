@@ -270,12 +270,17 @@ class PrayerRequestAdmin(admin.ModelAdmin):
 
     def mark_as_in_progress(self, request, queryset):
         for prayer_request in queryset:
-            if prayer_request.status != 'in_prayer':
+            if prayer_request.status != 'in_prayer': # Use 'in_prayer' status
                 prayer_request.status = 'in_prayer'
-                prayer_request.save()
+                prayer_request.save()                
                 try:
                     active_config = MetaAppConfig.objects.get_active_config()                    
-                    message = f"Your prayer request '{prayer_request.request_text[:50]}...' is now being prayed for."
+                    message = (
+                        "We are lifting you up in prayer! 🙏 Your request: "
+                        f"'{prayer_request.request_text[:50]}...' is now being prayed for.\n\n"
+                        "\"Therefore I tell you, whatever you ask for in prayer, believe that you have received it, and it will be yours.\" - Mark 11:24\n\n"
+                        "May you find comfort and strength in His presence. 🙏"
+                    )
                     self._send_status_notification(prayer_request, active_config, message)
                 except MetaAppConfig.DoesNotExist:
                     self.message_user(request, "No active Meta App Configuration found.  Notification not sent.", level='WARNING')
@@ -288,12 +293,17 @@ class PrayerRequestAdmin(admin.ModelAdmin):
 
     def mark_as_completed(self, request, queryset):
         for prayer_request in queryset:
-            if prayer_request.status != 'answered':
-                prayer_request.status = 'completed'
-                prayer_request.save()
+            if prayer_request.status != 'answered': # use 'answered' status
+                prayer_request.status = 'answered'
+                prayer_request.save()                
                 try:
                     active_config = MetaAppConfig.objects.get_active_config()                    
-                    message = f"Your prayer request '{prayer_request.request_text[:50]}...' has been completed. God bless you!"
+                    message = (
+                        "Praise be to God! 🙏 We rejoice with you as we've completed praying for your request: "
+                        f"'{prayer_request.request_text[:50]}...'\n\n"
+                        "\"Rejoice always, pray continually, give thanks in all circumstances; for this is God’s will for you in Christ Jesus.\" - 1 Thessalonians 5:16-18\n\n"
+                        "May God's blessings be upon you! 🙏"
+                    )
                     self._send_status_notification(prayer_request, active_config, message)
                 except MetaAppConfig.DoesNotExist:
                     self.message_user(request, "No active Meta App Configuration found. Notification not sent.", level='WARNING')
@@ -303,6 +313,18 @@ class PrayerRequestAdmin(admin.ModelAdmin):
                 self.message_user(request, f"Prayer request {prayer_request.id} is already completed.", level='WARNING')
 
     mark_as_completed.short_description = "Mark as Completed and Notify"
+
+    def mark_as_closed(self, request, queryset):
+        for prayer_request in queryset:
+            if prayer_request.status != 'closed':
+                prayer_request.status = 'closed'
+                prayer_request.save()
+        self.message_user(request, f"{queryset.count()} prayer requests marked as closed.")
+
+    mark_as_closed.short_description = "Mark as Closed"
+
+    actions = ['mark_as_in_progress', 'mark_as_completed', 'mark_as_closed']
+
 
     def _send_status_notification(self, prayer_request: PrayerRequest, active_config: MetaAppConfig, message_text: str) -> bool:
         """Helper to create and dispatch a WhatsApp notification for a prayer request status change."""
@@ -317,4 +339,5 @@ class PrayerRequestAdmin(admin.ModelAdmin):
         except Exception as e:
             self.message_user(request, f"Failed to create and dispatch notification for prayer request {prayer_request.id}. Error: {e}", level='ERROR')
             return False
+
             
