@@ -263,6 +263,7 @@ class PrayerRequestAdmin(admin.ModelAdmin):
     list_per_page = 30
     fieldsets = (
         ('Request Details', {'fields': ('id', 'status', 'category', 'request_text')}),
+
         ('Submitter', {'fields': ('contact', 'member', 'is_anonymous')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
     )
@@ -270,12 +271,16 @@ class PrayerRequestAdmin(admin.ModelAdmin):
     def mark_as_in_progress(self, request, queryset):
         for prayer_request in queryset:
             if prayer_request.status != 'in_progress':
-                from meta_integration.tasks import send_whatsapp_message_task
-                prayer_request.status = 'in_progress'
+                prayer_request.status = 'in_prayer'
                 prayer_request.save()
-                # Send WhatsApp notification
-                message = f"Your prayer request '{prayer_request.request_text[:50]}...' is now being prayed for."                
-                prayer_request.send_whatsapp_notification(message)
+                try:
+                    active_config = MetaAppConfig.objects.get_active_config()
+                    message = f"Your prayer request '{prayer_request.request_text[:50]}...' is now being prayed for."
+                    self._send_status_notification(prayer_request, active_config, message)
+                except MetaAppConfig.DoesNotExist:
+                    self.message_user(request, "No active Meta App Configuration found.  Notification not sent.", level='WARNING')
+                except Exception as e:
+                    self.message_user(request, f"An error occurred while sending the notification: {e}", level='ERROR')
             else:
                 self.message_user(request, f"Prayer request {prayer_request.id} is already in progress.", level='WARNING')
 
@@ -284,12 +289,31 @@ class PrayerRequestAdmin(admin.ModelAdmin):
     def mark_as_completed(self, request, queryset):
         for prayer_request in queryset:
             if prayer_request.status != 'completed':
-                from meta_integration.tasks import send_whatsapp_message_task
                 prayer_request.status = 'completed'
                 prayer_request.save()
-                # Send WhatsApp notification
-                message = f"Your prayer request '{prayer_request.request_text[:50]}...' has been completed. God bless you!"                
+                try:
+                    active_config = MetaAppConfig.objects.get_active_config()
+                    message = f"Your prayer request '{prayer_request.request_text[:50]}...' has been completed. God bless you!"
+                    self._send_status_notification(prayer_request, active_config, message)
+                except MetaAppConfig.DoesNotExist:
+                    self.message_user(request, "No active Meta App Configuration found. Notification not sent.", level='WARNING')
+                except Exception as e:
+                    self.message_user(request, f"An error occurred while sending the notification: {e}", level='ERROR')
             else:
                 self.message_user(request, f"Prayer request {prayer_request.id} is already completed.", level='WARNING')
 
     mark_as_completed.short_description = "Mark as Completed and Notify"
+
+    def _send_status_notification(self, prayer_request: PrayerRequest, active_config: MetaAppConfig, message_text: str) -> bool:
+        """Helper to create and dispatch a WhatsApp notification for a prayer request status change."""
+        if not prayer_request.contact:
+            self.message_user(request, f"Prayer Request {prayer_request.id} has no associated contact. Cannot send notification.", level='WARNING')
+            return False
+
+        try:
+            message = Message.objects.create(contact=prayer_request.contact, app_config=active_config, direction='out', message_type='text', content_payload={'body': message_text}, status='pending_dispatch', timestamp=timezone.now())
+            send_whatsapp_message_task.delay(message.id, active_config.id)
+            return True
+        except Exception as e:
+            self.message_user(request, f"Failed to create and dispatch notification for prayer request {prayer_request.id}. Error: {e}", level='ERROR')
+            return False
