@@ -2,12 +2,15 @@
 
 import logging
 from celery import shared_task
+from django.utils import timezone
 from django.core.files.base import ContentFile
 from uuid import UUID
 
-from .models import Payment
+from .models import Payment, MemberProfile
 from meta_integration.models import MetaAppConfig
 from meta_integration.utils import download_whatsapp_media
+from conversations.models import Message
+from meta_integration.tasks import send_whatsapp_message_task
 
 logger = logging.getLogger(__name__)
 
@@ -61,3 +64,68 @@ def process_proof_of_payment_image(self, payment_id: str, wamid: str):
     except Exception as e:
         logger.error(f"Failed to save proof of payment file for payment {payment_id}. Error: {e}", exc_info=True)
         self.retry(exc=e)
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60 * 2) # Retry after 2 mins
+def send_birthday_whatsapp_message(self, member_profile_id: int):
+    """
+    Sends a personalized birthday wish to a specific member.
+    """
+    try:
+        member = MemberProfile.objects.select_related('contact').get(contact_id=member_profile_id)
+        contact = member.contact
+        if not contact:
+            logger.warning(f"MemberProfile {member_profile_id} has no associated contact. Cannot send birthday message.")
+            return
+
+        active_config = MetaAppConfig.objects.get_active_config()
+
+        first_name = member.first_name or contact.name or "Friend"
+        
+        message_text = (
+            f"Happy Birthday, {first_name}! 🎂🎉\n\n"
+            "May your day be filled with joy, laughter, and countless blessings. We are so grateful to have you as part of our church family.\n\n"
+            "\"The Lord bless you and keep you; the Lord make his face shine on you and be gracious to you; the Lord turn his face toward you and give you peace.\" - Numbers 6:24-26\n\n"
+            "With love,\n"
+            "Your Church Family"
+        )
+
+        outgoing_msg = Message.objects.create(
+            contact=contact, app_config=active_config, direction='out',
+            message_type='text', content_payload={'body': message_text},
+            status='pending_dispatch', timestamp=timezone.now()
+        )
+        send_whatsapp_message_task.delay(outgoing_msg.id, active_config.id)
+        logger.info(f"Queued birthday message for MemberProfile {member.contact_id} ({contact.whatsapp_id}).")
+
+    except MemberProfile.DoesNotExist:
+        logger.error(f"send_birthday_whatsapp_message: MemberProfile with ID {member_profile_id} not found. Task will not be retried.")
+    except (MetaAppConfig.DoesNotExist, MetaAppConfig.MultipleObjectsReturned) as e:
+        logger.error(f"Cannot get unique active MetaAppConfig for sending birthday message to contact {contact.id}. Retrying. Error: {e}")
+        self.retry(exc=e)
+    except Exception as e:
+        logger.error(f"An unexpected error occurred in send_birthday_whatsapp_message for member {member_profile_id}: {e}", exc_info=True)
+        self.retry(exc=e)
+
+@shared_task
+def check_for_birthdays_and_dispatch_messages():
+    """
+    Daily task to find members whose birthday is today and dispatch individual message tasks.
+    This task is intended to be run by Celery Beat.
+    """
+    today = timezone.now().date()
+    logger.info(f"Running daily birthday check for {today.strftime('%Y-%m-%d')}.")
+    
+    birthday_members = MemberProfile.objects.filter(
+        date_of_birth__month=today.month,
+        date_of_birth__day=today.day
+    ).exclude(date_of_birth__isnull=True)
+
+    if not birthday_members.exists():
+        logger.info("No members with a birthday today.")
+        return "No birthdays found today."
+
+    logger.info(f"Found {birthday_members.count()} member(s) with a birthday today. Dispatching messages...")
+    for member in birthday_members:
+        send_birthday_whatsapp_message.delay(member.pk)
+    
+    return f"Dispatched {birthday_members.count()} birthday message tasks."

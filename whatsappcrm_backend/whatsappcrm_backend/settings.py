@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 import dotenv # For loading .env file
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -228,6 +229,15 @@ CHANNEL_LAYERS = {
 
 # For Celery Beat (scheduled tasks)
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULE = {
+    'check-for-birthdays-daily': {
+        'task': 'customer_data.tasks.check_for_birthdays_and_dispatch_messages',
+        # Runs every day at 8:00 AM (server time, which is set to Africa/Harare)
+        'schedule': crontab(hour=8, minute=0),
+        'args': (),
+    },
+}
+
 
 # --- Application-Specific Settings ---
 CONVERSATION_EXPIRY_DAYS = int(os.getenv('CONVERSATION_EXPIRY_DAYS', '60'))
