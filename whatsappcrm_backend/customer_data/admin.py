@@ -270,11 +270,11 @@ class PrayerRequestAdmin(admin.ModelAdmin):
 
     def mark_as_in_progress(self, request, queryset):
         for prayer_request in queryset:
-            if prayer_request.status != 'in_progress':
+            if prayer_request.status != 'in_prayer':
                 prayer_request.status = 'in_prayer'
                 prayer_request.save()
                 try:
-                    active_config = MetaAppConfig.objects.get_active_config()
+                    active_config = MetaAppConfig.objects.get_active_config()                    
                     message = f"Your prayer request '{prayer_request.request_text[:50]}...' is now being prayed for."
                     self._send_status_notification(prayer_request, active_config, message)
                 except MetaAppConfig.DoesNotExist:
@@ -288,11 +288,11 @@ class PrayerRequestAdmin(admin.ModelAdmin):
 
     def mark_as_completed(self, request, queryset):
         for prayer_request in queryset:
-            if prayer_request.status != 'completed':
+            if prayer_request.status != 'answered':
                 prayer_request.status = 'completed'
                 prayer_request.save()
                 try:
-                    active_config = MetaAppConfig.objects.get_active_config()
+                    active_config = MetaAppConfig.objects.get_active_config()                    
                     message = f"Your prayer request '{prayer_request.request_text[:50]}...' has been completed. God bless you!"
                     self._send_status_notification(prayer_request, active_config, message)
                 except MetaAppConfig.DoesNotExist:
@@ -317,3 +317,4 @@ class PrayerRequestAdmin(admin.ModelAdmin):
         except Exception as e:
             self.message_user(request, f"Failed to create and dispatch notification for prayer request {prayer_request.id}. Error: {e}", level='ERROR')
             return False
+            
