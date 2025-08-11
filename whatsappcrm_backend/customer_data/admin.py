@@ -14,8 +14,11 @@ from meta_integration.models import MetaAppConfig
 from meta_integration.tasks import send_whatsapp_message_task
 from .exports import (
     export_members_to_excel, export_members_to_pdf,
-    export_payment_summary_to_excel, export_payment_summary_to_pdf
+    export_payment_summary_to_excel, export_payment_summary_to_pdf,
+    export_givers_list_finance_excel, export_givers_list_finance_pdf,
+    export_givers_list_publication_excel, export_givers_list_publication_pdf
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +60,7 @@ class MemberProfileAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at', 'last_updated_from_conversation')
     inlines = [PaymentInline]
     list_per_page = 25
-    actions = ['export_selected_to_excel', 'export_selected_to_pdf']
+    actions = ['export_all_members_to_excel', 'export_all_members_to_pdf']
     fieldsets = (
         ('Primary Info', {'fields': ('contact', ('first_name', 'last_name'), 'email')}),
         ('Personal Details', {'fields': ('date_of_birth', 'gender', 'marital_status')}),
@@ -67,13 +70,15 @@ class MemberProfileAdmin(admin.ModelAdmin):
         ('System Timestamps', {'fields': ('created_at', 'updated_at', 'last_updated_from_conversation'), 'classes': ('collapse',)}),
     )
 
-    @admin.action(description='Export selected members to Excel')
-    def export_selected_to_excel(self, request, queryset):
-        return export_members_to_excel(queryset)
+    @admin.action(description='Export ALL members to Excel')
+    def export_all_members_to_excel(self, request, queryset):
+        all_members = MemberProfile.objects.all()
+        return export_members_to_excel(all_members)
 
-    @admin.action(description='Export selected members to PDF')
-    def export_selected_to_pdf(self, request, queryset):
-        return export_members_to_pdf(queryset)
+    @admin.action(description='Export ALL members to PDF')
+    def export_all_members_to_pdf(self, request, queryset):
+        all_members = MemberProfile.objects.all()
+        return export_members_to_pdf(all_members)
 
     
 class PaymentHistoryInline(admin.TabularInline):
@@ -93,6 +98,10 @@ class PaymentAdmin(admin.ModelAdmin):
         'export_summary_week_excel', 'export_summary_week_pdf',
         'export_summary_month_excel', 'export_summary_month_pdf',
         'export_summary_year_excel', 'export_summary_year_pdf',
+        'export_givers_finance_month_excel',
+        'export_givers_finance_month_pdf',
+        'export_givers_publication_month_excel',
+        'export_givers_publication_month_pdf',
     ]
     fieldsets = (
         ('Transaction Details', {'fields': ('id', 'status', 'amount', 'currency', 'payment_type', 'payment_method')}),
@@ -156,6 +165,35 @@ class PaymentAdmin(admin.ModelAdmin):
         start_date = now - timedelta(days=365)
         payments = Payment.objects.filter(created_at__gte=start_date, status='completed')
         return export_payment_summary_to_pdf(payments, 'last_365_days')
+
+    @admin.action(description='Export monthly givers list for Finance (Excel)')
+    def export_givers_finance_month_excel(self, request, queryset):
+        now = timezone.now()
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        payments = Payment.objects.filter(created_at__gte=start_date, status='completed')
+        return export_givers_list_finance_excel(payments, 'current_month')
+
+    @admin.action(description='Export monthly givers list for Finance (PDF)')
+    def export_givers_finance_month_pdf(self, request, queryset):
+        now = timezone.now()
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        payments = Payment.objects.filter(created_at__gte=start_date, status='completed')
+        return export_givers_list_finance_pdf(payments, 'current_month')
+
+    @admin.action(description='Export monthly givers list for Publication (Excel)')
+    def export_givers_publication_month_excel(self, request, queryset):
+        now = timezone.now()
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        payments = Payment.objects.filter(created_at__gte=start_date, status='completed')
+        return export_givers_list_publication_excel(payments, 'current_month')
+
+    @admin.action(description='Export monthly givers list for Publication (PDF)')
+    def export_givers_publication_month_pdf(self, request, queryset):
+        now = timezone.now()
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        payments = Payment.objects.filter(created_at__gte=start_date, status='completed')
+        return export_givers_list_publication_pdf(payments, 'current_month')
+
 
 
 @admin.register(PendingVerificationPayment)
