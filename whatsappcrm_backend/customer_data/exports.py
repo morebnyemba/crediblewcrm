@@ -25,10 +25,10 @@ logger = logging.getLogger(__name__)
 def _get_church_name():
     """Gets the church name from settings, with a fallback."""
     try:
-        # Using site_header as it's more descriptive than site_title
-        return settings.JAZZMIN_SETTINGS['site_header']
+        # Use the new centralized CHURCH_DETAILS setting
+        return settings.CHURCH_DETAILS['NAME']
     except (AttributeError, KeyError):
-        logger.warning("JAZZMIN_SETTINGS['site_header'] not found. Using fallback 'Church'.")
+        logger.warning("settings.CHURCH_DETAILS['NAME'] not found. Using fallback 'Church'.")
         return "Church"
 
 def _auto_adjust_excel_columns(sheet):
@@ -46,6 +46,41 @@ def _auto_adjust_excel_columns(sheet):
                 pass
         adjusted_width = (max_length + 2)
         sheet.column_dimensions[column].width = adjusted_width
+
+def _draw_pdf_footer(canvas, doc):
+    """Draws a standard footer on each PDF page with church details."""
+    canvas.saveState()
+    
+    # Get details from settings, with fallbacks
+    details = settings.CHURCH_DETAILS
+    name = details.get('NAME', 'Our Church')
+    address_line_1 = details.get('ADDRESS_LINE_1', '')
+    address_line_2 = details.get('ADDRESS_LINE_2', '')
+    phone = details.get('CONTACT_PHONE', '')
+    email = details.get('CONTACT_EMAIL', '')
+    website = details.get('WEBSITE', '')
+
+    # Combine address parts that exist
+    address_parts = [part for part in [address_line_1, address_line_2] if part]
+    full_address = ", ".join(address_parts)
+
+    # Combine contact parts that exist
+    contact_parts = []
+    if phone: contact_parts.append(f"Phone: {phone}")
+    if email: contact_parts.append(f"Email: {email}")
+    if website: contact_parts.append(f"Website: {website}")
+    contact_line = " | ".join(contact_parts)
+
+    canvas.setFont('Helvetica', 8)
+    
+    line1_text = f"{name} - {full_address}" if full_address else name
+    y1 = doc.bottomMargin - 12
+    canvas.drawCentredString(doc.width / 2 + doc.leftMargin, y1, line1_text)
+
+    y2 = doc.bottomMargin - 24
+    canvas.drawCentredString(doc.width / 2 + doc.leftMargin, y2, contact_line)
+
+    canvas.restoreState()
 
 def get_giver_name(payment):
     """Helper to get the best available name for a giver."""
@@ -112,7 +147,7 @@ def export_members_to_pdf(queryset):
     Generates a PDF file with a summary of member details for the given queryset.
     """
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=18)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=40)
     elements = []
     styles = getSampleStyleSheet()
 
@@ -144,7 +179,7 @@ def export_members_to_pdf(queryset):
     ]))
     elements.append(table)
 
-    doc.build(elements)
+    doc.build(elements, onFirstPage=_draw_pdf_footer, onLaterPages=_draw_pdf_footer)
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="member_details_{timezone.now().strftime("%Y-%m-%d")}.pdf"'
@@ -252,7 +287,7 @@ def export_payment_summary_to_pdf(queryset, period_name):
     ]))
     elements.append(table)
 
-    doc.build(elements)
+    doc.build(elements, onFirstPage=_draw_pdf_footer, onLaterPages=_draw_pdf_footer)
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="payment_summary_{period_name}_{timezone.now().strftime("%Y-%m-%d")}.pdf"'
@@ -349,7 +384,7 @@ def export_givers_list_finance_pdf(queryset, period_name):
     ]))
     elements.append(table)
 
-    doc.build(elements)
+    doc.build(elements, onFirstPage=_draw_pdf_footer, onLaterPages=_draw_pdf_footer)
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="givers_finance_report_{period_name}_{timezone.now().strftime("%Y-%m-%d")}.pdf"'
@@ -419,7 +454,7 @@ def export_givers_list_publication_pdf(queryset, period_name):
     ]))
     elements.append(table)
 
-    doc.build(elements)
+    doc.build(elements, onFirstPage=_draw_pdf_footer, onLaterPages=_draw_pdf_footer)
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="givers_publication_list_{period_name}_{timezone.now().strftime("%Y-%m-%d")}.pdf"'

@@ -243,6 +243,19 @@ CELERY_BEAT_SCHEDULE = {
 CONVERSATION_EXPIRY_DAYS = int(os.getenv('CONVERSATION_EXPIRY_DAYS', '60'))
 ADMIN_WHATSAPP_NUMBER = os.getenv('ADMIN_WHATSAPP_NUMBER', None) # e.g., '15551234567'
 
+# --- Church Details ---
+# Centralized details for use in templates, exports, and messages.
+CHURCH_DETAILS = {
+    'NAME': os.getenv('CHURCH_NAME', 'Life International Ministries'),
+    'ADDRESS_LINE_1': os.getenv('CHURCH_ADDRESS_LINE_1', '123 Gospel Lane'),
+    'ADDRESS_LINE_2': os.getenv('CHURCH_ADDRESS_LINE_2', 'Faith City, ZW'),
+    'CONTACT_PHONE': os.getenv('CHURCH_CONTACT_PHONE', '+263 123 456789'),
+    'CONTACT_EMAIL': os.getenv('CHURCH_CONTACT_EMAIL', 'info@church.com'),
+    'WEBSITE': os.getenv('CHURCH_WEBSITE', 'www.lifeinternationalministries.com'),
+    'MOTTO': os.getenv('CHURCH_MOTTO', 'Serving the Community with Faith'),
+}
+
+
 print("--- DEBUGGING ENVIRONMENT VARIABLES ---")
 celery_log_level_env = os.getenv('CELERY_LOG_LEVEL')
 print(f"Value of CELERY_LOG_LEVEL from os.getenv: '{celery_log_level_env}' (Type: {type(celery_log_level_env)})")
@@ -276,7 +289,7 @@ WHATSAPP_APP_SECRET = os.getenv('WHATSAPP_APP_SECRET', None)
 # --- Jazzmin Admin Theme Settings ---
 JAZZMIN_SETTINGS = {
     "site_title": "AutoWhats",
-    "site_header": "AutoWhats",
+    "site_header": CHURCH_DETAILS['NAME'],
     "site_brand": "A-W",
     "site_logo_classes": "img-circle",
     # Path to logo, relative to static files.
