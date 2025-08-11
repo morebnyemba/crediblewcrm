@@ -10,11 +10,12 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
     ports:
       - "5432:5432"
-    restart: unless-stopped
+    restart: unless-stopped # Ensure that the DB restarts unless explicitly stopped
 
   redis:
     image: redis:7-alpine
     container_name: whatsappcrm_redis
+    command: redis-server /usr/local/etc/redis/redis.conf # Use config file for redis
     volumes:
       - redis_data:/data
     ports:

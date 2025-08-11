@@ -217,7 +217,7 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             # In a Docker environment, 'localhost' refers to the container itself.
-            # You must use the service name of the Redis container (e.g., 'redis')
+            # You must use the service name of the Redis container (e.g., 'redis') and password
             # as defined in your docker-compose.yml file.
             "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/1')],
         },
