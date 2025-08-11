@@ -16,11 +16,13 @@ services:
     image: redis:7-alpine
     container_name: whatsappcrm_redis
     command: redis-server /usr/local/etc/redis/redis.conf # Use config file for redis
+    # redis-server --requirepass your_strong_password
     volumes:
       - redis_data:/data
-    ports:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    ports: # Ensure the ports are accessible to the host if needed
       - "6379:6379"
-    restart: unless-stopped
+    restart: unless-stopped # Ensure redis restarts unless explicitly stopped
 
   backend:
     build: ./whatsappcrm_backend
