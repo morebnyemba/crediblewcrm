@@ -237,17 +237,22 @@ def export_payment_summary_to_excel(queryset, period_name):
 
     for summary in summary_data:
         payment_type_key = summary['payment_type']
-        payment_type_display = payment_type_display_map.get(payment_type_key, payment_type_key.title())
+        # Explicitly convert lazy translation object to a string for openpyxl
+        payment_type_display = str(payment_type_display_map.get(payment_type_key, payment_type_key.title()))
         sheet.cell(row=row_num, column=1, value=payment_type_display)
-        sheet.cell(row=row_num, column=2, value=summary['total_amount']).number_format = '"$"#,##0.00'
+
+        cell_amount = sheet.cell(row=row_num, column=2, value=summary['total_amount'])
+        cell_amount.number_format = '"$"#,##0.00'
+
         sheet.cell(row=row_num, column=3, value=summary['transaction_count'])
         grand_total_amount += summary['total_amount']
         grand_total_count += summary['transaction_count']
         row_num += 1
 
     sheet.cell(row=row_num, column=1, value="Grand Total").font = header_font
-    sheet.cell(row=row_num, column=2, value=grand_total_amount).font = header_font
-    sheet.cell(row=row_num, column=2, value=grand_total_amount).number_format = '"$"#,##0.00'
+    cell_grand_total = sheet.cell(row=row_num, column=2, value=grand_total_amount)
+    cell_grand_total.font = header_font
+    cell_grand_total.number_format = '"$"#,##0.00'
     sheet.cell(row=row_num, column=3, value=grand_total_count).font = header_font
 
     _auto_adjust_excel_columns(sheet)
@@ -279,7 +284,9 @@ def export_payment_summary_to_pdf(queryset, period_name):
     for summary in summary_data:
         payment_type_key = summary['payment_type']
         total_amount = summary['total_amount']
-        data.append([payment_type_display_map.get(payment_type_key, payment_type_key.title()), f"${total_amount:,.2f}", str(summary['transaction_count'])])
+        # Explicitly convert lazy translation object to a string for safety
+        payment_type_display = str(payment_type_display_map.get(payment_type_key, payment_type_key.title()))
+        data.append([payment_type_display, f"${total_amount:,.2f}", str(summary['transaction_count'])])
         grand_total_amount += total_amount
         grand_total_count += summary['transaction_count']
 
