@@ -5,12 +5,17 @@ from .models import Family, MemberProfile, Payment, PaymentHistory, PrayerReques
 from django.utils.html import format_html
 from django.core.files.storage import default_storage
 from django.utils import timezone
+from datetime import timedelta
 from django.conf import settings
 import logging
 
 from conversations.models import Message
 from meta_integration.models import MetaAppConfig
 from meta_integration.tasks import send_whatsapp_message_task
+from .exports import (
+    export_members_to_excel, export_members_to_pdf,
+    export_payment_summary_to_excel, export_payment_summary_to_pdf
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +57,7 @@ class MemberProfileAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at', 'last_updated_from_conversation')
     inlines = [PaymentInline]
     list_per_page = 25
+    actions = ['export_selected_to_excel', 'export_selected_to_pdf']
     fieldsets = (
         ('Primary Info', {'fields': ('contact', ('first_name', 'last_name'), 'email')}),
         ('Personal Details', {'fields': ('date_of_birth', 'gender', 'marital_status')}),
@@ -60,6 +66,14 @@ class MemberProfileAdmin(admin.ModelAdmin):
         ('Engagement', {'fields': ('acquisition_source', 'tags', 'notes')}),
         ('System Timestamps', {'fields': ('created_at', 'updated_at', 'last_updated_from_conversation'), 'classes': ('collapse',)}),
     )
+
+    @admin.action(description='Export selected members to Excel')
+    def export_selected_to_excel(self, request, queryset):
+        return export_members_to_excel(queryset)
+
+    @admin.action(description='Export selected members to PDF')
+    def export_selected_to_pdf(self, request, queryset):
+        return export_members_to_pdf(queryset)
 
     
 class PaymentHistoryInline(admin.TabularInline):
@@ -75,6 +89,11 @@ class PaymentAdmin(admin.ModelAdmin):
     readonly_fields = ('id', 'created_at', 'updated_at', 'display_proof_of_payment')
     inlines = [PaymentHistoryInline]
     list_per_page = 30
+    actions = [
+        'export_summary_week_excel', 'export_summary_week_pdf',
+        'export_summary_month_excel', 'export_summary_month_pdf',
+        'export_summary_year_excel', 'export_summary_year_pdf',
+    ]
     fieldsets = (
         ('Transaction Details', {'fields': ('id', 'status', 'amount', 'currency', 'payment_type', 'payment_method')}),
         ('Associated Parties', {'fields': ('member', 'contact')}),
@@ -95,6 +114,48 @@ class PaymentAdmin(admin.ModelAdmin):
                 return "Error: Image file not found in storage."
         return "No proof uploaded."
     display_proof_of_payment.short_description = 'Proof of Payment'
+
+    @admin.action(description='Export weekly payment summary (Excel)')
+    def export_summary_week_excel(self, request, queryset):
+        now = timezone.now()
+        start_date = now - timedelta(days=7)
+        payments = Payment.objects.filter(created_at__gte=start_date, status='completed')
+        return export_payment_summary_to_excel(payments, 'last_7_days')
+
+    @admin.action(description='Export weekly payment summary (PDF)')
+    def export_summary_week_pdf(self, request, queryset):
+        now = timezone.now()
+        start_date = now - timedelta(days=7)
+        payments = Payment.objects.filter(created_at__gte=start_date, status='completed')
+        return export_payment_summary_to_pdf(payments, 'last_7_days')
+
+    @admin.action(description='Export monthly payment summary (Excel)')
+    def export_summary_month_excel(self, request, queryset):
+        now = timezone.now()
+        start_date = now - timedelta(days=30)
+        payments = Payment.objects.filter(created_at__gte=start_date, status='completed')
+        return export_payment_summary_to_excel(payments, 'last_30_days')
+
+    @admin.action(description='Export monthly payment summary (PDF)')
+    def export_summary_month_pdf(self, request, queryset):
+        now = timezone.now()
+        start_date = now - timedelta(days=30)
+        payments = Payment.objects.filter(created_at__gte=start_date, status='completed')
+        return export_payment_summary_to_pdf(payments, 'last_30_days')
+
+    @admin.action(description='Export yearly payment summary (Excel)')
+    def export_summary_year_excel(self, request, queryset):
+        now = timezone.now()
+        start_date = now - timedelta(days=365)
+        payments = Payment.objects.filter(created_at__gte=start_date, status='completed')
+        return export_payment_summary_to_excel(payments, 'last_365_days')
+
+    @admin.action(description='Export yearly payment summary (PDF)')
+    def export_summary_year_pdf(self, request, queryset):
+        now = timezone.now()
+        start_date = now - timedelta(days=365)
+        payments = Payment.objects.filter(created_at__gte=start_date, status='completed')
+        return export_payment_summary_to_pdf(payments, 'last_365_days')
 
 
 @admin.register(PendingVerificationPayment)
