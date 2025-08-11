@@ -6,6 +6,8 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Sum, Count
 from decimal import Decimal
+from django.conf import settings
+import logging
 
 # For PDF generation
 from io import BytesIO
@@ -16,7 +18,18 @@ from reportlab.lib import colors
 
 from .models import Payment, MemberProfile
 
+logger = logging.getLogger(__name__)
+
 # --- Helper Functions ---
+
+def _get_church_name():
+    """Gets the church name from settings, with a fallback."""
+    try:
+        # Using site_header as it's more descriptive than site_title
+        return settings.JAZZMIN_SETTINGS['site_header']
+    except (AttributeError, KeyError):
+        logger.warning("JAZZMIN_SETTINGS['site_header'] not found. Using fallback 'Church'.")
+        return "Church"
 
 def _auto_adjust_excel_columns(sheet):
     """
@@ -59,17 +72,24 @@ def export_members_to_excel(queryset):
     sheet = workbook.active
     sheet.title = 'Member Details'
 
+    # --- Add Title ---
+    church_name = _get_church_name()
+    title_font = Font(bold=True, size=16)
+    sheet.cell(row=1, column=1, value=f"{church_name} - Member Details Report").font = title_font
+    sheet.merge_cells('A1:G1')
+
     headers = [
         "First Name", "Last Name", "WhatsApp ID", "Email", "Date of Birth",
         "Gender", "Marital Status", "Membership Status", "Date Joined",
         "City", "Country", "Notes"
     ]
     bold_font = Font(bold=True)
+    # Start headers from row 3 to leave space for title
     for col_num, header in enumerate(headers, 1):
-        cell = sheet.cell(row=1, column=col_num, value=header)
+        cell = sheet.cell(row=3, column=col_num, value=header)
         cell.font = bold_font
 
-    for row_num, member in enumerate(queryset.select_related('contact'), 2):
+    for row_num, member in enumerate(queryset.select_related('contact'), 4):
         sheet.cell(row=row_num, column=1, value=member.first_name)
         sheet.cell(row=row_num, column=2, value=member.last_name)
         sheet.cell(row=row_num, column=3, value=member.contact.whatsapp_id if member.contact else "")
@@ -96,7 +116,8 @@ def export_members_to_pdf(queryset):
     elements = []
     styles = getSampleStyleSheet()
 
-    elements.append(Paragraph("Member Details Report", styles['h1']))
+    church_name = _get_church_name()
+    elements.append(Paragraph(f"{church_name} - Member Details Report", styles['h1']))
     elements.append(Spacer(1, 12))
 
     headers = ["Name", "WhatsApp ID", "Email", "Membership", "City", "Date Joined"]
@@ -144,19 +165,24 @@ def export_payment_summary_to_excel(queryset, period_name):
     sheet = workbook.active
     sheet.title = f'Payment Summary - {period_name.title()}'
 
+    church_name = _get_church_name()
+    main_title_font = Font(bold=True, size=16)
+    sheet.cell(row=1, column=1, value=church_name).font = main_title_font
+    sheet.merge_cells('A1:C1')
+
     bold_font = Font(bold=True, size=14)
     header_font = Font(bold=True)
-    sheet.cell(row=1, column=1, value=f"Payment Summary for {period_name.replace('_', ' ').title()}").font = bold_font
-    sheet.merge_cells('A1:C1')
+    sheet.cell(row=2, column=1, value=f"Payment Summary for {period_name.replace('_', ' ').title()}").font = bold_font
+    sheet.merge_cells('A2:C2')
 
     headers = ["Payment Type", "Total Amount (USD)", "Transaction Count"]
     for col_num, header in enumerate(headers, 1):
-        cell = sheet.cell(row=3, column=col_num, value=header)
+        cell = sheet.cell(row=4, column=col_num, value=header)
         cell.font = header_font
 
     summary_data = queryset.values('payment_type').annotate(total_amount=Sum('amount'), transaction_count=Count('id')).order_by('payment_type')
 
-    row_num = 4
+    row_num = 5
     grand_total_amount = Decimal('0.00')
     grand_total_count = 0
     payment_type_display_map = dict(Payment.PAYMENT_TYPE_CHOICES)
@@ -189,7 +215,8 @@ def export_payment_summary_to_pdf(queryset, period_name):
     elements = []
     styles = getSampleStyleSheet()
 
-    title = Paragraph(f"Payment Summary: {period_name.replace('_', ' ').title()}", styles['h1'])
+    church_name = _get_church_name()
+    title = Paragraph(f"{church_name} - Payment Summary: {period_name.replace('_', ' ').title()}", styles['h1'])
     subtitle = Paragraph(f"Report generated on: {timezone.now().strftime('%Y-%m-%d %H:%M')}", styles['Normal'])
     elements.extend([title, subtitle, Spacer(1, 24)])
 
@@ -247,14 +274,19 @@ def export_givers_list_finance_excel(queryset, period_name):
     sheet = workbook.active
     sheet.title = f'Givers Report (Finance)'
 
+    church_name = _get_church_name()
+    main_title_font = Font(bold=True, size=16)
+    sheet.cell(row=1, column=1, value=church_name).font = main_title_font
+    sheet.merge_cells('A1:B1')
+
     bold_font = Font(bold=True, size=14)
     header_font = Font(bold=True)
-    sheet.cell(row=1, column=1, value=f"Givers Report (Finance) for {period_name.replace('_', ' ').title()}").font = bold_font
-    sheet.merge_cells('A1:B1')
+    sheet.cell(row=2, column=1, value=f"Givers Report (Finance) for {period_name.replace('_', ' ').title()}").font = bold_font
+    sheet.merge_cells('A2:B2')
 
     headers = ["Giver Name", "Total Amount (USD)"]
     for col_num, header in enumerate(headers, 1):
-        cell = sheet.cell(row=3, column=col_num, value=header)
+        cell = sheet.cell(row=4, column=col_num, value=header)
         cell.font = header_font
 
     givers = {}
@@ -266,7 +298,7 @@ def export_givers_list_finance_excel(queryset, period_name):
 
     sorted_givers = sorted(givers.values(), key=lambda x: x['name'])
     
-    row_num = 4
+    row_num = 5
     for giver in sorted_givers:
         sheet.cell(row=row_num, column=1, value=giver['name'])
         sheet.cell(row=row_num, column=2, value=giver['total']).number_format = '"$"#,##0.00'
@@ -286,7 +318,8 @@ def export_givers_list_finance_pdf(queryset, period_name):
     elements = []
     styles = getSampleStyleSheet()
 
-    title = Paragraph(f"Givers Report (Finance): {period_name.replace('_', ' ').title()}", styles['h1'])
+    church_name = _get_church_name()
+    title = Paragraph(f"{church_name} - Givers Report (Finance): {period_name.replace('_', ' ').title()}", styles['h1'])
     elements.extend([title, Spacer(1, 24)])
 
     givers = {}
@@ -335,16 +368,21 @@ def export_givers_list_publication_excel(queryset, period_name):
     sheet = workbook.active
     sheet.title = f'Givers List (Publication)'
 
-    bold_font = Font(bold=True, size=14)
-    header_font = Font(bold=True)
-    sheet.cell(row=1, column=1, value=f"Thank You To Our Givers for {period_name.replace('_', ' ').title()}").font = bold_font
+    church_name = _get_church_name()
+    main_title_font = Font(bold=True, size=16)
+    sheet.cell(row=1, column=1, value=church_name).font = main_title_font
     sheet.merge_cells('A1:A1')
 
-    sheet.cell(row=3, column=1, value="Giver Name").font = header_font
+    bold_font = Font(bold=True, size=14)
+    header_font = Font(bold=True)
+    sheet.cell(row=2, column=1, value=f"Thank You To Our Givers for {period_name.replace('_', ' ').title()}").font = bold_font
+    sheet.merge_cells('A2:A2')
+
+    sheet.cell(row=4, column=1, value="Giver Name").font = header_font
 
     giver_names = sorted(list(set(get_giver_name(p) for p in queryset.select_related('member', 'contact'))))
 
-    for row_num, name in enumerate(giver_names, 4):
+    for row_num, name in enumerate(giver_names, 5):
         sheet.cell(row=row_num, column=1, value=name)
 
     _auto_adjust_excel_columns(sheet)
@@ -360,7 +398,8 @@ def export_givers_list_publication_pdf(queryset, period_name):
     elements = []
     styles = getSampleStyleSheet()
 
-    title = Paragraph(f"A Special Thank You To Our Givers", styles['h1'])
+    church_name = _get_church_name()
+    title = Paragraph(f"{church_name} - A Special Thank You To Our Givers", styles['h1'])
     subtitle = Paragraph(f"For {period_name.replace('_', ' ').title()}", styles['h2'])
     elements.extend([title, subtitle, Spacer(1, 24)])
 
