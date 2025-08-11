@@ -44,3 +44,5 @@ jinja2
 paynow
 channels
 channels_redis
+openpyxl
+reportlab
