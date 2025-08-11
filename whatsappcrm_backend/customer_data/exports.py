@@ -2,6 +2,7 @@
 
 import openpyxl
 from openpyxl.styles import Font
+from openpyxl.cell import MergedCell
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Sum, Count
@@ -34,18 +35,21 @@ def _get_church_name():
 def _auto_adjust_excel_columns(sheet):
     """
     Auto-adjusts the width of columns in an Excel sheet based on content length.
+    This version correctly handles merged cells by iterating over rows and skipping them.
     """
-    for col in sheet.columns:
-        max_length = 0
-        column = col[0].column_letter
-        for cell in col:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = (max_length + 2)
-        sheet.column_dimensions[column].width = adjusted_width
+    column_widths = {}
+    for row in sheet.iter_rows():
+        for cell in row:
+            if isinstance(cell, MergedCell):
+                continue  # Ignore merged cells
+
+            if cell.value:
+                # Get current max width for this column and update if needed
+                current_max = column_widths.get(cell.column_letter, 0)
+                column_widths[cell.column_letter] = max(current_max, len(str(cell.value)))
+
+    for col_letter, width in column_widths.items():
+        sheet.column_dimensions[col_letter].width = width + 2  # Add padding
 
 def _draw_pdf_footer(canvas, doc):
     """Draws a standard footer on each PDF page with church details."""
