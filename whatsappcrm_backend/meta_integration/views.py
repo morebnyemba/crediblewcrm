@@ -443,7 +443,7 @@ class MetaWebhookAPIView(View):
                         )
                         sent_message_count += 1
                         # Stagger the next message by a few seconds to allow the previous one to be processed.
-                        dispatch_countdown += 2
+                        dispatch_countdown += 4
             
             if log_entry and log_entry.pk:
                  self._save_log(log_entry, 'processed', f'Flow processing complete. {sent_message_count} message(s) dispatched.')
