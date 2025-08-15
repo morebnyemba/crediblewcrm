@@ -166,9 +166,18 @@ def export_members_to_pdf(queryset):
 
     church_name = _get_church_name()
     elements.append(Paragraph(f"{church_name} - Member Details Report", styles['h1']))
+    elements.append(Spacer(1, 6))
+
+    # Add a note that full details are available in the Excel export
+    note_style = styles['Italic']
+    note_style.fontSize = 9
+    elements.append(Paragraph(
+        "<i>Note: This is a summary report. For full details including addresses, notes, and more, please use the 'Export ALL members to Excel' option.</i>",
+        note_style
+    ))
     elements.append(Spacer(1, 12))
 
-    headers = ["Name", "WhatsApp ID", "Email", "Membership", "City", "Date Joined"]
+    headers = ["Name", "WhatsApp ID", "Email", "Membership", "DOB", "Gender", "City", "Date Joined"]
     data = [headers]
     for member in queryset.select_related('contact'):
         data.append([
@@ -176,26 +185,35 @@ def export_members_to_pdf(queryset):
             member.contact.whatsapp_id if member.contact else "",
             member.email or "",
             member.get_membership_status_display() or "",
+            member.date_of_birth.strftime("%Y-%m-%d") if member.date_of_birth else "",
+            member.get_gender_display() or "",
             member.city or "",
             member.date_joined.strftime("%Y-%m-%d") if member.date_joined else ""
         ])
 
-    table = Table(data, hAlign='LEFT')
+    # Define column widths to fit the landscape page (total usable width ~732 points)
+    col_widths = [140, 100, 120, 80, 70, 60, 90, 72]
+    table = Table(data, colWidths=col_widths, hAlign='LEFT')
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F8B3A')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),  # Smaller font to fit more data
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+        ('TOPPADDING', (0, 1), (-1, -1), 6),
         ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F0F0F0')),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     elements.append(table)
 
     doc.build(elements, onFirstPage=_draw_pdf_footer, onLaterPages=_draw_pdf_footer)
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="member_details_{timezone.now().strftime("%Y-%m-%d")}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="member_details_summary_{timezone.now().strftime("%Y-%m-%d")}.pdf"'
     return response
 
 # --- Payment Summary Export Functions ---
