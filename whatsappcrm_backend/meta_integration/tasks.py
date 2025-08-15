@@ -57,7 +57,8 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
     #    preventing a single offline user from blocking all future messages indefinitely.
     stale_threshold = timezone.now() - timedelta(minutes=2)
 
-    preceding_undelivered_exists = Message.objects.filter(
+    # Find the specific message causing the halt for better logging
+    halting_message = Message.objects.filter(
         Q(contact=outgoing_msg.contact),
         Q(direction='out'),
         Q(id__lt=outgoing_msg.id),
@@ -65,12 +66,14 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             Q(status='pending_dispatch', timestamp__gte=stale_threshold) | # Not yet processed
             Q(status__in=['sent', 'failed'], status_timestamp__gte=stale_threshold) # Processed but not in a final state (sent or awaiting retry)
         )
-    ).exists()
+    ).order_by('-id').first() # Get the most recent one for logging
 
-    if preceding_undelivered_exists:
+    if halting_message:
         logger.warning(
             f"send_whatsapp_message_task: Halting message ID {outgoing_message_id} for contact "
-            f"{outgoing_msg.contact.whatsapp_id}. Preceding messages are not yet delivered. Retrying."
+            f"{outgoing_msg.contact.whatsapp_id}. Waiting for preceding message ID {halting_message.id} "
+            f"(Status: {halting_message.status}, Status Time: {halting_message.status_timestamp}, "
+            f"Created: {halting_message.timestamp}). Retrying."
         )
         raise self.retry() # Uses the task's default_retry_delay
 
