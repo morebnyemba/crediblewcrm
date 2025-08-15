@@ -10,7 +10,7 @@ from conversations.models import Message, Contact # To update message status
 
 logger = logging.getLogger(__name__)
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60) # bind=True gives access to self, retry settings
+@shared_task(bind=True, max_retries=10, default_retry_delay=120) # bind=True gives access to self, retry settings
 def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id: int):
     """
     Celery task to send a WhatsApp message asynchronously.
@@ -48,6 +48,21 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
          logger.warning(f"send_whatsapp_message_task: Message ID {outgoing_message_id} already failed and max retries reached. Skipping.")
          return
 
+    # To ensure sequential delivery, check if there are preceding messages to the same contact
+    # that have not been confirmed as 'delivered' or 'read'.
+    # An undelivered message is one still in 'pending_dispatch' or 'sent' state.
+    # If such messages exist, we'll retry this task later.
+    if Message.objects.filter(
+        contact=outgoing_msg.contact,
+        direction='out',
+        id__lt=outgoing_msg.id,
+        status__in=['pending_dispatch', 'sent']
+    ).exists():
+        logger.warning(
+            f"send_whatsapp_message_task: Halting message ID {outgoing_message_id} for contact "
+            f"{outgoing_msg.contact.whatsapp_id}. Preceding messages are not yet delivered. Retrying."
+        )
+        raise self.retry() # Uses the task's default_retry_delay
 
     logger.info(f"Task send_whatsapp_message_task started for Message ID: {outgoing_message_id}, Contact: {outgoing_msg.contact.whatsapp_id}")
 
