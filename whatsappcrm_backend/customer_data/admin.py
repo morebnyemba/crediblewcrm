@@ -7,6 +7,7 @@ from django.core.files.storage import default_storage
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
+from django.db import transaction
 import logging
 
 from conversations.models import Message
@@ -254,7 +255,9 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
                 status='pending_dispatch',
                 timestamp=timezone.now()
             )
-            send_whatsapp_message_task.delay(message.id, active_config.id)
+            transaction.on_commit(
+                lambda: send_whatsapp_message_task.delay(message.id, active_config.id)
+            )
             logger.info(f"Queued status notification for payment {payment.id} to contact {payment.contact.id}.")
             return True
         except Exception as e:
@@ -433,7 +436,9 @@ class PrayerRequestAdmin(admin.ModelAdmin):
 
         try:
             message = Message.objects.create(contact=prayer_request.contact, app_config=active_config, direction='out', message_type='text', content_payload={'body': message_text}, status='pending_dispatch', timestamp=timezone.now())
-            send_whatsapp_message_task.delay(message.id, active_config.id)
+            transaction.on_commit(
+                lambda: send_whatsapp_message_task.delay(message.id, active_config.id)
+            )
             return True
         except Exception as e:
             self.message_user(request, f"Failed to create and dispatch notification for prayer request {prayer_request.id}. Error: {e}", level='ERROR')
