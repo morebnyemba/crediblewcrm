@@ -12,7 +12,7 @@ from conversations.models import Message, Contact # To update message status
 
 logger = logging.getLogger(__name__)
 
-@shared_task(bind=True, max_retries=10, default_retry_delay=120) # bind=True gives access to self, retry settings
+@shared_task(bind=True, max_retries=10, default_retry_delay=60) # bind=True gives access to self, retry settings
 def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id: int):
     """
     Celery task to send a WhatsApp message asynchronously.
@@ -52,10 +52,10 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
 
     # To ensure sequential delivery, check for preceding messages that are either:
     # 1. Still pending dispatch (these should always be sent first).
-    # 2. Were sent recently but not yet confirmed as delivered. We wait for a reasonable time
-    #    (e.g., 24 hours) for the delivery receipt to arrive before proceeding. This prevents
-    #    a single "stuck" message (e.g., user is offline) from blocking all future messages indefinitely.
-    stale_threshold = timezone.now() - timedelta(hours=24)
+    # 2. Were sent recently but not yet confirmed as delivered. We'll wait for a short period
+    #    (e.g., 2 minutes) for the delivery receipt. This balances sequential delivery with
+    #    preventing a single offline user from blocking all future messages indefinitely.
+    stale_threshold = timezone.now() - timedelta(minutes=2)
 
     preceding_undelivered_exists = Message.objects.filter(
         Q(contact=outgoing_msg.contact),
