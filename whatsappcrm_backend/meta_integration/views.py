@@ -475,13 +475,17 @@ class MetaWebhookAPIView(View):
         try: # noqa
             msg_to_update = Message.objects.filter(wamid=wamid, direction='out').first()
             if msg_to_update:
-                msg_to_update.status = status_value; msg_to_update.status_timestamp = status_ts
+                update_fields_list = ['status', 'status_timestamp']
+                msg_to_update.status = status_value
+                msg_to_update.status_timestamp = status_ts
                 # Extract and store conversation and pricing if present
                 if 'conversation' in status_data and isinstance(status_data['conversation'], dict):
                     msg_to_update.conversation_id_from_meta = status_data['conversation'].get('id')
+                    update_fields_list.append('conversation_id_from_meta')
                 if 'pricing' in status_data and isinstance(status_data['pricing'], dict):
                     msg_to_update.pricing_model_from_meta = status_data['pricing'].get('pricing_model')
-                msg_to_update.save()
+                    update_fields_list.append('pricing_model_from_meta')
+                msg_to_update.save(update_fields=update_fields_list)
                 notes.append("DB record updated.")
                 self._save_log(log_entry, 'processed', " ".join(notes))
             else: self._save_log(log_entry, 'ignored', f"No matching outgoing msg for WAMID {wamid}.")
