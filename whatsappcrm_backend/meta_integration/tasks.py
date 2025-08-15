@@ -3,6 +3,8 @@
 import logging
 from celery import shared_task
 from django.utils import timezone
+from django.db.models import Q
+from datetime import timedelta
 
 from .utils import send_whatsapp_message, send_read_receipt_api
 from .models import MetaAppConfig
@@ -48,16 +50,24 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
          logger.warning(f"send_whatsapp_message_task: Message ID {outgoing_message_id} already failed and max retries reached. Skipping.")
          return
 
-    # To ensure sequential delivery, check if there are preceding messages to the same contact
-    # that have not been confirmed as 'delivered' or 'read'.
-    # An undelivered message is one still in 'pending_dispatch' or 'sent' state.
-    # If such messages exist, we'll retry this task later.
-    if Message.objects.filter(
-        contact=outgoing_msg.contact,
-        direction='out',
-        id__lt=outgoing_msg.id,
-        status__in=['pending_dispatch', 'sent']
-    ).exists():
+    # To ensure sequential delivery, check for preceding messages that are either:
+    # 1. Still pending dispatch (these should always be sent first).
+    # 2. Were sent recently but not yet confirmed as delivered. We wait for a reasonable time
+    #    (e.g., 24 hours) for the delivery receipt to arrive before proceeding. This prevents
+    #    a single "stuck" message (e.g., user is offline) from blocking all future messages indefinitely.
+    stale_threshold = timezone.now() - timedelta(hours=24)
+
+    preceding_undelivered_exists = Message.objects.filter(
+        Q(contact=outgoing_msg.contact),
+        Q(direction='out'),
+        Q(id__lt=outgoing_msg.id),
+        (
+            Q(status='pending_dispatch') |
+            Q(status='sent', status_timestamp__gte=stale_threshold)
+        )
+    ).exists()
+
+    if preceding_undelivered_exists:
         logger.warning(
             f"send_whatsapp_message_task: Halting message ID {outgoing_message_id} for contact "
             f"{outgoing_msg.contact.whatsapp_id}. Preceding messages are not yet delivered. Retrying."
