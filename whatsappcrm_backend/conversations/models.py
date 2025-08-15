@@ -90,11 +90,11 @@ class Message(models.Model):
 
     # Status for outgoing messages, reflecting Meta's statuses
     STATUS_CHOICES = [
-        ('pending', 'Pending Send'), # CRM has generated it, not yet sent to Meta
+        ('pending_dispatch', 'Pending Dispatch'), # CRM has created it, queued for Celery task.
         ('sent', 'Sent to Meta'),    # Meta API accepted it (wamid received)
         ('delivered', 'Delivered to User'),
         ('read', 'Read by User'),
-        ('failed', 'Failed to Send'), # Meta reported an error sending
+        ('failed', 'Failed to Send'), # Meta reported an error sending or task failed
         ('deleted', 'Deleted'), # If Meta supports deleting messages
         # For incoming messages, status might be less relevant or just 'received'
         ('received', 'Received'),
@@ -140,7 +140,7 @@ class Message(models.Model):
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='pending', # Default for outgoing, 'received' for incoming
+        default='pending_dispatch', # Default for outgoing, 'received' for incoming
         help_text="Status of the message."
     )
     status_timestamp = models.DateTimeField(null=True, blank=True, help_text="Timestamp of the last status update.")

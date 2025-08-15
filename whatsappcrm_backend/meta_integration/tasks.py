@@ -62,8 +62,8 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
         Q(direction='out'),
         Q(id__lt=outgoing_msg.id),
         (
-            Q(status='pending_dispatch') |
-            Q(status='sent', status_timestamp__gte=stale_threshold)
+            Q(status='pending_dispatch', timestamp__gte=stale_threshold) | # Not yet processed
+            Q(status__in=['sent', 'failed'], status_timestamp__gte=stale_threshold) # Processed but not in a final state (sent or awaiting retry)
         )
     ).exists()
 
