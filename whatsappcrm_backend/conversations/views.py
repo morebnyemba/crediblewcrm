@@ -6,6 +6,8 @@ from rest_framework.response import Response
 from django.db.models import Q, Prefetch, Subquery, OuterRef, Count, F
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 import logging # Make sure logging is imported
 
 from .models import Contact, Message
@@ -132,15 +134,28 @@ class ContactViewSet(viewsets.ModelViewSet):
         """
         Toggles the 'needs_human_intervention' flag for a contact.
         """
-        contact = self.get_object() # Use get_object to respect view's queryset
+        contact = self.get_object()
         contact.needs_human_intervention = not contact.needs_human_intervention
         if not contact.needs_human_intervention:
             # Also clear the timestamp when resolving the intervention
             contact.intervention_requested_at = None
+        else:
+            contact.intervention_requested_at = timezone.now()
         contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at', 'last_seen'])
         
-        # Return the full, updated contact details
-        serializer = self.get_serializer(contact)
+        # --- Broadcast update via WebSocket ---
+        channel_layer = get_channel_layer()
+        group_name = f'conversation_{contact.id}'
+        
+        # Use the detail serializer to get the full, updated contact representation
+        serializer = ContactDetailSerializer(contact)
+        
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {'type': 'contact_updated', 'contact': serializer.data}
+        )
+        logger.info(f"Broadcasted contact update for contact {contact.id} to group {group_name}.")
+        
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class MessageViewSet(

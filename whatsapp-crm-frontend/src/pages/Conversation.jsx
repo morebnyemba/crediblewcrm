@@ -239,18 +239,29 @@ export default function ConversationsPage() {
   }, [selectedContact, fetchMessages]);
 
   useEffect(() => {
-    if (lastJsonMessage) {
+    if (!lastJsonMessage) return;
+
+    const { type, message, contact: updatedContactData } = lastJsonMessage;
+
+    if (type === 'new_message' && message) {
       setMessages(prevMessages => {
-        const existingMessageIndex = prevMessages.findIndex(msg => msg.id === lastJsonMessage.id);
+        const existingMessageIndex = prevMessages.findIndex(msg => msg.id === message.id);
         if (existingMessageIndex !== -1) {
           const updatedMessages = [...prevMessages];
-          updatedMessages[existingMessageIndex] = lastJsonMessage;
+          updatedMessages[existingMessageIndex] = message;
           return updatedMessages;
         }
-        return [...prevMessages, lastJsonMessage];
+        return [...prevMessages, message];
       });
+    } else if (type === 'contact_updated' && updatedContactData && selectedContact?.id === updatedContactData.id) {
+      // Update the selected contact in the main panel
+      setSelectedContact(updatedContactData);
+      // Update the contact in the list on the left
+      setContacts(prevContacts => 
+        prevContacts.map(c => c.id === updatedContactData.id ? { ...c, ...updatedContactData } : c)
+      );
     }
-  }, [lastJsonMessage]);
+  }, [lastJsonMessage, selectedContact?.id, setContacts, setSelectedContact]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -261,30 +272,20 @@ export default function ConversationsPage() {
     if (!newMessage.trim() || !selectedContact) return;
 
     if (readyState === ReadyState.OPEN) {
-      sendJsonMessage({
-        message: newMessage.trim(),
-      });
+      sendJsonMessage({ type: 'send_message', message: newMessage.trim() });
       setNewMessage('');
     } else {
       toast.error("Cannot send message. Connection is not live.");
     }
   };
 
-  const handleToggleIntervention = async () => {
-    if (!selectedContact) return;
-    try {
-      const updatedContact = await apiCall(
-        `/crm-api/conversations/contacts/${selectedContact.id}/toggle-intervention/`,
-        'POST'
-      );
-      // Update the selected contact in the main panel
-      setSelectedContact(updatedContact);
-      // Update the contact in the list on the left
-      setContacts(prevContacts => 
-        prevContacts.map(c => c.id === updatedContact.id ? { ...c, ...updatedContact } : c)
-      );
-      toast.success(`Bot interaction has been re-enabled for ${updatedContact.name}.`);
-    } catch (error) { /* apiCall handles toast */ }
+  const handleToggleIntervention = () => {
+    if (!selectedContact || readyState !== ReadyState.OPEN) {
+      toast.error("Cannot update status. Connection is not live.");
+      return;
+    }
+    sendJsonMessage({ type: 'toggle_intervention' });
+    // The UI will update reactively when the `contact_updated` message is received.
   };
 
   const handleKeyDown = (e) => {
