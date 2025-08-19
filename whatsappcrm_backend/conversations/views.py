@@ -127,6 +127,21 @@ class ContactViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(contact)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='toggle-intervention', permission_classes=[permissions.IsAuthenticated, IsAdminOrReadOnly])
+    def toggle_human_intervention(self, request, pk=None):
+        """
+        Toggles the 'needs_human_intervention' flag for a contact.
+        """
+        contact = self.get_object() # Use get_object to respect view's queryset
+        contact.needs_human_intervention = not contact.needs_human_intervention
+        if not contact.needs_human_intervention:
+            # Also clear the timestamp when resolving the intervention
+            contact.intervention_requested_at = None
+        contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at', 'last_seen'])
+        
+        # Return the full, updated contact details
+        serializer = self.get_serializer(contact)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class MessageViewSet(
     mixins.ListModelMixin,

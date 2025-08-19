@@ -150,7 +150,10 @@ const ContactListItem = React.memo(({ contact, isSelected, onSelect, hasUnread }
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <p className="font-medium truncate">{contact.name || contact.whatsapp_id}</p>
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="font-medium truncate">{contact.name || contact.whatsapp_id}</p>
+              {contact.needs_human_intervention && <FiAlertCircle title="Needs Human Intervention" className="h-4 w-4 text-red-500 flex-shrink-0"/>}
+            </div>
             <FiChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
           <p className="text-xs text-muted-foreground truncate">
@@ -265,6 +268,23 @@ export default function ConversationsPage() {
     } else {
       toast.error("Cannot send message. Connection is not live.");
     }
+  };
+
+  const handleToggleIntervention = async () => {
+    if (!selectedContact) return;
+    try {
+      const updatedContact = await apiCall(
+        `/crm-api/conversations/contacts/${selectedContact.id}/toggle-intervention/`,
+        'POST'
+      );
+      // Update the selected contact in the main panel
+      setSelectedContact(updatedContact);
+      // Update the contact in the list on the left
+      setContacts(prevContacts => 
+        prevContacts.map(c => c.id === updatedContact.id ? { ...c, ...updatedContact } : c)
+      );
+      toast.success(`Bot interaction has been re-enabled for ${updatedContact.name}.`);
+    } catch (error) { /* apiCall handles toast */ }
   };
 
   const handleKeyDown = (e) => {
@@ -383,6 +403,26 @@ export default function ConversationsPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+
+          {/* Intervention Banner */}
+          {selectedContact.needs_human_intervention && (
+            <div className="bg-yellow-100 dark:bg-yellow-900/30 border-b border-yellow-300 dark:border-yellow-700 p-2 flex items-center justify-between gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                    <FiAlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+                    <p className="font-medium text-yellow-800 dark:text-yellow-200">
+                        Automated responses are paused.
+                    </p>
+                </div>
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-600 hover:text-yellow-900 dark:hover:text-yellow-100"
+                    onClick={handleToggleIntervention}
+                >
+                    Re-enable Bot
+                </Button>
+            </div>
+          )}
           
           {/* Message List Area */}
           <div className="flex-1 min-h-0 overflow-hidden">
