@@ -1397,6 +1397,17 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
         logger.error(f"Contact with pk={contact.pk} not found at start of flow processing. Aborting.")
         return []
 
+    # If a contact is flagged for human intervention, pause all flow processing for them.
+    # An admin or agent must manually clear this flag in the admin panel or CRM interface
+    # to re-enable automated flows for this contact.
+    if contact.needs_human_intervention:
+        logger.info(
+            f"Flow processing is paused for contact {contact.id} ({contact.whatsapp_id}) "
+            "as they require human intervention. No automated actions will be taken."
+        )
+        # By returning an empty list, we stop any further flow logic from executing.
+        return []
+
     actions_to_perform = []
     is_internal_message = message_data.get('type', '').startswith('internal_')
     try:
