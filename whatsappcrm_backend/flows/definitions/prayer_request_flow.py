@@ -12,10 +12,58 @@ PRAYER_REQUEST_FLOW = {
     "trigger_keywords": ["prayer", "pray for me", "prayer request"],
     "is_active": True,
     "steps": [
-        # 1. Ask for the prayer request text
+        # 1. Ask for membership status
+        {
+            "name": "ask_membership_status",
+            "is_entry_point": True,
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {"text": "Welcome! To help us direct your prayer request, could you please let us know if you are a registered member of our church?"},
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": "member_yes", "title": "Yes, I am"}},
+                                {"type": "reply", "reply": {"id": "member_no", "title": "No, I'm not"}}
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {
+                    "save_to_variable": "membership_choice",
+                    "expected_type": "interactive_id"
+                },
+                "fallback_config": {
+                    "action": "re_prompt",
+                    "max_retries": 1,
+                    "re_prompt_message_text": "Please tap one of the buttons to let us know if you're a member."
+                }
+            },
+            "transitions": [
+                {"to_step": "set_member_status_true", "condition_config": {"type": "interactive_reply_id_equals", "value": "member_yes"}},
+                {"to_step": "set_member_status_false", "condition_config": {"type": "interactive_reply_id_equals", "value": "member_no"}}
+            ]
+        },
+        # 2a. Set member status to True
+        {
+            "name": "set_member_status_true",
+            "type": "action",
+            "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "submitted_as_member", "value_template": True}]},
+            "transitions": [{"to_step": "ask_prayer_request", "condition_config": {"type": "always_true"}}]
+        },
+        # 2b. Set member status to False
+        {
+            "name": "set_member_status_false",
+            "type": "action",
+            "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "submitted_as_member", "value_template": False}]},
+            "transitions": [{"to_step": "ask_prayer_request", "condition_config": {"type": "always_true"}}]
+        },
+        # 3. Ask for the prayer request text (was step 1)
         {
             "name": "ask_prayer_request",
-            "is_entry_point": True,
+            "is_entry_point": False,
             "type": "question",
             "config": {
                 "message_config": {
@@ -37,7 +85,7 @@ PRAYER_REQUEST_FLOW = {
             },
             "transitions": [{"to_step": "ask_category", "condition_config": {"type": "always_true"}}]
         },
-        # 2. Ask for category
+        # 4. Ask for category (was step 2)
         {
 
             "name": "ask_category",
@@ -79,7 +127,7 @@ PRAYER_REQUEST_FLOW = {
                 {"to_step": "ask_anonymity", "condition_config": {"type": "always_true"}}
             ]
         },
-        # 3. Ask about anonymity
+        # 5. Ask about anonymity (was step 3)
         {
 
             "name": "ask_anonymity",
@@ -114,7 +162,7 @@ PRAYER_REQUEST_FLOW = {
                 {"to_step": "set_anonymity_false", "condition_config": {"type": "interactive_reply_id_equals", "value": "anonymous_no"}}
             ]
         },
-        # 4a. Set anonymity to True
+        # 6a. Set anonymity to True (was step 4a)
         {
 
             "name": "set_anonymity_true",
@@ -122,7 +170,7 @@ PRAYER_REQUEST_FLOW = {
             "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "is_anonymous", "value_template": True}]},
             "transitions": [{"to_step": "confirm_prayer_request", "condition_config": {"type": "always_true"}}]
         },
-        # 4b. Set anonymity to False
+        # 6b. Set anonymity to False (was step 4b)
         {
 
             "name": "set_anonymity_false",
@@ -130,7 +178,7 @@ PRAYER_REQUEST_FLOW = {
             "config": {"actions_to_run": [{"action_type": "set_context_variable", "variable_name": "is_anonymous", "value_template": False}]},
             "transitions": [{"to_step": "confirm_prayer_request", "condition_config": {"type": "always_true"}}]
         },
-        # 5. Ask user to confirm details before submitting
+        # 7. Ask user to confirm details before submitting (was step 5)
         {
 
             "name": "confirm_prayer_request",
@@ -165,7 +213,7 @@ PRAYER_REQUEST_FLOW = {
                 {"to_step": "ask_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "restart_request"}}
             ]
         },
-        # 6. Record the prayer request after confirmation
+        # 8. Record the prayer request after confirmation (was step 6)
         {
 
             "name": "record_prayer_request_action",
@@ -175,12 +223,13 @@ PRAYER_REQUEST_FLOW = {
                     "action_type": "record_prayer_request",
                     "request_text_template": "{{ prayer_request_text }}",
                     "category_template": "{{ prayer_category }}",
-                    "is_anonymous_template": "{{ is_anonymous }}"
+                    "is_anonymous_template": "{{ is_anonymous }}",
+                    "submitted_as_member_template": "{{ submitted_as_member }}"
                 }]
             },
             "transitions": [{"to_step": "notify_admin_of_request", "condition_config": {"type": "always_true"}}]
         },
-        # 7. Notify Admin
+        # 9. Notify Admin (was step 7)
         {
 
             "name": "notify_admin_of_request",
@@ -193,7 +242,7 @@ PRAYER_REQUEST_FLOW = {
             },
             "transitions": [{"to_step": "end_prayer_request", "condition_config": {"type": "always_true"}}]
         },
-        # 8. End the flow with a confirmation and offer next steps
+        # 10. End the flow with a confirmation and offer next steps (was step 8)
         {
 
             "name": "end_prayer_request",
@@ -226,14 +275,14 @@ PRAYER_REQUEST_FLOW = {
                 {"to_step": "end_flow_goodbye", "condition_config": {"type": "interactive_reply_id_equals", "value": "end_conversation"}}
             ]
         },
-        # 9a. Switch back to the main menu
+        # 11a. Switch back to the main menu (was step 9a)
         {
             "name": "switch_to_main_menu",
             "type": "switch_flow",
             "config": {"target_flow_name": "main_menu"},
             "transitions": []
         },
-        # 9b. End the flow with a simple goodbye
+        # 11b. End the flow with a simple goodbye (was step 9b)
         {
             "name": "end_flow_goodbye",
             "type": "end_flow",

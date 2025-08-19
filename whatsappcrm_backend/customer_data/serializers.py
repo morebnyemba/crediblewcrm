@@ -95,7 +95,7 @@ class PrayerRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrayerRequest
         fields = [
-            'id', 'member', 'member_details', 'contact', 'contact_details', 'submitter_name',
+            'id', 'member', 'member_details', 'contact', 'contact_details', 'submitter_name', 'submitted_as_member',
             'request_text', 'category', 'category_display', 'is_anonymous',
             'status', 'status_display', 'created_at', 'updated_at'
         ]

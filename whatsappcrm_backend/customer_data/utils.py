@@ -135,7 +135,8 @@ def record_prayer_request(
     contact: Contact,
     request_text: str,
     category: str,
-    is_anonymous: bool
+    is_anonymous: bool,
+    submitted_as_member: bool = False
 ) -> PrayerRequest | None:
     """
     Creates a PrayerRequest record for a contact.
@@ -145,6 +146,7 @@ def record_prayer_request(
         request_text: The text content of the prayer request.
         category: The category of the prayer request.
         is_anonymous: Boolean indicating if the request is anonymous.
+        submitted_as_member: Boolean indicating if the user identified as a member.
 
     Returns:
         The created PrayerRequest object, or None if an error occurred.
@@ -164,7 +166,8 @@ def record_prayer_request(
             
             prayer_request = PrayerRequest.objects.create(
                 contact=contact, member=member_profile, request_text=request_text,
-                category=category, is_anonymous=is_anonymous, status='submitted'
+                category=category, is_anonymous=is_anonymous,
+                submitted_as_member=submitted_as_member, status='submitted'
             )
             logger.info(f"Successfully recorded prayer request {prayer_request.id} for contact {contact.id}.")
             return prayer_request

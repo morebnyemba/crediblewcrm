@@ -357,16 +357,15 @@ class PaymentHistoryAdmin(admin.ModelAdmin):
 
 @admin.register(PrayerRequest)
 class PrayerRequestAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'contact', 'category', 'status', 'is_anonymous', 'created_at')
-    list_filter = ('status', 'category', 'is_anonymous', 'created_at')
+    list_display = ('__str__', 'contact', 'category', 'status', 'is_anonymous', 'submitted_as_member', 'created_at')
+    list_filter = ('status', 'category', 'is_anonymous', 'submitted_as_member', 'created_at')
     search_fields = ('request_text', 'contact__whatsapp_id', 'member__first_name', 'member__last_name')
     readonly_fields = ('id', 'created_at', 'updated_at')
     actions = ['mark_as_in_progress', 'mark_as_completed']
     list_per_page = 30
     fieldsets = (
         ('Request Details', {'fields': ('id', 'status', 'category', 'request_text')}),
-
-        ('Submitter', {'fields': ('contact', 'member', 'is_anonymous')}),
+        ('Submitter', {'fields': ('contact', 'member', 'is_anonymous', 'submitted_as_member')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
     )
 

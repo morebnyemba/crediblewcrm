@@ -339,6 +339,7 @@ class ActionItemConfig(BasePydanticConfig):
     request_text_template: Optional[str] = None
     category_template: Optional[str] = None
     is_anonymous_template: Optional[Any] = None
+    submitted_as_member_template: Optional[Any] = None
     # Fields for 'send_admin_notification'
     message_template: Optional[str] = None
     # Fields for 'query_model'
@@ -808,15 +809,18 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     request_text = _resolve_value(action_item_conf.request_text_template, current_step_context, contact)
                     category = _resolve_value(action_item_conf.category_template, current_step_context, contact)
                     is_anonymous_val = _resolve_value(action_item_conf.is_anonymous_template, current_step_context, contact)
+                    submitted_as_member_val = _resolve_value(action_item_conf.submitted_as_member_template, current_step_context, contact)
 
                     # Coerce resolved value to boolean
                     is_anonymous = str(is_anonymous_val).lower() in ['true', '1', 'yes'] if is_anonymous_val is not None else False
+                    submitted_as_member = str(submitted_as_member_val).lower() in ['true', '1', 'yes'] if submitted_as_member_val is not None else False
 
                     prayer_request_obj = record_prayer_request(
                         contact=contact,
                         request_text=str(request_text) if request_text else "",
                         category=str(category) if category else "other",
-                        is_anonymous=is_anonymous
+                        is_anonymous=is_anonymous,
+                        submitted_as_member=submitted_as_member
                     )
                     if prayer_request_obj:
                         current_step_context['last_prayer_request_id'] = str(prayer_request_obj.id)

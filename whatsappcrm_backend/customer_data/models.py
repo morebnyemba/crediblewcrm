@@ -336,6 +336,11 @@ class PrayerRequest(models.Model):
         default=False,
         help_text=_("If true, the submitter's name will not be shared publicly.")
     )
+    submitted_as_member = models.BooleanField(
+        _("Submitted as Member"),
+        default=False,
+        help_text=_("Indicates if the user identified as a church member during submission.")
+    )
     status = models.CharField(
         _("Status"), max_length=20, choices=STATUS_CHOICES, default='submitted'
     )
