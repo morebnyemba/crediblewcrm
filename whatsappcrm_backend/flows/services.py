@@ -1409,12 +1409,12 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
         return []
 
     actions_to_perform = []
-    is_internal_message = message_data.get('type', '').startswith('internal_')
     try:
         # --- Start of Main Flow Processing Loop ---
         # This loop will continue as long as the contact is in an active flow state.
         # It allows for "fall-through" steps (like 'action' steps) to be processed immediately.
         while True:
+            is_internal_message = message_data.get('type', '').startswith('internal_')
             contact_flow_state = ContactFlowState.objects.select_related('current_flow', 'current_step').filter(contact=contact).first()
 
             if not contact_flow_state:
