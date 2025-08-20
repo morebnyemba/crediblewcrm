@@ -142,3 +142,10 @@ class ConversationConsumer(AsyncJsonWebsocketConsumer):
         """
         await self.send_json({'type': 'new_message', 'message': event['message']})
 
+    async def chat_message(self, event):
+        """
+        Handles messages broadcast from the 'chat.message' type.
+        This acts as an alias for new_message to handle broadcasts from other parts
+        of the system that may use this type, ensuring compatibility.
+        """
+        await self.new_message(event)
