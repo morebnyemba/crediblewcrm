@@ -237,7 +237,8 @@ PRAYER_REQUEST_FLOW = {
             "config": {
                 "actions_to_run": [{
                     "action_type": "send_admin_notification",
-                    "message_template": "New Prayer Request Received:\n\nFrom: {{ contact.name }} ({{ contact.whatsapp_id }})\nAnonymous: {{ is_anonymous }}\nCategory: {{ prayer_category }}\n\nRequest:\n\"{{ prayer_request_text }}\""
+                    "notify_groups": ["Admins", "Prayer Team"],
+                    "message_template": "New Prayer Request Received:\n\nFrom: {{ contact.name }} ({{ contact.whatsapp_id }})\nAnonymous: {{ is_anonymous }}\nCategory: {{ prayer_category|title }}\n\nRequest:\n\"{{ prayer_request_text }}\""
                 }]
             },
             "transitions": [{"to_step": "end_prayer_request", "condition_config": {"type": "always_true"}}]

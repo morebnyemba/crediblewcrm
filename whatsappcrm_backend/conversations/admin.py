@@ -5,13 +5,14 @@ from .models import Contact, Message, Broadcast, BroadcastRecipient
 
 @admin.register(Contact)
 class ContactAdmin(admin.ModelAdmin):
-    list_display = ('whatsapp_id', 'name', 'first_seen', 'last_seen', 'is_blocked', 'associated_app_config_name') # Add 'associated_app_config_name' if using the FK
-    search_fields = ('whatsapp_id', 'name')
+    list_display = ('whatsapp_id', 'name', 'user', 'first_seen', 'last_seen', 'is_blocked', 'associated_app_config_name')
+    search_fields = ('whatsapp_id', 'name', 'user__username', 'user__email')
     list_filter = ('is_blocked', 'last_seen', 'first_seen', 'associated_app_config') # Add 'associated_app_config' if using the FK
     readonly_fields = ('first_seen', 'last_seen')
+    autocomplete_fields = ['user']
     fieldsets = (
         (None, {'fields': ('whatsapp_id', 'name', 'is_blocked')}),
-        ('Association', {'fields': ('associated_app_config',)}), # If using the FK
+        ('Association', {'fields': ('associated_app_config', 'user')}),
         # ('Details', {'fields': ('custom_fields',)}),
         ('Timestamps', {'fields': ('first_seen', 'last_seen'), 'classes': ('collapse',)}),
     )

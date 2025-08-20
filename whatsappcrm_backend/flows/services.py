@@ -22,6 +22,7 @@ from conversations.models import Contact, Message
 from .models import Flow, FlowStep, FlowTransition, ContactFlowState
 from customer_data.models import MemberProfile, Payment
 from customer_data.utils import record_payment, record_prayer_request
+from notifications.services import queue_whatsapp_notification_to_users
 from paynow_integration.services import PaynowService
 from paynow_integration.tasks import poll_paynow_transaction_status
 try:
@@ -342,6 +343,8 @@ class ActionItemConfig(BasePydanticConfig):
     submitted_as_member_template: Optional[Any] = None
     # Fields for 'send_admin_notification'
     message_template: Optional[str] = None
+    notify_groups: Optional[List[str]] = None
+    notify_user_ids: Optional[List[int]] = None
     # Fields for 'query_model'
     app_label: Optional[str] = None
     model_name: Optional[str] = None
@@ -828,22 +831,30 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     else:
                         logger.error(f"Contact {contact.id}: Action in step {step.id} failed to record prayer request for text '{str(request_text)[:50]}...'.")
                 elif action_type == 'send_admin_notification':
-                    admin_number = settings.ADMIN_WHATSAPP_NUMBER
-                    if not admin_number:
-                        logger.warning(f"Contact {contact.id}: 'send_admin_notification' action used, but ADMIN_WHATSAPP_NUMBER is not set in settings. Skipping.")
-                        continue
-
                     message_body = _resolve_value(action_item_conf.message_template, current_step_context, contact)
                     if not message_body:
                         logger.warning(f"Contact {contact.id}: 'send_admin_notification' message_template resolved to an empty string. Skipping.")
                         continue
                     
-                    notification_action = {
-                        'type': 'send_whatsapp_message', 'recipient_wa_id': admin_number,
-                        'message_type': 'text', 'data': {'body': message_body}
-                    }
-                    actions_to_perform.append(notification_action)
-                    logger.info(f"Contact {contact.id}: Queued admin notification to {admin_number}.")
+                    notify_groups = action_item_conf.notify_groups
+                    notify_user_ids = action_item_conf.notify_user_ids
+
+                    if notify_groups or notify_user_ids:
+                        queue_whatsapp_notification_to_users(
+                            user_ids=notify_user_ids,
+                            group_names=notify_groups,
+                            message_body=message_body
+                        )
+                    else:
+                        # Fallback to old behavior if no users are targeted
+                        admin_number = settings.ADMIN_WHATSAPP_NUMBER
+                        if admin_number:
+                            message_body = _resolve_value(action_item_conf.message_template, current_step_context, contact)
+                            if message_body:
+                                actions_to_perform.append({'type': 'send_whatsapp_message', 'recipient_wa_id': admin_number, 'message_type': 'text', 'data': {'body': message_body}})
+                                logger.info(f"Contact {contact.id}: Queued admin notification to fallback ADMIN_WHATSAPP_NUMBER {admin_number}.")
+                        else:
+                            logger.warning(f"Contact {contact.id}: 'send_admin_notification' action used, but no target users found and ADMIN_WHATSAPP_NUMBER is not set. Skipping.")
                 elif action_type == 'query_model':
                     app_label = action_item_conf.app_label
                     model_name = action_item_conf.model_name

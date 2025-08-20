@@ -32,6 +32,14 @@ class Contact(models.Model):
         blank=True,
         help_text="The Meta App Configuration this contact is associated with."
     )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='whatsapp_contact',
+        help_text="The system user account associated with this WhatsApp contact, if any."
+    )
     
     needs_human_intervention = models.BooleanField(
         default=False,

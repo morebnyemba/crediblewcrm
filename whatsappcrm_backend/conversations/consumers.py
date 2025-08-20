@@ -149,3 +149,4 @@ class ConversationConsumer(AsyncJsonWebsocketConsumer):
         of the system that may use this type, ensuring compatibility.
         """
         await self.new_message(event)
+ 
