@@ -46,4 +46,4 @@ def queue_notifications_to_users(
             related_flow=related_flow
         )
         dispatch_notification_task.delay(notification.id)
-        logger.info(f"Queued Notification ID {notification.id} for user '{user.username}'.")
+        logger.info(f"Notifications: Queued Notification ID {notification.id} for user '{user.username}'.")
