@@ -204,7 +204,7 @@ PRAYER_REQUEST_FLOW = {
                 "fallback_config": {
                     "action": "re_prompt",
                     "max_retries": 1,
-                    "re_prompt_message_text": "Please tap one of the buttons to confirm."
+                    "re_prompt_message_text": "That wasn't one of the options. Please tap 'Yes, Submit' or 'No, Start Over' to continue."
                 }
             },
             "transitions": [
