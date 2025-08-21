@@ -117,7 +117,7 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
     except Exception as e:
         logger.error(f"Exception in send_whatsapp_message_task for Message ID {outgoing_message_id}: {e}", exc_info=True)
         outgoing_msg.status = 'failed'
-            _clear_contact_flow_state(outgoing_msg.contact)
+        _clear_contact_flow_state(outgoing_msg.contact)
         outgoing_msg.error_details = {'error': str(e), 'type': type(e).__name__}
         try:
             # Retry the task if it's a network issue or a temporary problem
