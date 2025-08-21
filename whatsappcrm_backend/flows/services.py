@@ -22,7 +22,7 @@ from conversations.models import Contact, Message
 from .models import Flow, FlowStep, FlowTransition, ContactFlowState
 from customer_data.models import MemberProfile, Payment
 from customer_data.utils import record_payment, record_prayer_request
-from notifications.services import queue_whatsapp_notification_to_users
+from notifications.services import queue_notifications_to_users
 from paynow_integration.services import PaynowService
 from paynow_integration.tasks import poll_paynow_transaction_status
 try:
@@ -840,10 +840,12 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     notify_user_ids = action_item_conf.notify_user_ids
 
                     if notify_groups or notify_user_ids:
-                        queue_whatsapp_notification_to_users(
+                        queue_notifications_to_users(
                             user_ids=notify_user_ids,
                             group_names=notify_groups,
-                            message_body=message_body
+                            message_body=message_body,
+                            related_contact=contact,
+                            related_flow=step.flow
                         )
                     else:
                         # Fallback to old behavior if no users are targeted
