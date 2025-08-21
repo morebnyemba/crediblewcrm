@@ -184,6 +184,11 @@ class Message(models.Model):
 
     # For CRM internal notes or messages not directly from WhatsApp
     is_internal_note = models.BooleanField(default=False)
+    is_system_notification = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="True if this is a system-generated notification (e.g., to an admin)."
+    )
 
 
     def __str__(self):

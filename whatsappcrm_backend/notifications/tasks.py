@@ -42,7 +42,8 @@ def dispatch_notification_task(self, notification_id: int):
                 active_config = MetaAppConfig.objects.get_active_config()
                 message = Message.objects.create(
                     contact=recipient.whatsapp_contact, app_config=active_config, direction='out',
-                    message_type='text', content_payload={'body': notification.content}, status='pending_dispatch'
+                message_type='text', content_payload={'body': notification.content}, status='pending_dispatch',
+                is_system_notification=True # Flag this as a system notification
                 )
                 notification.status = 'sent'
                 notification.sent_at = timezone.now()

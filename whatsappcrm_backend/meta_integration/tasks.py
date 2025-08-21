@@ -50,32 +50,36 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
          logger.warning(f"send_whatsapp_message_task: Message ID {outgoing_message_id} already failed and max retries reached. Skipping.")
          return
 
-    # To ensure sequential delivery, check for preceding messages that are either:
-    # 1. Still pending dispatch (these should always be sent first).
-    # 2. Were sent recently but not yet confirmed as delivered. We'll wait for a short period
-    #    (e.g., 2 minutes) for the delivery receipt. This balances sequential delivery with
-    #    preventing a single offline user from blocking all future messages indefinitely.
-    stale_threshold = timezone.now() - timedelta(minutes=2)
+    # Skip sequential delivery check for system notifications
+    if outgoing_msg.is_system_notification:
+        logger.info(f"Skipping sequential delivery check for system notification message ID {outgoing_message_id}.")
+    else:
+        # To ensure sequential delivery, check for preceding messages that are either:
+        # 1. Still pending dispatch (these should always be sent first).
+        # 2. Were sent recently but not yet confirmed as delivered. We'll wait for a short period
+        #    (e.g., 2 minutes) for the delivery receipt. This balances sequential delivery with
+        #    preventing a single offline user from blocking all future messages indefinitely.
+        stale_threshold = timezone.now() - timedelta(minutes=2)
 
-    # Find the specific message causing the halt for better logging
-    halting_message = Message.objects.filter(
-        Q(contact=outgoing_msg.contact),
-        Q(direction='out'),
-        Q(id__lt=outgoing_msg.id),
-        (
-            Q(status='pending_dispatch', timestamp__gte=stale_threshold) | # Not yet processed
-            Q(status__in=['sent', 'failed'], status_timestamp__gte=stale_threshold) # Processed but not in a final state (sent or awaiting retry)
-        )
-    ).order_by('-id').first() # Get the most recent one for logging
+        # Find the specific message causing the halt for better logging
+        halting_message = Message.objects.filter(
+            Q(contact=outgoing_msg.contact),
+            Q(direction='out'),
+            Q(id__lt=outgoing_message_id),
+            (
+                Q(status='pending_dispatch', timestamp__gte=stale_threshold) | # Not yet processed
+                Q(status__in=['sent', 'failed'], status_timestamp__gte=stale_threshold) # Processed but not in a final state (sent or awaiting retry)
+            )
+        ).order_by('-id').first() # Get the most recent one for logging
 
-    if halting_message:
-        logger.warning(
-            f"send_whatsapp_message_task: Halting message ID {outgoing_message_id} for contact "
-            f"{outgoing_msg.contact.whatsapp_id}. Waiting for preceding message ID {halting_message.id} "
-            f"(Status: {halting_message.status}, Status Time: {halting_message.status_timestamp}, "
-            f"Created: {halting_message.timestamp}). Retrying."
-        )
-        raise self.retry() # Uses the task's default_retry_delay
+        if halting_message:
+            logger.warning(
+                f"send_whatsapp_message_task: Halting message ID {outgoing_message_id} for contact "
+                f"{outgoing_msg.contact.whatsapp_id}. Waiting for preceding message ID {halting_message.id} "
+                f"(Status: {halting_message.status}, Status Time: {halting_message.status_timestamp}, "
+                f"Created: {halting_message.timestamp}). Retrying."
+            )
+            raise self.retry() # Uses the task's default_retry_delay
 
     logger.info(f"Task send_whatsapp_message_task started for Message ID: {outgoing_message_id}, Contact: {outgoing_msg.contact.whatsapp_id}")
 
