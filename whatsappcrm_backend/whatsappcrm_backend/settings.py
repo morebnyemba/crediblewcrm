@@ -73,7 +73,7 @@ INSTALLED_APPS = [
     'flows.apps.FlowsConfig',
     'customer_data.apps.CustomerDataConfig',
     'church_services.apps.ChurchServicesConfig',
-    'notifications',
+    'notifications.apps.NotificationsConfig',
 ]
 
 MIDDLEWARE = [
