@@ -982,7 +982,7 @@ def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dic
         logger.warning(f"Invalid fallback_config for step {current_step.id}. Using defaults. Errors: {e.errors()}")
         fallback_config = FallbackConfig()
 
-    # Scenario 1: The step was a question, and the user's reply was invalid. Attempt to re-prompt.
+    # Check if we can re-prompt for a question step
     if current_step.step_type == 'question':
         max_retries = fallback_config.max_retries
         current_fallback_count = updated_context.get('_fallback_count', 0)
@@ -1008,20 +1008,41 @@ def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dic
             contact_flow_state.save(update_fields=['flow_context_data', 'last_updated_at'])
             return actions_to_perform
 
-    # Scenario 2: It's a non-question step with no valid transition (a "dead end").
-    if current_step.step_type != 'question':
+    # If we reach here, it means either:
+    # 1. It was a question, but retries are exhausted.
+    # 2. It was not a question step (a logical dead end).
+    # In both cases, we should initiate human handover.
+
+    if current_step.step_type == 'question':
+        log_message = (
+            f"Contact {contact.id} has exhausted all retries for question step '{current_step.name}'. "
+            "Initiating human handover."
+        )
+    else:
         logger.error(
             f"CRITICAL: Flow for contact {contact.id} reached a dead end at step '{current_step.name}' (type: {current_step.step_type}). "
             "No valid transition was found. This indicates a flow design issue. Initiating human handover."
         )
-        # This path directly triggers handover.
-        actions_to_perform.append({'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text', 'data': {'body': "Apologies, I've encountered a technical issue and can't continue. I'm alerting a team member to assist you."}})
-        contact.needs_human_intervention = True
-        contact.intervention_requested_at = timezone.now()
-        contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at'])
-        # Also clear the flow state so the user isn't stuck
-        actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
-        return actions_to_perform
+    
+    logger.error(log_message)
+
+    # Use the fallback_message_text if available, otherwise a generic one.
+    fallback_message = fallback_config.fallback_message_text or "Apologies, I'm having trouble understanding. I'm alerting a team member to assist you shortly."
+    resolved_fallback_message = _resolve_value(fallback_message, updated_context, contact)
+    actions_to_perform.append({
+        'type': 'send_whatsapp_message', 
+        'recipient_wa_id': contact.whatsapp_id, 
+        'message_type': 'text', 
+        'data': {'body': resolved_fallback_message}
+    })
+
+    # Flag for human intervention
+    contact.needs_human_intervention = True
+    contact.intervention_requested_at = timezone.now()
+    contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at'])
+    
+    # Also clear the flow state so the user isn't stuck
+    actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
 
     return actions_to_perform
 
@@ -1440,7 +1461,14 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                     # A new flow was started, re-run the loop to process its first step.
                     continue 
                 else:
-                    # No flow was triggered, so we are done.
+                    # No flow was triggered. Send a helpful default message to avoid a dead end.
+                    logger.info(f"No flow triggered for contact {contact.whatsapp_id}. Sending default fallback message.")
+                    actions_to_perform.append({
+                        'type': 'send_whatsapp_message',
+                        'recipient_wa_id': contact.whatsapp_id,
+                        'message_type': 'text',
+                        'data': {'body': "I'm sorry, I didn't understand that. Please type 'menu' to see what I can help you with."}
+                    })
                     break 
 
             current_step = contact_flow_state.current_step
