@@ -9,8 +9,6 @@ from uuid import UUID
 from .models import Payment, MemberProfile
 from meta_integration.models import MetaAppConfig
 from meta_integration.utils import download_whatsapp_media
-from conversations.models import Message
-from meta_integration.tasks import send_whatsapp_message_task
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +33,7 @@ def process_proof_of_payment_image(self, payment_id: str, wamid: str):
         config = MetaAppConfig.objects.get_active_config()
     except (MetaAppConfig.DoesNotExist, MetaAppConfig.MultipleObjectsReturned) as e:
         logger.error(f"Cannot get unique active MetaAppConfig for payment {payment_id}. Retrying. Error: {e}")
-        self.retry(exc=e)
+        raise self.retry(exc=e)
 
     logger.info(f"Starting download of proof of payment for Payment {payment_id} (WAMID: {wamid}).")
 
@@ -44,8 +42,14 @@ def process_proof_of_payment_image(self, payment_id: str, wamid: str):
 
     # Check download
     if not download_result:
-        logger.error(f"Failed to download media for WAMID {wamid} for payment {payment_id}. Retrying.")
-        self.retry()
+        logger.error(f"Failed to download media for WAMID {wamid} for payment {payment_id}. This was attempt {self.request.retries + 1}/{self.max_retries + 1}.")
+        try:
+            raise self.retry(exc=ValueError(f"Media download failed for WAMID {wamid}"))
+        except self.MaxRetriesExceededError:
+            logger.error(f"Max retries exceeded for downloading media for payment {payment_id}.")
+            payment.notes = (payment.notes or "") + f"\n[SYSTEM] Failed to download proof of payment from WhatsApp after multiple retries (WAMID: {wamid})."
+            payment.save(update_fields=['notes'])
+            return # End task gracefully
 
     # Extract information
     image_bytes, mime_type = download_result
@@ -62,7 +66,7 @@ def process_proof_of_payment_image(self, payment_id: str, wamid: str):
         payment.proof_of_payment.save(filename, ContentFile(image_bytes), save=True)
         logger.info(f"Successfully saved proof of payment for Payment {payment_id} at path: {payment.proof_of_payment.name}")
     except Exception as e:
-        logger.error(f"Failed to save proof of payment file for payment {payment_id}. Error: {e}", exc_info=True)
+        logger.error(f"Failed to save proof of payment file for payment {payment_id}. Retrying. Error: {e}", exc_info=True)
         self.retry(exc=e)
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60 * 2) # Retry after 2 mins
@@ -70,6 +74,10 @@ def send_birthday_whatsapp_message(self, member_profile_id: int):
     """
     Sends a personalized birthday wish to a specific member.
     """
+    # Local import to break circular dependency
+    from meta_integration.tasks import send_whatsapp_message_task
+    from conversations.models import Message
+
     try:
         member = MemberProfile.objects.select_related('contact').get(contact_id=member_profile_id)
         contact = member.contact
