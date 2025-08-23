@@ -841,8 +841,8 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
 
                     if notify_groups or notify_user_ids:
                         queue_notifications_to_users(
-                            user_ids=notify_user_ids,
-                            group_names=notify_groups,
+                            user_ids=action_item_conf.notify_user_ids,
+                            group_names=action_item_conf.notify_groups,
                             message_body=message_body,
                             related_contact=contact,
                             related_flow=step.flow

@@ -237,6 +237,12 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(hour=8, minute=0),
         'args': (),
     },
+    'check-admin-window-expiry': {
+        'task': 'notifications.tasks.check_and_send_24h_window_reminders',
+        # Runs every 10 minutes. This is a good frequency to catch the window.
+        'schedule': crontab(minute='*/10'),
+        'args': (),
+    },
 }
 
 

@@ -3,6 +3,8 @@
 import logging
 from typing import List, Optional
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from datetime import timedelta
 
 from .tasks import dispatch_notification_task
 from .models import Notification
@@ -18,10 +20,11 @@ def queue_notifications_to_users(
     group_names: Optional[List[str]] = None,
     message_body: str = "",
     related_contact: Optional[Contact] = None,
-    related_flow: Optional[Flow] = None
+    related_flow: Optional[Flow] = None,
 ):
     """
-    Finds users by ID or group, creates a Notification record for each,
+    Finds users by ID or group, filters them to only include those who have
+    interacted within the last 24 hours, creates a Notification record for each,
     and queues a task to send it.
     """
     if not message_body:
@@ -34,7 +37,15 @@ def queue_notifications_to_users(
     if group_names:
         target_users_query |= User.objects.filter(groups__name__in=group_names)
 
-    target_users = target_users_query.distinct()
+    # Filter for users with an associated WhatsApp contact that has been seen recently.
+    # This ensures we only send free-form messages within Meta's 24-hour window.
+    twenty_four_hours_ago = timezone.now() - timedelta(hours=24)
+    
+    # We need to filter based on the 'last_seen' of the user's associated WhatsApp contact.
+    target_users = target_users_query.distinct().select_related('whatsapp_contact').filter(
+        whatsapp_contact__isnull=False,
+        whatsapp_contact__last_seen__gte=twenty_four_hours_ago
+    )
 
     for user in target_users:
         notification = Notification.objects.create(
@@ -46,4 +57,14 @@ def queue_notifications_to_users(
             related_flow=related_flow
         )
         dispatch_notification_task.delay(notification.id)
-        logger.info(f"Notifications: Queued Notification ID {notification.id} for user '{user.username}'.")
+        logger.info(f"Notifications: Queued Notification ID {notification.id} for user '{user.username}' (within 24h window).")
+
+    # Log users who were filtered out
+    all_potential_users = target_users_query.distinct().select_related('whatsapp_contact')
+    skipped_users = all_potential_users.exclude(id__in=target_users.values_list('id', flat=True))
+    for user in skipped_users:
+        last_seen = user.whatsapp_contact.last_seen if hasattr(user, 'whatsapp_contact') and user.whatsapp_contact else 'N/A'
+        logger.warning(
+            f"Skipped notification for user '{user.username}' because their last interaction "
+            f"was at {last_seen}, which is outside the 24-hour window."
+        )
