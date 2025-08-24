@@ -3,6 +3,7 @@
 import logging
 from typing import List, Optional
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 
@@ -56,8 +57,10 @@ def queue_notifications_to_users(
             related_contact=related_contact,
             related_flow=related_flow
         )
-        dispatch_notification_task.delay(notification.id)
-        logger.info(f"Notifications: Queued Notification ID {notification.id} for user '{user.username}' (within 24h window).")
+        # Use transaction.on_commit to prevent a race condition where the task
+        # executes before the notification object is committed to the database.
+        transaction.on_commit(lambda: dispatch_notification_task.delay(notification.id))
+        logger.info(f"Notifications: Queued Notification ID {notification.id} for user '{user.username}' (to be dispatched on transaction commit).")
 
     # Log users who were filtered out
     all_potential_users = target_users_query.distinct().select_related('whatsapp_contact')

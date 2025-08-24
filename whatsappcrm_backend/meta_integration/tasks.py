@@ -4,12 +4,12 @@ import logging
 from celery import shared_task
 from django.utils import timezone
 from django.db.models import Q
-from flows.services import _clear_contact_flow_state
 from datetime import timedelta
 
 from .utils import send_whatsapp_message, send_read_receipt_api
 from .models import MetaAppConfig
 from conversations.models import Message, Contact # To update message status
+from .signals import message_send_failed
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,6 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
     except Exception as e:
         logger.error(f"Exception in send_whatsapp_message_task for Message ID {outgoing_message_id}: {e}", exc_info=True)
         outgoing_msg.status = 'failed'
-        _clear_contact_flow_state(outgoing_msg.contact)
         outgoing_msg.error_details = {'error': str(e), 'type': type(e).__name__}
         try:
             # Retry the task if it's a network issue or a temporary problem
@@ -126,7 +125,8 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             raise self.retry(exc=e) # Re-raise to trigger Celery's retry mechanism
         except self.MaxRetriesExceededError:
             logger.error(f"Max retries exceeded for sending Message ID {outgoing_message_id}.")
-            # Message remains marked as 'failed'
+            # Dispatch a signal to notify admins or trigger other actions
+            message_send_failed.send(sender=self.__class__, message_instance=outgoing_msg)
     finally:
         outgoing_msg.status_timestamp = timezone.now()
         outgoing_msg.save(update_fields=['wamid', 'status', 'error_details', 'status_timestamp'])
