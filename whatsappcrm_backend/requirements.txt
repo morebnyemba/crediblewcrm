@@ -19,6 +19,8 @@ celery
 django-celery-results
 django-celery-beat
 redis # For Celery broker if using Redis
+eventlet # For the high-concurrency I/O worker pool
+kombu # Used directly in settings.py for queue definitions
 
 # Database connector (PostgreSQL)
 psycopg2-binary # Or psycopg2 if you manage build dependencies
