@@ -243,6 +243,12 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute='*/10'),
         'args': (),
     },
+    'fail-stuck-messages-periodic': {
+        'task': 'conversations.tasks.run_fail_stuck_messages_command',
+        # Runs every 10 minutes to clean up any messages stuck in pending_dispatch
+        'schedule': crontab(minute='*/10'),
+        'args': (),
+    },
 }
 
 

@@ -32,102 +32,93 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
     except MetaAppConfig.DoesNotExist:
         logger.error(f"send_whatsapp_message_task: MetaAppConfig with ID {active_config_id} not found. Task cannot proceed.")
         # Update message status to failed if config is missing
-        if 'outgoing_msg' in locals():
-            outgoing_msg.status = 'failed'
-            outgoing_msg.error_details = {'error': f'MetaAppConfig ID {active_config_id} not found for sending.'}
-            outgoing_msg.status_timestamp = timezone.now()
-            outgoing_msg.save(update_fields=['status', 'error_details', 'status_timestamp'])
+        try:
+            msg_to_fail = Message.objects.get(pk=outgoing_message_id)
+            # Check status to avoid sending duplicate notifications if task reruns
+            if msg_to_fail.status != 'failed':
+                msg_to_fail.status = 'failed'
+                msg_to_fail.error_details = {'error': f'MetaAppConfig ID {active_config_id} not found for sending.'}
+                msg_to_fail.status_timestamp = timezone.now()
+                msg_to_fail.save(update_fields=['status', 'error_details', 'status_timestamp'])
+                # Notify admin about this critical configuration error
+                message_send_failed.send(sender=self.__class__, message_instance=msg_to_fail)
+        except Message.DoesNotExist:
+            pass # Already logged above
         return
-
-    if outgoing_msg.direction != 'out':
-        logger.warning(f"send_whatsapp_message_task: Message ID {outgoing_message_id} is not an outgoing message. Skipping.")
-        return
-
-    # Avoid resending if already sent successfully or in a final failed state without retries
-    if outgoing_msg.wamid and outgoing_msg.status == 'sent':
-        logger.info(f"send_whatsapp_message_task: Message ID {outgoing_message_id} (WAMID: {outgoing_msg.wamid}) already marked as sent. Skipping.")
-        return
-    if outgoing_msg.status == 'failed' and self.request.retries >= self.max_retries:
-         logger.warning(f"send_whatsapp_message_task: Message ID {outgoing_message_id} already failed and max retries reached. Skipping.")
-         return
-
-    # Skip sequential delivery check for system notifications
-    if outgoing_msg.is_system_notification:
-        logger.info(f"Skipping sequential delivery check for system notification message ID {outgoing_message_id}.")
-    else:
-        # To ensure sequential delivery, check for preceding messages that are either:
-        # 1. Still pending dispatch (these should always be sent first).
-        # 2. Were sent recently but not yet confirmed as delivered. We'll wait for a short period
-        #    (e.g., 2 minutes) for the delivery receipt. This balances sequential delivery with
-        #    preventing a single offline user from blocking all future messages indefinitely.
-
-        # To ensure strict sequential delivery, we only check for preceding messages for the same contact
-        # that are still in the 'pending_dispatch' state. This prevents race conditions where a message
-        # is sent but its delivery status hasn't been received yet, which was causing deadlocks.
-        halting_message = Message.objects.filter(
-            contact=outgoing_msg.contact,
-            direction='out',
-            id__lt=outgoing_message_id,
-            status='pending_dispatch'
-        ).order_by('-id').first() # Get the most recent one for logging
-
-        if halting_message:
-            logger.warning(
-                f"send_whatsapp_message_task: Halting message ID {outgoing_message_id} for contact "
-                f"{outgoing_msg.contact.whatsapp_id}. Waiting for preceding message ID {halting_message.id} "
-                f"(Status: {halting_message.status}, Status Time: {halting_message.status_timestamp}, "
-                f"Created: {halting_message.timestamp}). Retrying."
-            )
-            raise self.retry() # Uses the task's default_retry_delay
-
-    logger.info(f"Task send_whatsapp_message_task started for Message ID: {outgoing_message_id}, Contact: {outgoing_msg.contact.whatsapp_id}")
 
     try:
-        # content_payload should contain the 'data' part for send_whatsapp_message
-        # and message_type should be the Meta API message type
+        if outgoing_msg.direction != 'out':
+            logger.warning(f"send_whatsapp_message_task: Message ID {outgoing_message_id} is not an outgoing message. Skipping.")
+            return
+
+        # Idempotency check: If already successfully sent, do nothing.
+        if outgoing_msg.status == 'sent':
+            logger.info(f"send_whatsapp_message_task: Message ID {outgoing_message_id} (WAMID: {outgoing_msg.wamid}) already marked as sent. Skipping.")
+            return
+        
+        # If a task for an already failed message is triggered somehow (e.g., manual re-queue),
+        # only proceed if it's an actual Celery retry.
+        if outgoing_msg.status == 'failed' and self.request.retries == 0:
+             logger.warning(f"send_whatsapp_message_task: Message ID {outgoing_message_id} is already 'failed' and this is not a retry. Skipping.")
+             return
+
+        # Skip sequential delivery check for system notifications
+        if outgoing_msg.is_system_notification:
+            logger.info(f"Skipping sequential delivery check for system notification message ID {outgoing_message_id}.")
+        else:
+            # Ensure strict sequential delivery by waiting for preceding messages.
+            halting_message = Message.objects.filter(
+                contact=outgoing_msg.contact,
+                direction='out',
+                id__lt=outgoing_message_id,
+                status='pending_dispatch'
+            ).order_by('-id').first()
+
+            if halting_message:
+                logger.warning(f"send_whatsapp_message_task: Halting message ID {outgoing_message_id} for contact "
+                               f"{outgoing_msg.contact.whatsapp_id}. Waiting for preceding message ID {halting_message.id}. Retrying.")
+                # Retry with a slightly longer countdown for sequential checks.
+                raise self.retry(countdown=15)
+
+        logger.info(f"Task send_whatsapp_message_task started for Message ID: {outgoing_message_id}, Contact: {outgoing_msg.contact.whatsapp_id}")
+
         if not isinstance(outgoing_msg.content_payload, dict):
             raise ValueError("Message content_payload is not a valid dictionary for sending.")
 
-        api_response = send_whatsapp_message(
-            to_phone_number=outgoing_msg.contact.whatsapp_id,
-            message_type=outgoing_msg.message_type, # This should be 'text', 'template', 'interactive'
-            data=outgoing_msg.content_payload, # This is the actual data for the type
-            config=active_config
-        )
+        api_response = send_whatsapp_message(to_phone_number=outgoing_msg.contact.whatsapp_id,
+                                           message_type=outgoing_msg.message_type,
+                                           data=outgoing_msg.content_payload,
+                                           config=active_config)
 
         if api_response and api_response.get('messages') and api_response['messages'][0].get('id'):
             outgoing_msg.wamid = api_response['messages'][0]['id']
-            outgoing_msg.status = 'sent' # Successfully handed off to Meta
-            outgoing_msg.error_details = None # Clear previous errors if any
+            outgoing_msg.status = 'sent'
+            outgoing_msg.error_details = None
+            outgoing_msg.status_timestamp = timezone.now()
+            outgoing_msg.save(update_fields=['wamid', 'status', 'error_details', 'status_timestamp'])
             logger.info(f"Message ID {outgoing_message_id} sent successfully via Meta API. WAMID: {outgoing_msg.wamid}")
         else:
-            # Handle failure from Meta API
             error_info = api_response or {'error': 'Meta API call failed or returned unexpected response.'}
             logger.error(f"Failed to send Message ID {outgoing_message_id} via Meta API. Response: {error_info}")
-            outgoing_msg.status = 'failed'
-            outgoing_msg.error_details = error_info
-            # Retry logic for certain types of failures could be added here
-            # For now, we rely on Celery's built-in retry for RequestException type errors.
-            # If Meta returns a specific error code that indicates a retryable issue, handle it.
-            # Example: if error_info.get('error', {}).get('code') == SOME_RETRYABLE_CODE:
-            #    raise self.retry(exc=ValueError("Meta API retryable error"))
+            raise ValueError(f"Meta API call failed: {error_info}")
 
     except Exception as e:
-        logger.error(f"Exception in send_whatsapp_message_task for Message ID {outgoing_message_id}: {e}", exc_info=True)
-        outgoing_msg.status = 'failed'
-        outgoing_msg.error_details = {'error': str(e), 'type': type(e).__name__}
         try:
-            # Retry the task if it's a network issue or a temporary problem
-            # Celery will automatically retry based on max_retries and default_retry_delay.
-            # You might want to customize retry conditions.
-            raise self.retry(exc=e) # Re-raise to trigger Celery's retry mechanism
+            # Always attempt to retry on any exception. Celery will raise MaxRetriesExceededError
+            # if it can't retry anymore, which is caught below.
+            raise self.retry(exc=e)
         except self.MaxRetriesExceededError:
+            # This is the final failure after all retries.
             logger.error(f"Max retries exceeded for sending Message ID {outgoing_message_id}.")
-            # Dispatch a signal to notify admins or trigger other actions
+            outgoing_msg.status = 'failed'
+            outgoing_msg.error_details = {'error': f'Max retries exceeded. Last error: {str(e)}', 'type': type(e).__name__}
+            outgoing_msg.status_timestamp = timezone.now()
+            outgoing_msg.save(update_fields=['status', 'error_details', 'status_timestamp'])
             message_send_failed.send(sender=self.__class__, message_instance=outgoing_msg)
-    finally:
-        outgoing_msg.status_timestamp = timezone.now()
-        outgoing_msg.save(update_fields=['wamid', 'status', 'error_details', 'status_timestamp'])
+        except self.retry.throws as retry_exc:
+            # This is the case where Celery is about to retry.
+            # We just re-raise the exception to let Celery handle it.
+            raise retry_exc
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=10)
