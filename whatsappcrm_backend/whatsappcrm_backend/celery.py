@@ -22,7 +22,9 @@ app.conf.result_backend = 'django-db'
 app.conf.result_extended = True  # Store additional task metadata
 
 # Load task modules from all registered Django apps
-app.autodiscover_tasks()
+# We now use the explicit CELERY_IMPORTS setting in settings.py, which is more robust.
+# The app.config_from_object call above automatically loads it.
+# app.autodiscover_tasks()
 
 # Test task with result storage
 @app.task(bind=True)

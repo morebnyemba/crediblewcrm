@@ -210,6 +210,18 @@ CELERY_TASK_TIME_LIMIT = int(os.getenv('CELERY_TASK_TIME_LIMIT_SECONDS', '1800')
 CELERY_RESULT_EXTENDED = True
 CELERY_CACHE_BACKEND = 'django-cache'
 
+# Explicitly define all modules that contain Celery tasks.
+# This is more robust than autodiscover_tasks() and can resolve discovery issues.
+CELERY_IMPORTS = (
+    'conversations.tasks',
+    'customer_data.tasks',
+    'media_manager.tasks',
+    'meta_integration.tasks',
+    'notifications.tasks',
+    'paynow_integration.tasks',
+    'whatsappcrm_backend.celery', # For the debug_task
+)
+
 # --- Channels (WebSocket) Configuration ---
 # For development, you can use the in-memory backend.
 # For production, Redis is strongly recommended.
