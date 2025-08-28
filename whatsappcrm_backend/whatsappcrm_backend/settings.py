@@ -210,6 +210,27 @@ CELERY_TASK_TIME_LIMIT = int(os.getenv('CELERY_TASK_TIME_LIMIT_SECONDS', '1800')
 CELERY_RESULT_EXTENDED = True
 CELERY_CACHE_BACKEND = 'django-cache'
 
+# --- Celery Queue Configuration for Mixed Workloads ---
+from kombu import Queue
+
+# Define the default queue for I/O-bound tasks and a new queue for CPU-bound tasks.
+CELERY_TASK_QUEUES = (
+    Queue('celery', routing_key='celery'),
+    Queue('cpu_intensive', routing_key='cpu_intensive'),
+)
+
+CELERY_DEFAULT_QUEUE = 'celery'
+CELERY_DEFAULT_EXCHANGE = 'celery'
+CELERY_DEFAULT_ROUTING_KEY = 'celery'
+
+# Route specific, long-running, CPU-intensive tasks to the 'cpu_intensive' queue.
+CELERY_TASK_ROUTES = {
+    'customer_data.tasks.process_proof_of_payment_image': {
+        'queue': 'cpu_intensive',
+        'routing_key': 'cpu_intensive',
+    },
+}
+
 # Explicitly define all modules that contain Celery tasks.
 # This is more robust than autodiscover_tasks() and can resolve discovery issues.
 CELERY_IMPORTS = (

@@ -46,9 +46,27 @@ services:
     restart: unless-stopped
 
   celery_worker:
+    # This is now the dedicated I/O-bound worker
     build: ./whatsappcrm_backend
-    container_name: whatsappcrm_celery_worker
-    command: celery -A whatsappcrm_backend worker -l INFO
+    container_name: whatsappcrm_celery_worker_io
+    # Use the eventlet pool for high-concurrency I/O-bound tasks.
+    # -P eventlet: Specifies the eventlet pool.
+    # -c 1000: Sets the concurrency level (number of green threads).
+    # -Q celery: Explicitly listen ONLY to the default 'celery' queue.
+    command: celery -A whatsappcrm_backend worker -l INFO -P eventlet -c 1000 -Q celery
+    volumes:
+      - ./whatsappcrm_backend:/app
+    env_file:
+      - ./whatsappcrm_backend/.env
+    depends_on:
+      - redis
+      - db
+    restart: unless-stopped
+
+  celery_worker_cpu:
+    build: ./whatsappcrm_backend
+    container_name: whatsappcrm_celery_worker_cpu
+    command: celery -A whatsappcrm_backend worker -l INFO -P prefork -Q cpu_intensive
     volumes:
       - ./whatsappcrm_backend:/app
     env_file:
