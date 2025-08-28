@@ -60,17 +60,15 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
         # 2. Were sent recently but not yet confirmed as delivered. We'll wait for a short period
         #    (e.g., 2 minutes) for the delivery receipt. This balances sequential delivery with
         #    preventing a single offline user from blocking all future messages indefinitely.
-        stale_threshold = timezone.now() - timedelta(minutes=2)
 
-        # Find the specific message causing the halt for better logging
+        # To ensure strict sequential delivery, we only check for preceding messages for the same contact
+        # that are still in the 'pending_dispatch' state. This prevents race conditions where a message
+        # is sent but its delivery status hasn't been received yet, which was causing deadlocks.
         halting_message = Message.objects.filter(
-            Q(contact=outgoing_msg.contact),
-            Q(direction='out'),
-            Q(id__lt=outgoing_message_id),
-            (
-                Q(status='pending_dispatch', timestamp__gte=stale_threshold) | # Not yet processed
-                Q(status__in=['sent', 'failed'], status_timestamp__gte=stale_threshold) # Processed but not in a final state (sent or awaiting retry)
-            )
+            contact=outgoing_msg.contact,
+            direction='out',
+            id__lt=outgoing_message_id,
+            status='pending_dispatch'
         ).order_by('-id').first() # Get the most recent one for logging
 
         if halting_message:
