@@ -236,7 +236,23 @@ MAIN_MENU_FLOW = {
         {
             "name": "show_profile_summary",
             "type": "send_message",
-            "config": {"message_type": "text", "text": {"body": "Here is your profile summary:\n\n*Name:* {{ member_profile.first_name or 'N/A' }} {{ member_profile.last_name or '' }}\n*Email:* {{ member_profile.email or 'N/A' }}\n*City:* {{ member_profile.city or 'N/A' }}\n\nType 'menu' to return to the main menu."}},
+            "config": {
+                "message_type": "text",
+                "text": {
+                    "body": (
+                        "Here is your profile summary:\n\n"
+                        "*Full Name:* {{ member_profile.first_name or 'N/A' }} {{ member_profile.last_name or '' }}\n"
+                        "*Email:* {{ member_profile.email or 'N/A' }}\n"
+                        "*Date of Birth:* {{ member_profile.date_of_birth or 'N/A' }}\n"
+                        "*Marital Status:* {{ (member_profile.marital_status | replace('_', ' ') | title) or 'N/A' }}\n\n"
+                        "--- Church Details ---\n"
+                        "*Membership Status:* {{ (member_profile.membership_status | replace('_', ' ') | title) or 'N/A' }}\n"
+                        "*Date Joined:* {{ member_profile.date_joined or 'N/A' }}\n"
+                        "*Baptism Date:* {{ member_profile.baptism_date or 'N/A' }}\n\n"
+                        "If any details are incorrect, you can select 'Update My Profile' from the main menu."
+                    )
+                }
+            },
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
         {
