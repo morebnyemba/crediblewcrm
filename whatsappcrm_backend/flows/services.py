@@ -994,7 +994,7 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
     return actions_to_perform, current_step_context
 
 
-def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dict, contact_flow_state: ContactFlowState) -> List[Dict[str, Any]]:
+def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dict, contact_flow_state: ContactFlowState, message_data: dict) -> List[Dict[str, Any]]:
     """
     Handles the logic when no transition condition is met from a step.
     This can be due to an invalid user reply to a question, or a logical dead-end in the flow.
@@ -1062,6 +1062,29 @@ def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dic
     })
 
     # --- Robust Handover Logic ---
+    # Extract details from the user's last message for the notification
+    user_reply = ""
+    msg_type = message_data.get('type')
+    if msg_type == 'text':
+        user_reply = message_data.get('text', {}).get('body', '')
+    elif msg_type == 'interactive':
+        interactive_payload = message_data.get('interactive', {})
+        interactive_type = interactive_payload.get('type')
+        if interactive_type == 'button_reply':
+            reply_data = interactive_payload.get('button_reply', {})
+            user_reply = f"Button Click: '{reply_data.get('title', 'N/A')}' (ID: {reply_data.get('id')})"
+        elif interactive_type == 'list_reply':
+            reply_data = interactive_payload.get('list_reply', {})
+            user_reply = f"List Selection: '{reply_data.get('title', 'N/A')}' (ID: {reply_data.get('id')})"
+    elif msg_type and msg_type not in ['internal_fallthrough', 'internal_switch_flow']:
+        user_reply = f"Message Type: {msg_type}"
+
+    # Sanitize context for display, removing internal keys
+    context_to_display = {k: v for k, v in updated_context.items() if not k.startswith('_')}
+    context_str = json.dumps(context_to_display, indent=2, default=str) if context_to_display else "Empty"
+    if len(context_str) > 1000: # Truncate for readability in notifications
+        context_str = context_str[:1000] + "\n... (truncated)"
+
     # Flag for human intervention and record the exact time
     intervention_time = timezone.now()
     contact.needs_human_intervention = True
@@ -1079,8 +1102,12 @@ def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dic
 
     # Send notification to admin/pastoral groups
     notification_info = (
-        f"Fallback Handover: Contact {contact.name or contact.whatsapp_id} requires assistance. "
-        f"They were at step '{current_step.name}' in flow '{current_step.flow.name}'."
+        f"⚠️ *Fallback Handover Required* ⚠️\n\n"
+        f"*Contact:* {contact.name or contact.whatsapp_id}\n"
+        f"*Flow:* {current_step.flow.name}\n"
+        f"*Stuck at Step:* {current_step.name}\n\n"
+        f"*Last User Input:*\n`{user_reply or 'N/A (likely a fall-through error)'}`\n\n"
+        f"*Current Flow Context:*\n```\n{context_str}\n```"
     )
     
     if fallback_config.notify_groups:
