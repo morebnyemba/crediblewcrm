@@ -1,6 +1,8 @@
 # flows/views.py
 from rest_framework import viewsets, permissions, status
+from rest_framework import serializers
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from django.db import transaction
 from django.core.exceptions import ValidationError as DjangoValidationError # For model's full_clean
 
@@ -54,6 +56,29 @@ class FlowViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Unexpected error during Flow update (PK: {serializer.instance.pk}): {e}", exc_info=True)
             raise
+
+    @action(detail=True, methods=['post'], url_path='validate')
+    def validate_flow(self, request, pk=None):
+        """
+        Validates the structural integrity of the flow, checking for dead ends,
+        unreachable steps, and other potential issues.
+        """
+        flow = self.get_object()
+        try:
+            # The validate_integrity method will raise a DjangoValidationError if issues are found.
+            flow.validate_integrity()
+            logger.info(f"Flow '{flow.name}' (PK: {flow.pk}) passed validation.")
+            return Response(
+                {"status": "success", "message": "Flow validation passed successfully. No structural issues found."},
+                status=status.HTTP_200_OK
+            )
+        except DjangoValidationError as e:
+            error_messages = e.messages if hasattr(e, 'messages') else [str(e)]
+            logger.warning(f"Flow '{flow.name}' (PK: {flow.pk}) failed validation: {error_messages}")
+            return Response(
+                {"status": "error", "message": "Flow validation failed.", "issues": error_messages},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class FlowStepViewSet(viewsets.ModelViewSet):

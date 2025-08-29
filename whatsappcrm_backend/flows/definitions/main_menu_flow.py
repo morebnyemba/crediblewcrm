@@ -32,7 +32,7 @@ MAIN_MENU_FLOW = {
                     "interactive": {
                         "type": "list",
                         "header": {"type": "text", "text": "Church Main Menu"},
-                        "body": {"text": "Welcome back, {{ member_profile.first_name }}! 🙏\n\nHow can we serve you today?"},
+                        "body": {"text": "Welcome back, {{ member_profile.first_name or 'member' }}! 🙏\n\nHow can we serve you today?"},
                         "footer": {"text": "Powered by crediblebrands.co.zw"},
                         "action": {
                             "button": "Show Menu",
@@ -87,7 +87,7 @@ MAIN_MENU_FLOW = {
                 {"to_step": "switch_to_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "submit_prayer_request"}},
                 {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
                 {"to_step": "initiate_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
-                {"to_step": "check_profile_exists", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
+                {"to_step": "show_profile_summary", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
                 {"to_step": "switch_to_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
                 {"to_step": "switch_to_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
                 {"to_step": "switch_to_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
@@ -105,7 +105,7 @@ MAIN_MENU_FLOW = {
                     "interactive": {
                         "type": "list",
                         "header": {"type": "text", "text": "Church Main Menu"},
-                        "body": {"text": "Hello {{ contact.name }}! 🙏\n\nWelcome to our digital church home. How can we serve you today? Please choose an option from our main menu below."},
+                        "body": {"text": "Hello {{ contact.name or 'there' }}! 🙏\n\nWelcome to our digital church home. How can we serve you today? Please choose an option from our main menu below."},
                         "footer": {"text": "Powered by crediblebrands.co.zw"},
                         "action": {
                             "button": "Show Menu",
@@ -160,7 +160,7 @@ MAIN_MENU_FLOW = {
                 {"to_step": "switch_to_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "submit_prayer_request"}},
                 {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
                 {"to_step": "initiate_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
-                {"to_step": "check_profile_exists", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
+                {"to_step": "prompt_to_register", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
                 {"to_step": "switch_to_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
                 {"to_step": "switch_to_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
                 {"to_step": "switch_to_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
@@ -232,20 +232,11 @@ MAIN_MENU_FLOW = {
             "transitions": []
         },
 
-        # --- Profile Summary Path (Unchanged) ---
-        {
-            "name": "check_profile_exists",
-            "type": "action",
-            "config": {"actions_to_run": []},
-            "transitions": [
-                {"to_step": "show_profile_summary", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "member_profile.first_name"}},
-                {"to_step": "prompt_to_register", "priority": 20, "condition_config": {"type": "always_true"}}
-            ]
-        },
+        # --- Profile Summary Path ---
         {
             "name": "show_profile_summary",
             "type": "send_message",
-            "config": {"message_type": "text", "text": {"body": "Here is your profile summary:\n\n*Name:* {{ member_profile.first_name }} {{ member_profile.last_name }}\n*Email:* {{ member_profile.email }}\n*City:* {{ member_profile.city }}\n\nType 'menu' to return to the main menu."}},
+            "config": {"message_type": "text", "text": {"body": "Here is your profile summary:\n\n*Name:* {{ member_profile.first_name or 'N/A' }} {{ member_profile.last_name or '' }}\n*Email:* {{ member_profile.email or 'N/A' }}\n*City:* {{ member_profile.city or 'N/A' }}\n\nType 'menu' to return to the main menu."}},
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
         {

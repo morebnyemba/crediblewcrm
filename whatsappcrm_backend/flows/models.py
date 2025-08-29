@@ -47,6 +47,15 @@ class Flow(models.Model):
 
     def clean(self) -> None:
         super().clean()
+        # This validation runs when the Flow model itself is saved.
+        if self.pk: # Only run for existing flows that can have steps.
+            entry_point_count = self.steps.filter(is_entry_point=True).count()
+            if self.steps.exists() and entry_point_count == 0:
+                raise ValidationError("A flow with steps must have one step marked as an 'entry point'.")
+            # The check for more than one entry point is handled in FlowStep.clean(),
+            # which is a better place for it as it prevents the state from occurring.
+
+        # Validation for trigger_keywords
         if not isinstance(self.trigger_keywords, list):
             raise ValidationError({
                 'trigger_keywords': _("Trigger keywords must be a list.")
@@ -66,6 +75,57 @@ class Flow(models.Model):
             self.friendly_name = self.name.replace('_', ' ').replace('-', ' ').title()
         self.full_clean() # Call full_clean before saving to run all validations
         super().save(*args, **kwargs)
+
+    def validate_integrity(self):
+        """
+        Performs a comprehensive validation of the flow's structure to find
+        dead ends, unreachable steps, and other structural issues.
+        Raises a ValidationError with a list of all issues found.
+        """
+        errors = []
+        steps = self.steps.all()
+
+        if not steps.exists():
+            return # A flow with no steps is valid, just not runnable.
+
+        # 1. Check for exactly one entry point
+        entry_points = steps.filter(is_entry_point=True)
+        if entry_points.count() == 0:
+            errors.append("The flow must have exactly one step marked as an 'entry point'.")
+        elif entry_points.count() > 1:
+            errors.append("The flow has multiple entry points. Only one is allowed.")
+        
+        if errors: # If no single entry point, further validation is unreliable.
+            raise ValidationError(errors)
+
+        entry_point = entry_points.first()
+
+        # 2. Check for unreachable steps (graph traversal from entry point)
+        reachable_step_ids = set()
+        queue = [entry_point]
+        visited_for_traversal = {entry_point.id}
+
+        while queue:
+            current_step = queue.pop(0)
+            reachable_step_ids.add(current_step.id)
+            for transition in current_step.outgoing_transitions.all():
+                if transition.next_step and transition.next_step.id not in visited_for_traversal:
+                    visited_for_traversal.add(transition.next_step.id)
+                    queue.append(transition.next_step)
+
+        unreachable_step_ids = set(steps.values_list('id', flat=True)) - reachable_step_ids
+        if unreachable_step_ids:
+            unreachable_names = ", ".join(steps.filter(id__in=unreachable_step_ids).values_list('name', flat=True))
+            errors.append(f"The following steps are unreachable from the entry point: {unreachable_names}.")
+
+        # 3. Check for dead-end steps (non-terminal steps with no way out)
+        terminal_step_types = ['end_flow', 'human_handover', 'switch_flow']
+        for step in steps.filter(id__in=reachable_step_ids).exclude(step_type__in=terminal_step_types):
+            if not step.outgoing_transitions.exists():
+                errors.append(f"The step '{step.name}' (type: {step.get_step_type_display()}) is a reachable dead end. It is not a terminal step and has no outgoing transitions.")
+        
+        if errors:
+            raise ValidationError(errors)
 
     class Meta:
         ordering = ['name']
