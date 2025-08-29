@@ -86,7 +86,7 @@ MAIN_MENU_FLOW = {
                 {"to_step": "switch_to_registration", "condition_config": {"type": "interactive_reply_id_equals", "value": "trigger_registration_flow"}},
                 {"to_step": "switch_to_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "submit_prayer_request"}},
                 {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
-                {"to_step": "initiate_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
+                {"to_step": "confirm_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
                 {"to_step": "show_profile_summary", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
                 {"to_step": "switch_to_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
                 {"to_step": "switch_to_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
@@ -159,7 +159,7 @@ MAIN_MENU_FLOW = {
                 {"to_step": "switch_to_registration", "condition_config": {"type": "interactive_reply_id_equals", "value": "trigger_registration_flow"}},
                 {"to_step": "switch_to_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "submit_prayer_request"}},
                 {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
-                {"to_step": "initiate_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
+                {"to_step": "confirm_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
                 {"to_step": "prompt_to_register", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}}, # Visitor selected check profile - prompt them to register
                 {"to_step": "switch_to_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
                 {"to_step": "switch_to_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
@@ -258,22 +258,6 @@ MAIN_MENU_FLOW = {
                 "pre_handover_message_text": "One moment please, I'm connecting you to a pastor who will be with you shortly.",
                 "notification_details": "New pastor intervention request from {{ contact.name or contact.whatsapp_id }}.",
                 "notify_groups": ["pastoral_team"] # Example group name; adjust as needed
-            },
-            "transitions": []
-        },
-
-        # --- Human Handover Step - Send notification and handover (New Version) ---
-        {
-            "name": "initiate_pastor_handover_with_notification",
-            "type": "action",
-            "config": {
-                "actions_to_run": [
-                    {
-                        "action_type": "send_admin_notification",
-                        "message_template": "New pastor intervention request from {{ contact.name or contact.whatsapp_id }}.",
-                        "notify_groups": ["pastoral_team"]  # Example group name; adjust as needed
-                    }
-                ]
             },
             "transitions": []
         },
