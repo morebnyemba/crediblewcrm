@@ -245,20 +245,34 @@ MAIN_MENU_FLOW = {
                 "reply_config": {"save_to_variable": "handover_confirmation", "expected_type": "interactive_id"}
             },
             "transitions": [
-                {"to_step": "initiate_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "proceed_handover"}},
+                {"to_step": "notify_pastors_of_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "proceed_handover"}},
                 {"to_step": "offer_return_to_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "cancel_handover"}}
             ]
         },
 
-        # --- Step for Human Handover (Unchanged) ---
+        # --- NEW STEP: Notify Pastors via Action Step ---
+        {
+            "name": "notify_pastors_of_handover",
+            "type": "action",
+            "config": {
+                "actions_to_run": [
+                    {
+                        "action_type": "send_admin_notification",
+                        "message_template": "New pastor intervention request from {{ contact.name or contact.whatsapp_id }}. Please attend to them in the CRM.",
+                        "notify_groups": ["pastoral_team"]
+                    }
+                ]
+            },
+            "transitions": [
+                {"to_step": "initiate_pastor_handover", "condition_config": {"type": "always_true"}}
+            ]
+        },
+
+        # --- Step for Human Handover (Simplified) ---
         {
             "name": "initiate_pastor_handover",
             "type": "human_handover",
-            "config": {
-                "pre_handover_message_text": "One moment please, I'm connecting you to a pastor who will be with you shortly.",
-                "notification_details": "New pastor intervention request from {{ contact.name or contact.whatsapp_id }}.",
-                "notify_groups": ["pastoral_team"] # Example group name; adjust as needed
-            },
+            "config": {"pre_handover_message_text": "One moment please, I'm connecting you to a pastor who will be with you shortly."},
             "transitions": []
         },
 
