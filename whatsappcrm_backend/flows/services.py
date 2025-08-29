@@ -313,6 +313,7 @@ class FallbackConfig(BasePydanticConfig):
     fallback_message_text: Optional[str] = None
     handover_after_message: bool = False
     pre_handover_message_text: Optional[str] = None
+    notify_groups: Optional[List[str]] = None
 
 class StepConfigQuestion(BasePydanticConfig):
     message_config: StepConfigSendMessage
@@ -1043,7 +1044,7 @@ def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dic
             "Initiating human handover."
         )
     else:
-        logger.error(
+        log_message = (
             f"CRITICAL: Flow for contact {contact.id} reached a dead end at step '{current_step.name}' (type: {current_step.step_type}). "
             "No valid transition was found. This indicates a flow design issue. Initiating human handover."
         )
@@ -1060,10 +1061,38 @@ def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dic
         'data': {'body': resolved_fallback_message}
     })
 
-    # Flag for human intervention
+    # --- Robust Handover Logic ---
+    # Flag for human intervention and record the exact time
+    intervention_time = timezone.now()
     contact.needs_human_intervention = True
-    contact.intervention_requested_at = timezone.now()
+    contact.intervention_requested_at = intervention_time
     contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at'])
+    logger.info(f"Contact {contact.id} ({contact.whatsapp_id}) flagged for human intervention via fallback at {intervention_time.isoformat()}.")
+
+    # Schedule the timeout task to run in 5 minutes
+    timeout_seconds = 5 * 60
+    resolve_human_intervention_after_timeout.apply_async(
+        args=[contact.id, intervention_time.isoformat()],
+        countdown=timeout_seconds
+    )
+    logger.info(f"Scheduled human intervention timeout task for contact {contact.id} in {timeout_seconds} seconds (triggered by fallback).")
+
+    # Send notification to admin/pastoral groups
+    notification_info = (
+        f"Fallback Handover: Contact {contact.name or contact.whatsapp_id} requires assistance. "
+        f"They were at step '{current_step.name}' in flow '{current_step.flow.name}'."
+    )
+    
+    if fallback_config.notify_groups:
+        queue_notifications_to_users(
+            group_names=fallback_config.notify_groups,
+            message_body=notification_info,
+            related_contact=contact,
+            related_flow=current_step.flow
+        )
+        logger.info(f"Queued fallback handover notification for groups {fallback_config.notify_groups}.")
+    else:
+        logger.warning(f"Fallback handover for contact {contact.id} triggered, but no 'notify_groups' configured in fallback_config for step '{current_step.name}'.")
     
     # Also clear the flow state so the user isn't stuck
     actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
