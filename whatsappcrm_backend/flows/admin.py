@@ -72,15 +72,28 @@ class FlowTransitionAdmin(admin.ModelAdmin):
     next_step_name.short_description = "To Step"
     
     def condition_summary(self, obj):
-        condition_type = obj.condition_config.get('type', 'N/A')
+        config = obj.condition_config
+        condition_type = config.get('type')
+
+        if not condition_type:
+            return "No Type (Inactive)"
+
         if condition_type == 'always_true':
             return "Always"
-        elif condition_type == 'user_reply_matches':
-            return f"Reply matches: '{obj.condition_config.get('keyword', '')}'"
+        elif condition_type == 'user_reply_matches_keyword':
+            return f"Reply is: '{config.get('keyword', '')}'"
+        elif condition_type == 'user_reply_contains_keyword':
+            return f"Reply contains: '{config.get('keyword', '')}'"
         elif condition_type == 'interactive_reply_id_equals':
-            return f"Interactive ID: '{obj.condition_config.get('reply_id', '')}'"
-        # Add more summaries for other condition types
-        return condition_type if condition_type != 'N/A' else "Custom"
+            return f"Button ID is: '{config.get('value', '')}'"
+        elif condition_type == 'message_type_is':
+            return f"Message type is: '{config.get('value', '')}'"
+        elif condition_type == 'variable_equals':
+            return f"Context: {config.get('variable_name', '?')} == '{config.get('value', '?')}'"
+        elif condition_type == 'variable_exists':
+            return f"Context: {config.get('variable_name', '?')} exists"
+        
+        return condition_type.replace('_', ' ').title()
     condition_summary.short_description = "Condition"
 
 
@@ -99,4 +112,3 @@ class ContactFlowStateAdmin(admin.ModelAdmin):
     def current_step_name(self, obj):
         return obj.current_step.name
     current_step_name.short_description = "Current Step"
-
