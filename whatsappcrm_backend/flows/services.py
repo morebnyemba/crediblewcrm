@@ -23,6 +23,7 @@ from .models import Flow, FlowStep, FlowTransition, ContactFlowState
 from customer_data.models import MemberProfile, Payment
 from customer_data.utils import record_payment, record_prayer_request
 from notifications.services import queue_notifications_to_users
+from .tasks import resolve_human_intervention_after_timeout
 from paynow_integration.services import PaynowService
 from paynow_integration.tasks import poll_paynow_transaction_status
 try:
@@ -387,6 +388,7 @@ class StepConfigAction(BasePydanticConfig):
 class StepConfigHumanHandover(BasePydanticConfig):
     pre_handover_message_text: Optional[str] = None
     notification_details: Optional[str] = None
+    notify_groups: Optional[List[str]] = None
 
 class StepConfigEndFlow(BasePydanticConfig):
     message_config: Optional[StepConfigSendMessage] = None
@@ -951,12 +953,34 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                 resolved_msg = _resolve_value(handover_config.pre_handover_message_text, current_step_context, contact)
                 actions_to_perform.append({'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text', 'data': {'body': resolved_msg}})
             
+            # Flag for human intervention and record the exact time
             contact.needs_human_intervention = True
-            contact.intervention_requested_at = timezone.now()
+            intervention_time = timezone.now()
+            contact.intervention_requested_at = intervention_time
             contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at'])
-            logger.info(f"Contact {contact.id} ({contact.whatsapp_id}) flagged for human intervention.")
+            logger.info(f"Contact {contact.id} ({contact.whatsapp_id}) flagged for human intervention at {intervention_time.isoformat()}.")
+
+            # Schedule the timeout task to run in 5 minutes
+            timeout_seconds = 5 * 60
+            resolve_human_intervention_after_timeout.apply_async(
+                args=[contact.id, intervention_time.isoformat()],
+                countdown=timeout_seconds
+            )
+            logger.info(f"Scheduled human intervention timeout task for contact {contact.id} in {timeout_seconds} seconds.")
+
+            # Send notification to admin/pastoral groups
             notification_info = _resolve_value(handover_config.notification_details or f"Contact {contact.name or contact.whatsapp_id} requires help.", current_step_context, contact)
-            logger.info(f"HUMAN INTERVENTION NOTIFICATION: {notification_info}. Context: {current_step_context}")
+            if handover_config.notify_groups:
+                queue_notifications_to_users(
+                    group_names=handover_config.notify_groups,
+                    message_body=notification_info,
+                    related_contact=contact,
+                    related_flow=step.flow
+                )
+                logger.info(f"Queued human intervention notification for groups {handover_config.notify_groups}.")
+            else:
+                logger.warning(f"Human handover for contact {contact.id} triggered, but no 'notify_groups' configured in step '{step.name}'.")
+
             actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
         except ValidationError as e:
             logger.error(f"Contact {contact.id}: Pydantic validation for 'human_handover' step '{step.name}' (ID: {step.id}) failed: {e.errors()}", exc_info=False)
