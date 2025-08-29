@@ -259,7 +259,7 @@ MAIN_MENU_FLOW = {
                     {
                         "action_type": "send_admin_notification",
                         "message_template": "New pastor intervention request from {{ contact.name or contact.whatsapp_id }}. Please attend to them in the CRM.",
-                        "notify_groups": ["pastoral_team"]
+                        "notify_groups": ["Pastoral Team"]
                     }
                 ]
             },
