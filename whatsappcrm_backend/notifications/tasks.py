@@ -22,7 +22,7 @@ def dispatch_notification_task(self, notification_id: int):
     Updates the notification status based on the outcome.
     """
     try:
-        notification = Notification.objects.select_related('user', 'user__whatsapp_contact').get(pk=notification_id)
+        notification = Notification.objects.select_related('recipient', 'recipient__whatsapp_contact').get(pk=notification_id)
     except Notification.DoesNotExist:
         logger.error(f"Notification with ID {notification_id} not found. Aborting task.")
         return
@@ -31,9 +31,9 @@ def dispatch_notification_task(self, notification_id: int):
         logger.warning(f"Notification {notification_id} is not in 'pending' state (state is '{notification.status}'). Skipping.")
         return
 
-    user = notification.user
-    if not hasattr(user, 'whatsapp_contact') or not user.whatsapp_contact:
-        error_msg = f"User '{user.username}' has no linked WhatsApp contact."
+    recipient = notification.recipient
+    if not hasattr(recipient, 'whatsapp_contact') or not recipient.whatsapp_contact:
+        error_msg = f"User '{recipient.username}' has no linked WhatsApp contact."
         logger.warning(f"Cannot send notification {notification.id}: {error_msg}")
         notification.status = 'failed'
         notification.error_message = error_msg
@@ -45,7 +45,7 @@ def dispatch_notification_task(self, notification_id: int):
             with transaction.atomic():
                 active_config = MetaAppConfig.objects.get_active_config()
                 message = Message.objects.create(
-                    contact=user.whatsapp_contact, app_config=active_config, direction='out',
+                    contact=recipient.whatsapp_contact, app_config=active_config, direction='out',
                     message_type='text', content_payload={'body': notification.content}, status='pending_dispatch',
                     is_system_notification=True # Flag this as a system notification
                 )
@@ -55,7 +55,7 @@ def dispatch_notification_task(self, notification_id: int):
                 send_whatsapp_message_task.delay(message.id, active_config.id)
                 logger.info(f"Successfully dispatched notification {notification.id} as Message {message.id}.")
         except Exception as e:
-            logger.error(f"Failed to dispatch notification {notification.id} for user '{user.username}'. Error: {e}", exc_info=True)
+            logger.error(f"Failed to dispatch notification {notification.id} for user '{recipient.username}'. Error: {e}", exc_info=True)
             notification.status = 'failed'
             notification.error_message = str(e)
             notification.save(update_fields=['status', 'error_message'])
