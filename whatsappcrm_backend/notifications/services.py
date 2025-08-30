@@ -73,7 +73,7 @@ def queue_notifications_to_users(
     # Bulk create notifications for efficiency
     notifications_to_create = [
         Notification(
-            user=user,
+            recipient=user,
             channel=channel,
             status='pending',
             content=message_body,
@@ -90,4 +90,4 @@ def queue_notifications_to_users(
     # Dispatch tasks after the transaction commits
     for notification in created_notifications:
         transaction.on_commit(lambda: dispatch_notification_task.delay(notification.id))
-        logger.info(f"Notifications: Queued Notification ID {notification.id} for user '{notification.user.username}' (to be dispatched on transaction commit).")
+        logger.info(f"Notifications: Queued Notification ID {notification.id} for user '{notification.recipient.username}' (to be dispatched on transaction commit).")
