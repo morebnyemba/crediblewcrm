@@ -42,18 +42,25 @@ def dispatch_notification_task(self, notification_id: int):
 
     if notification.channel == 'whatsapp':
         try:
+            active_config = MetaAppConfig.objects.get_active_config()
             with transaction.atomic():
-                active_config = MetaAppConfig.objects.get_active_config()
-                message = Message.objects.create(
+                # Create the message object without saving it yet
+                message_obj = Message(
                     contact=recipient.whatsapp_contact, app_config=active_config, direction='out',
                     message_type='text', content_payload={'body': notification.content}, status='pending_dispatch',
                     is_system_notification=True # Flag this as a system notification
                 )
+                # Use bulk_create to bypass post_save signals, which are causing async conflicts
+                # when this task is run by an eventlet worker. This is a targeted fix.
+                created_messages = Message.objects.bulk_create([message_obj])
+                message = created_messages[0]
+
                 notification.status = 'sent'
                 notification.sent_at = timezone.now()
                 notification.save(update_fields=['status', 'sent_at'])
-                send_whatsapp_message_task.delay(message.id, active_config.id)
-                logger.info(f"Successfully dispatched notification {notification.id} as Message {message.id}.")
+                # Use on_commit to ensure the task is dispatched only after the transaction is successful.
+                transaction.on_commit(lambda: send_whatsapp_message_task.delay(message.id, active_config.id))
+            logger.info(f"Successfully dispatched notification {notification.id} as Message {message.id} (using bulk_create to bypass signals).")
         except Exception as e:
             logger.error(f"Failed to dispatch notification {notification.id} for user '{recipient.username}'. Error: {e}", exc_info=True)
             notification.status = 'failed'

@@ -1,6 +1,12 @@
 # whatsappcrm_backend/whatsappcrm_backend/settings.py
 
 import os
+# --- Async Safety ---
+# This is a necessary escape hatch when using Celery with eventlet/gevent.
+# It tells Django's async-safety checker to allow synchronous ORM calls
+# from within the async context created by eventlet, preventing SynchronousOnlyOperation errors.
+os.environ.setdefault('DJANGO_ALLOW_ASYNC_UNSAFE', 'true')
+
 from pathlib import Path
 from datetime import timedelta
 import dotenv # For loading .env file
