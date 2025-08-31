@@ -243,13 +243,27 @@ GIVING_FLOW = {
         },
         "transitions": [
             {
-                "to_step": "send_ecocash_success_message",
+                "to_step": "notify_admins_of_ecocash_initiation",
                 "condition_config": {"type": "variable_equals", "variable_name": "paynow_initiation_success", "value": "True"}
             },
             {
                 "to_step": "send_ecocash_failure_message",
                 "condition_config": {"type": "always_true"}
             }
+        ]
+    },
+    {
+        "name": "notify_admins_of_ecocash_initiation",
+        "type": "action",
+        "config": {
+            "actions_to_run": [{
+                "action_type": "send_admin_notification",
+                "message_template": "EcoCash payment of ${{ giving_amount }} ({{ payment_type|title }}) initiated by {{ contact.name or contact.whatsapp_id }}. Waiting for user to approve on their phone.",
+                "notify_groups": ["Finance Team", "Pastoral Team"]
+            }]
+        },
+        "transitions": [
+            {"to_step": "send_ecocash_success_message", "condition_config": {"type": "always_true"}}
         ]
     },
     {
@@ -310,23 +324,39 @@ GIVING_FLOW = {
             }
         },
         "transitions": [{
-            "to_step": "record_manual_payment",
+            "to_step": "record_and_notify_manual_payment",
             "condition_config": {"type": "variable_exists", "variable_name": "proof_of_payment_wamid"}
         }]
     },
     {
-        "name": "record_manual_payment",
+        "name": "record_and_notify_manual_payment",
         "type": "action",
         "config": {
-            "actions_to_run": [{
-                "action_type": "record_payment",
-                "amount_template": "{{ giving_amount }}",
-                "payment_type_template": "{{ payment_type }}",
-                "payment_method_template": "{{ payment_method }}",
-                "status_template": "pending_verification",
-                "notes_template": "Manual payment with proof submitted via WhatsApp.",
-                "proof_of_payment_wamid_template": "{{ proof_of_payment_wamid }}"
-            }]
+            "actions_to_run": [
+                {
+                    "action_type": "record_payment",
+                    "amount_template": "{{ giving_amount }}",
+                    "payment_type_template": "{{ payment_type }}",
+                    "payment_method_template": "{{ payment_method }}",
+                    "status_template": "pending_verification",
+                    "notes_template": "Manual payment with proof submitted via WhatsApp.",
+                    "proof_of_payment_wamid_template": "{{ proof_of_payment_wamid }}"
+                },
+                {
+                    "action_type": "send_admin_notification",
+                    "message_template": "Manual contribution of ${{ giving_amount }} ({{ payment_type|title }}) received from {{ contact.name or contact.whatsapp_id }}. Please verify the proof of payment in the CRM.",
+                    "notify_groups": ["Finance Team", "Pastoral Team"]
+                }
+            ]
+        },
+        "transitions": [{"to_step": "send_manual_giving_confirmation", "condition_config": {"type": "always_true"}}]
+    },
+    {
+        "name": "send_manual_giving_confirmation",
+        "type": "send_message",
+        "config": {
+            "message_type": "text",
+            "text": {"body": "Thank you for your generous gift! It has been submitted and is now pending verification by our team."}
         },
         "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
     },
