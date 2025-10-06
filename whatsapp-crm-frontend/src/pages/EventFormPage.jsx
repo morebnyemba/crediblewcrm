@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { apiCall } from '@/lib/api';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 
 // UI Components
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -16,11 +16,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FiSave, FiLoader } from 'react-icons/fi';
 
+// Refined schema for better date handling
 const eventSchema = z.object({
-  title: z.string().min(3, "Title is required."),
+  title: z.string().min(3, "Title is required and must be at least 3 characters."),
   description: z.string().optional(),
+  // The input will provide a string. The backend expects an ISO string.
   start_time: z.string().min(1, "Start date and time are required."),
-  end_time: z.string().optional(),
+  // Allow end_time to be an empty string, then handle it during submission.
+  end_time: z.string().optional().or(z.literal('')),
   location: z.string().optional(),
   is_active: z.boolean().default(true),
 });
@@ -42,17 +45,20 @@ export default function EventFormPage() {
     },
   });
 
+  // Helper to format ISO date from backend to what datetime-local input expects
   const formatDateForInput = (dateString) => {
     if (!dateString) return '';
+    const date = new Date(dateString);
     // The input type="datetime-local" expects "YYYY-MM-DDTHH:mm"
-    return format(new Date(dateString), "yyyy-MM-dd'T'HH:mm");
+    return isValid(date) ? format(date, "yyyy-MM-dd'T'HH:mm") : '';
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isEditMode) {
       const fetchEvent = async () => {
         try {
           const data = await apiCall(`/crm-api/church-services/events/${eventId}/`);
+          // Reset the form with data formatted for the input fields
           form.reset({
             ...data,
             start_time: formatDateForInput(data.start_time),
@@ -68,9 +74,11 @@ export default function EventFormPage() {
   }, [isEditMode, eventId, form, navigate]);
 
   const onSubmit = async (data) => {
+    // Prepare payload for the API, converting dates back to ISO string or null
     const payload = {
       ...data,
       start_time: new Date(data.start_time).toISOString(),
+      // Only convert end_time if it's a non-empty string
       end_time: data.end_time ? new Date(data.end_time).toISOString() : null,
     };
 
@@ -82,10 +90,11 @@ export default function EventFormPage() {
       await toast.promise(apiPromise, {
         loading: 'Saving event...',
         success: `Event successfully ${isEditMode ? 'updated' : 'created'}!`,
-        error: `Failed to save event.`,
+        error: (err) => `Failed to save event: ${err.message || 'Please try again.'}`,
       });
       navigate('/events');
     } catch (error) {
+      // The toast.promise will handle showing the error, but we can log it.
       console.error("Submission error:", error);
     }
   };
@@ -97,6 +106,9 @@ export default function EventFormPage() {
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
               <CardTitle>{isEditMode ? 'Edit Event' : 'Create New Event'}</CardTitle>
+              <CardDescription>
+                {isEditMode ? 'Update the details for this event.' : 'Fill out the form to add a new event.'}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="Event Title" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -107,9 +119,14 @@ export default function EventFormPage() {
               <FormField control={form.control} name="location" render={({ field }) => (<FormItem><FormLabel>Location</FormLabel><FormControl><Input placeholder="e.g., Main Hall" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Details about the event..." {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="is_active" render={({ field }) => (
-                  <FormItem className="flex flex-row items-center space-x-2">
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
                     <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                    <FormLabel>Event is Active</FormLabel>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Publish Event</FormLabel>
+                      <CardDescription className="text-xs">
+                        If checked, this event will be visible on public-facing pages.
+                      </CardDescription>
+                    </div>
                   </FormItem>
                 )}
               />

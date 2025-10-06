@@ -19,17 +19,17 @@ import {
 
 const EventCard = ({ event, onEdit, onDelete, isDeleting }) => {
   const eventDate = event.start_time ? new Date(event.start_time) : null;
-  const formattedDate = eventDate ? format(eventDate, 'PPP') : 'Date not set';
-  const formattedTime = eventDate ? format(eventDate, 'p') : '';
+  const formattedDate = eventDate ? format(eventDate, 'PPP') : 'Date not set'; // e.g., Jun 21, 2024
+  const formattedTime = eventDate ? format(eventDate, 'p') : ''; // e.g., 12:00 PM
 
   return (
     <Card className="flex flex-col h-full dark:bg-slate-800 transition-shadow hover:shadow-lg overflow-hidden">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg line-clamp-1">{event.title || 'Untitled Event'}</CardTitle>
-        <CardDescription className="mt-2">
+        <CardDescription className="mt-2 space-y-2">
           <div className="flex items-center text-sm text-muted-foreground">
             <FiCalendar className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span>{formattedDate} at {formattedTime}</span>
+            <span>{formattedDate}{formattedTime && ` at ${formattedTime}`}</span>
           </div>
           {event.location && (
             <div className="flex items-center text-sm text-muted-foreground mt-2">
@@ -76,13 +76,12 @@ const EventCard = ({ event, onEdit, onDelete, isDeleting }) => {
 export default function EventsPage() {
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const navigate = useNavigate();
 
   const fetchEvents = useCallback(async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       const data = await apiCall(`/crm-api/church-services/events/`);
       setEvents(data.results || []);
     } catch (error) {
@@ -98,21 +97,27 @@ export default function EventsPage() {
   }, [fetchEvents]);
 
   const handleDelete = async (eventId) => {
-    if (!window.confirm("Are you sure you want to permanently delete this event?")) return;
+    if (!window.confirm("Are you sure you want to permanently delete this event? This action cannot be undone.")) return;
     
+    setDeletingId(eventId);
     try {
-      setIsDeleting(true);
-      setDeletingId(eventId);
       await apiCall(`/crm-api/church-services/events/${eventId}/`, 'DELETE');
       toast.success("Event deleted successfully.");
-      setEvents(prev => prev.filter(e => e.id !== eventId));
+      setEvents(prevEvents => prevEvents.filter(e => e.id !== eventId));
     } catch (error) {
-      toast.error("Failed to delete event. Please check your connection.");
+      toast.error("Failed to delete event. Please check your connection and try again.");
       console.error('Delete error:', error);
     } finally {
-      setIsDeleting(false);
       setDeletingId(null);
     }
+  };
+
+  const handleEdit = (eventId) => {
+    navigate(`/events/edit/${eventId}`);
+  };
+
+  const handleCreate = () => {
+    navigate('/events/new');
   };
 
   // Mobile-first responsive grid
@@ -124,7 +129,7 @@ export default function EventsPage() {
           <p className="text-muted-foreground mt-1">Manage your church's events</p>
         </div>
         <Button 
-          onClick={() => navigate('/events/new')} 
+          onClick={handleCreate} 
           className="w-full sm:w-auto"
         >
           <FiPlus className="mr-2 h-4 w-4" /> 
@@ -153,15 +158,15 @@ export default function EventsPage() {
             <EventCard 
               key={event.id}
               event={event}
-              onEdit={() => navigate(`/events/edit/${event.id}`)}
+              onEdit={handleEdit}
               onDelete={handleDelete}
-              isDeleting={isDeleting && deletingId === event.id}
+              isDeleting={deletingId === event.id}
             />
           ))
         ) : (
           <div className="col-span-full text-center py-12">
             <div className="text-muted-foreground mb-4">No upcoming events found</div>
-            <Button onClick={() => navigate('/events/new')}>
+            <Button onClick={handleCreate}>
               Create Your First Event
             </Button>
           </div>

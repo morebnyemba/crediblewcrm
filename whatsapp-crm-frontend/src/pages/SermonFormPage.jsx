@@ -11,7 +11,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FiSave, FiLoader } from 'react-icons/fi';
@@ -20,7 +19,7 @@ import { FiSave, FiLoader } from 'react-icons/fi';
 const sermonSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters."),
   preacher: z.string().min(3, "Preacher name is required."),
-  sermon_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Please enter a valid date."),
+  sermon_date: z.string().min(1, "Sermon date is required.").regex(/^\d{4}-\d{2}-\d{2}$/, "Please enter a valid date."),
   description: z.string().optional(),
   video_link: z.string().url("Please enter a valid URL.").optional().or(z.literal('')),
   audio_link: z.string().url("Please enter a valid URL.").optional().or(z.literal('')),
@@ -65,15 +64,22 @@ export default function SermonFormPage() {
   }, [isEditMode, sermonId, form, navigate]);
 
   const onSubmit = async (data) => {
+    // Prepare payload for the API, ensuring empty optional fields are null
+    const payload = {
+      ...data,
+      video_link: data.video_link || null,
+      audio_link: data.audio_link || null,
+    };
+
     try {
       const apiPromise = isEditMode
-        ? apiCall(`/crm-api/church-services/sermons/${sermonId}/`, 'PUT', data)
-        : apiCall('/crm-api/church-services/sermons/', 'POST', data);
+        ? apiCall(`/crm-api/church-services/sermons/${sermonId}/`, 'PUT', payload)
+        : apiCall('/crm-api/church-services/sermons/', 'POST', payload);
 
       await toast.promise(apiPromise, {
         loading: 'Saving sermon...',
         success: `Sermon successfully ${isEditMode ? 'updated' : 'created'}!`,
-        error: `Failed to ${isEditMode ? 'update' : 'create'} sermon.`,
+        error: (err) => `Failed to save sermon: ${err.message || 'Please try again.'}`,
       });
 
       navigate('/sermons');
@@ -101,19 +107,21 @@ export default function SermonFormPage() {
               </div>
               <FormField control={form.control} name="sermon_date" render={({ field }) => (<FormItem><FormLabel>Sermon Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="A brief summary of the sermon..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="video_link" render={({ field }) => (<FormItem><FormLabel>Video Link (YouTube, etc.)</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="audio_link" render={({ field }) => (<FormItem><FormLabel>Audio Link (SoundCloud, etc.)</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="video_link" render={({ field }) => (<FormItem><FormLabel>Video Link (Optional)</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="audio_link" render={({ field }) => (<FormItem><FormLabel>Audio Link (Optional)</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField
                 control={form.control}
                 name="is_published"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow">
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
                     <FormControl>
                       <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                     <div className="space-y-1 leading-none">
                       <FormLabel>Publish Sermon</FormLabel>
-                      <CardDescription>Make this sermon visible to all users on the sermons page.</CardDescription>
+                      <CardDescription className="text-xs">
+                        If checked, this sermon will be visible on public-facing pages.
+                      </CardDescription>
                     </div>
                   </FormItem>
                 )}

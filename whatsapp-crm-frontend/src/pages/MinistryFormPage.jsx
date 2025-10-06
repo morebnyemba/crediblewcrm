@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { apiCall } from '@/lib/api';
 
 // UI Components
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -15,9 +15,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FiSave, FiLoader } from 'react-icons/fi';
 
+// Schema updated to make description required, matching the backend model.
 const ministrySchema = z.object({
   name: z.string().min(3, "Ministry name is required."),
-  description: z.string().optional(),
+  description: z.string().min(1, "Description is required."),
   leader_name: z.string().optional(),
   contact_info: z.string().optional(),
   meeting_schedule: z.string().optional(),
@@ -65,7 +66,7 @@ export default function MinistryFormPage() {
       await toast.promise(apiPromise, {
         loading: 'Saving ministry...',
         success: `Ministry successfully ${isEditMode ? 'updated' : 'created'}!`,
-        error: `Failed to save ministry.`,
+        error: (err) => `Failed to save ministry: ${err.message || 'Please try again.'}`,
       });
       navigate('/ministries');
     } catch (error) {
@@ -80,17 +81,27 @@ export default function MinistryFormPage() {
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
               <CardTitle>{isEditMode ? 'Edit Ministry' : 'Create New Ministry'}</CardTitle>
+              <CardDescription>
+                {isEditMode ? 'Update the details for this ministry.' : 'Fill out the form to add a new ministry.'}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Ministry Name</FormLabel><FormControl><Input placeholder="e.g., Youth Ministry" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="leader_name" render={({ field }) => (<FormItem><FormLabel>Leader's Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="contact_info" render={({ field }) => (<FormItem><FormLabel>Contact Info</FormLabel><FormControl><Input placeholder="Phone or Email" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="meeting_schedule" render={({ field }) => (<FormItem><FormLabel>Meeting Schedule</FormLabel><FormControl><Input placeholder="e.g., Tuesdays at 7 PM" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Details about the ministry..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField control={form.control} name="leader_name" render={({ field }) => (<FormItem><FormLabel>Leader's Name (Optional)</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="contact_info" render={({ field }) => (<FormItem><FormLabel>Contact Info (Optional)</FormLabel><FormControl><Input placeholder="Phone or Email" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              </div>
+              <FormField control={form.control} name="meeting_schedule" render={({ field }) => (<FormItem><FormLabel>Meeting Schedule (Optional)</FormLabel><FormControl><Input placeholder="e.g., Tuesdays at 7 PM" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Details about the ministry's purpose and activities..." {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="is_active" render={({ field }) => (
-                  <FormItem className="flex flex-row items-center space-x-2">
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
                     <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                    <FormLabel>Ministry is Active</FormLabel>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Ministry is Active</FormLabel>
+                      <CardDescription className="text-xs">
+                        If checked, this ministry will be visible in public listings.
+                      </CardDescription>
+                    </div>
                   </FormItem>
                 )}
               />
