@@ -21,6 +21,7 @@ import EventsPage from './pages/EventsPage';
 import EventFormPage from './pages/EventFormPage';
 import MinistriesPage from './pages/MinistriesPage';
 import MinistryFormPage from './pages/MinistryFormPage';
+import ReportsPage from './pages/ReportsPage';
 
 const NotFoundPage = () => (
   <div className="p-10 text-center">
@@ -76,6 +77,9 @@ const router = createBrowserRouter([
       { path: 'ministries', element: <MinistriesPage /> },
       { path: 'ministries/new', element: <MinistryFormPage /> },
       { path: 'ministries/edit/:ministryId', element: <MinistryFormPage /> },
+
+      // Reports
+      { path: 'reports', element: <ReportsPage /> },
 
       { path: 'saved-data', element: <SavedData /> },
       { path: 'conversation', element: <Conversation /> },
