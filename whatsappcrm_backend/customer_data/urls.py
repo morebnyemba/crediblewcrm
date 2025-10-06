@@ -19,4 +19,7 @@ urlpatterns = [
     # The Paynow IPN webhook is a standalone function-based view, so it's added separately.
     # It's important that this URL is publicly accessible without authentication.
     path('webhooks/paynow-ipn/', views.paynow_ipn_webhook, name='paynow-ipn-webhook'),
+
+    # Path for the new report generator view
+    path('reports/', views.ReportGeneratorView.as_view(), name='generate_report'),
 ]

@@ -4,13 +4,13 @@ import { toast } from 'sonner';
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://crmbackend.lifeinternationalministries.com';
 const getAuthToken = () => localStorage.getItem('accessToken');
 
-export async function apiCall(endpoint, { method = 'GET', body = null, isPaginatedFallback = false } = {}) {
+export async function apiCall(endpoint, { method = 'GET', body = null, isPaginatedFallback = false, returnRawResponse = false } = {}) {
   const token = getAuthToken();
   const headers = {
     ...(!body || !(body instanceof FormData) && { 'Content-Type': 'application/json' }),
     ...(token && { 'Authorization': `Bearer ${token}` }),
   };
-  const config = { method, headers, ...(body && !(body instanceof FormData) && { body: JSON.stringify(body) }) };
+  const config = { method, headers, body: body instanceof FormData ? body : (body ? JSON.stringify(body) : null) };
 
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
@@ -36,6 +36,11 @@ export async function apiCall(endpoint, { method = 'GET', body = null, isPaginat
                              `API Error ${response.status}`);
       const err = new Error(errorMessage); err.data = errorData; err.isApiError = true; throw err;
     }
+
+    if (returnRawResponse) {
+      return response;
+    }
+
     if (response.status === 204 || (response.headers.get("content-length") || "0") === "0") {
       return isPaginatedFallback ? { results: [], count: 0, next: null, previous: null } : null;
     }
