@@ -651,14 +651,16 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
     if step.step_type == 'send_message':
         try:
             send_message_config = StepConfigSendMessage.model_validate(raw_step_config)
-            actual_message_type = send_message_config.message_type
+            # Resolve the message_type template to get the actual type (e.g., 'image' or 'text')
+            actual_message_type = _resolve_value(send_message_config.message_type, current_step_context, contact)
+
             final_api_data_structure = {}
 
             if actual_message_type == "text" and send_message_config.text:
                 text_content = send_message_config.text
                 resolved_body = _resolve_value(text_content.body, current_step_context, contact)
                 final_api_data_structure = {'body': resolved_body, 'preview_url': text_content.preview_url}
-            
+
             elif actual_message_type in ['image', 'document', 'audio', 'video', 'sticker'] and getattr(send_message_config, actual_message_type):
                 media_conf: MediaMessageContent = getattr(send_message_config, actual_message_type)
                 media_data_to_send = {}
