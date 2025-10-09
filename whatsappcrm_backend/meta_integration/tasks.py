@@ -105,7 +105,11 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             logger.info(f"Message sent successfully via Meta API.", extra={'message_id': outgoing_message_id, 'wamid': outgoing_msg.wamid})
         else:
             error_info = api_response or {'error': 'Meta API call failed or returned unexpected response.'}
-            logger.error(f"Failed to send message via Meta API.", extra={'message_id': outgoing_message_id, 'response': error_info})
+            # Log the specific error from Meta if available
+            meta_error = error_info.get('error', {})
+            logger.error(
+                f"Failed to send message via Meta API. Code: {meta_error.get('code')}, Message: {meta_error.get('message')}",
+                extra={'message_id': outgoing_message_id, 'contact_id': outgoing_msg.contact.id, 'response': error_info})
             raise ValueError(f"Meta API call failed: {error_info}")
 
     except Exception as e:
@@ -117,7 +121,15 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             # This is the final failure after all retries.
             logger.error(f"Max retries exceeded for sending message.", extra={'message_id': outgoing_message_id})
             outgoing_msg.status = 'failed'
-            outgoing_msg.error_details = {'error': f'Max retries exceeded. Last error: {str(e)}', 'type': type(e).__name__}
+            
+            # --- Improved Error Saving ---
+            # Try to extract the specific Meta error from the exception if it was a ValueError from the API call
+            last_error_details = str(e)
+            if isinstance(e, ValueError) and "Meta API call failed" in last_error_details:
+                # Extract the dictionary part of the error string
+                try: last_error_details = json.loads(last_error_details.split('Meta API call failed: ', 1)[1].replace("'", "\""))
+                except: pass # Keep as string if parsing fails
+            outgoing_msg.error_details = {'error': 'Max retries exceeded.', 'last_error': last_error_details, 'type': type(e).__name__}
             outgoing_msg.status_timestamp = timezone.now()
             outgoing_msg.save(update_fields=['status', 'error_details', 'status_timestamp'])
             message_send_failed.send(sender=self.__class__, message_instance=outgoing_msg)
