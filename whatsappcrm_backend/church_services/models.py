@@ -46,7 +46,7 @@ class EventBooking(models.Model):
         help_text="How this booking was created."
     )
     status = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=[
             ('confirmed', 'Confirmed'),
             ('pending_payment_verification', 'Pending Payment Verification'),
