@@ -206,6 +206,15 @@ MAIN_MENU_FLOW = {
             "transitions": []
         },
         {
+            "name": "switch_to_my_bookings",
+            "type": "switch_flow",
+            "config": {
+                "target_flow_name": "my_bookings",
+                "trigger_keyword_to_pass": "my_bookings"
+            },
+            "transitions": []
+        },
+        {
             "name": "switch_to_ministries",
             "type": "switch_flow",
             "config": {

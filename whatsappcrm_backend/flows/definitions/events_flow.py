@@ -76,16 +76,21 @@ EVENTS_FLOW = {
                 "message_config": {
                     "message_type": "interactive",
                     "interactive": {
-                        "type": "button",
+                        "type": "list",
+                        "header": {"type": "text", "text": "Event Options"},
                         "body": {"text": "What would you like to do next?"},
                         "action": {
-                            "buttons": [
-                                {"type": "reply", "reply": {"id": "next_event", "title": "Next Event"}},
+                            "button": "Choose an Option",
+                            "sections": [
                                 {
-                                    "type": "reply",
-                                    "reply": {"id": "register_for_event", "title": "Register for Event"}
-                                },
-                                {"type": "reply", "reply": {"id": "return_to_menu", "title": "Main Menu"}}
+                                    "title": "Navigation",
+                                    "rows": [
+                                        {"id": "register_for_event", "title": "Register for this Event", "description": "Book your spot for the event shown above."},
+                                        {"id": "my_bookings", "title": "My Bookings", "description": "View events you are already registered for."},
+                                        {"id": "next_event", "title": "Next Event", "description": "See the next event in the list."},
+                                        {"id": "return_to_menu", "title": "Main Menu", "description": "Go back to the main church menu."}
+                                    ]
+                                }
                             ]
                         }
                     }
@@ -94,6 +99,7 @@ EVENTS_FLOW = {
             },
             "transitions": [
                 {"to_step": "switch_to_event_booking", "priority": 5, "condition_config": {"type": "interactive_reply_id_equals", "value": "register_for_event"}},
+                {"to_step": "switch_to_my_bookings", "priority": 10, "condition_config": {"type": "interactive_reply_id_equals", "value": "my_bookings"}},
                 {"to_step": "increment_event_index", "priority": 15, "condition_config": {"type": "interactive_reply_id_equals", "value": "next_event"}},
                 {"to_step": "switch_to_main_menu", "priority": 25, "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}}
             ]
@@ -158,6 +164,15 @@ EVENTS_FLOW = {
                     "event_id": "{{ events_list[event_index | int].id }}",
                     "event_title": "{{ events_list[event_index | int].title }}"
                 }
+            },
+            "transitions": []
+        },
+        {
+            "name": "switch_to_my_bookings",
+            "type": "switch_flow",
+            "config": {
+                "target_flow_name": "my_bookings",
+                "trigger_keyword_to_pass": "my_bookings"
             },
             "transitions": []
         },

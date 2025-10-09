@@ -921,7 +921,17 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                             logger.warning(f"Contact {contact.id}: 'filters_template' for query_model did not resolve to a dictionary. Using empty filters. Resolved value: {filters}")
                             filters = {}
                             
+                        # --- IMPROVEMENT: Automatically find and prefetch related objects ---
+                        # This makes queries more efficient and allows templates to access related fields
+                        # like 'event.title' from an EventBooking object.
+                        related_fields_to_select = []
+                        for field in Model._meta.get_fields():
+                            if isinstance(field, (models.ForeignKey, models.OneToOneField)):
+                                related_fields_to_select.append(field.name)
+                        
                         queryset = Model.objects.filter(**filters)
+                        if related_fields_to_select:
+                            queryset = queryset.select_related(*related_fields_to_select)
                         
                         order_by_fields = action_item_conf.order_by
                         if order_by_fields and isinstance(order_by_fields, list):
@@ -932,13 +942,23 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                             
                         results_list = []
                         for obj in queryset:
-                            dict_obj = model_to_dict(obj)
+                            # Use a more robust serialization that includes related objects
+                            dict_obj = {}
+                            for field in obj._meta.fields:
+                                dict_obj[field.name] = getattr(obj, field.name)
+                            # Add selected related objects as nested dictionaries
+                            for related_field_name in related_fields_to_select:
+                                related_obj = getattr(obj, related_field_name, None)
+                                if related_obj:
+                                    dict_obj[related_field_name] = model_to_dict(related_obj)
+
                             # Post-process to ensure all values are JSON serializable
                             for key, value in dict_obj.items():
                                 if isinstance(value, (date, datetime)):
                                     dict_obj[key] = value.isoformat()
                                 elif isinstance(value, Decimal):
                                     dict_obj[key] = str(value)
+
                             results_list.append(dict_obj)
                             
                         current_step_context[variable_name] = results_list
