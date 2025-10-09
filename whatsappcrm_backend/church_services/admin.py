@@ -27,6 +27,13 @@ class EventAdmin(admin.ModelAdmin):
         return "No Flyer"
     display_flyer_thumbnail.short_description = 'Flyer'
 
+    def display_flyer(self, obj):
+        """Displays a larger preview of the flyer in the detail view."""
+        if obj.flyer:
+            return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 400px; max-height: 400px;" /></a>', obj.flyer.url)
+        return "No Flyer"
+    display_flyer.short_description = 'Flyer Preview'
+
     def has_location_pin(self, obj):
         return bool(obj.latitude and obj.longitude)
     has_location_pin.boolean = True
