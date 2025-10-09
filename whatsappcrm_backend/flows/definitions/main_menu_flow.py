@@ -79,7 +79,8 @@ MAIN_MENU_FLOW = {
                 "fallback_config": {
                     "action": "re_prompt", "max_retries": 1,
                     "re_prompt_message_text": "Sorry, that's not a valid selection. Please choose an option from the menu.",
-                    "fallback_message_text": "If you need help, just type 'menu' to see the options again."
+                    "fallback_message_text": "I'm having trouble understanding. I've notified a team member to assist you shortly.",
+                    "notify_groups": ["Pastoral Team"]
                 }
             },
             "transitions": [
@@ -152,7 +153,8 @@ MAIN_MENU_FLOW = {
                 "fallback_config": {
                     "action": "re_prompt", "max_retries": 1,
                     "re_prompt_message_text": "Sorry, that's not a valid selection. Please choose an option from the menu.",
-                    "fallback_message_text": "If you need help, just type 'menu' to see the options again."
+                    "fallback_message_text": "I'm having trouble understanding. I've notified a team member to assist you shortly.",
+                    "notify_groups": ["Pastoral Team"]
                 }
             },
             "transitions": [

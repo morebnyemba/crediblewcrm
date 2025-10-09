@@ -12,7 +12,7 @@ class EventAdmin(admin.ModelAdmin):
     list_filter = ('is_active', 'start_time')
     ordering = ('-start_time',)
     list_per_page = 25
-    readonly_fields = ('display_flyer', 'location_map_link')
+    readonly_fields = ('display_flyer', 'location_map_link', 'created_at', 'updated_at')
     fieldsets = (
         (None, {'fields': ('title', 'description', 'is_active')}),
         ('Date & Time', {'fields': ('start_time', 'end_time')}),
