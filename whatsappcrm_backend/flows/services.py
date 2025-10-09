@@ -702,7 +702,7 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                         media_data_to_send['caption'] = _resolve_value(media_conf.caption, current_step_context, contact)
                     if actual_message_type == 'document' and media_conf.filename:
                         media_data_to_send['filename'] = _resolve_value(media_conf.filename, current_step_context, contact)
-                    final_api_data_structure = {actual_message_type: media_data_to_send} 
+                    final_api_data_structure = media_data_to_send
             
             elif actual_message_type == "interactive" and send_message_config.interactive:
                 interactive_payload_validated = send_message_config.interactive # Already validated by StepConfigSendMessage

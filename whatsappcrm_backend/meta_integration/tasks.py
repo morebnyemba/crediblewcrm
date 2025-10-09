@@ -2,7 +2,7 @@
 
 import json
 import logging
-from celery import shared_task
+from celery import shared_task, exceptions
 from django.utils import timezone
 from django.db.models import Q
 from datetime import timedelta
@@ -119,13 +119,13 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             # if it can't retry anymore, which is caught below.
             self.retry(exc=e)
         except self.MaxRetriesExceededError:
-            # This is the final failure after all retries.
+            # This is the final failure after all retries are exhausted.
             logger.error(f"Max retries exceeded for sending message.", extra={'message_id': outgoing_message_id})
             outgoing_msg.status = 'failed' # type: ignore
             
             # --- Improved Error Saving ---
             # Try to extract the specific Meta error from the exception if it was a ValueError from the API call
-            last_error_details = str(e)
+            last_error_details: Any = str(e)
             if isinstance(e, ValueError) and "Meta API call failed" in last_error_details:
                 # Extract the dictionary part of the error string
                 try: last_error_details = json.loads(last_error_details.split('Meta API call failed: ', 1)[1].replace("'", "\""))
@@ -133,8 +133,8 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             outgoing_msg.error_details = {'error': 'Max retries exceeded.', 'last_error': last_error_details, 'type': type(e).__name__} # type: ignore
             outgoing_msg.status_timestamp = timezone.now() # type: ignore
             outgoing_msg.save(update_fields=['status', 'error_details', 'status_timestamp']) # type: ignore
-            message_send_failed.send(sender=self.__class__, message_instance=outgoing_msg) # type: ignore
-        except self.Retry as retry_exc:
+            message_send_failed.send(sender=self.__class__, message_instance=outgoing_msg)
+        except exceptions.Retry as retry_exc:
             # This is the case where Celery is about to retry.
             # We just re-raise the exception to let Celery handle it.
             raise retry_exc

@@ -2,10 +2,13 @@ import os
 from celery import Celery
 import django
 
+import logging
 from celery.signals import task_prerun, task_postrun
 from django.db import close_old_connections
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'whatsappcrm_backend.settings')
+
+logger = logging.getLogger(__name__)
 django.setup()
 
 # Create the Celery application instance
