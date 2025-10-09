@@ -248,6 +248,16 @@ CELERY_IMPORTS = (
     'paynow_integration.tasks',
     'whatsappcrm_backend.celery', # For the debug_task
 )
+CELERY_IMPORTS = (
+    'conversations.tasks',
+    'customer_data.tasks',
+    'flows.tasks',
+    'media_manager.tasks',
+    'meta_integration.tasks',
+    'notifications.tasks',
+    'paynow_integration.tasks',
+    'whatsappcrm_backend.celery',
+)
 
 # --- Channels (WebSocket) Configuration ---
 # For development, you can use the in-memory backend.
