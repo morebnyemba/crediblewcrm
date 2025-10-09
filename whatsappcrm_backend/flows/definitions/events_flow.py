@@ -81,6 +81,10 @@ EVENTS_FLOW = {
                         "action": {
                             "buttons": [
                                 {"type": "reply", "reply": {"id": "next_event", "title": "Next Event"}},
+                                {
+                                    "type": "reply",
+                                    "reply": {"id": "register_for_event", "title": "Register for Event"}
+                                },
                                 {"type": "reply", "reply": {"id": "return_to_menu", "title": "Main Menu"}}
                             ]
                         }
@@ -89,8 +93,9 @@ EVENTS_FLOW = {
                 "reply_config": {"save_to_variable": "event_nav_choice", "expected_type": "interactive_id"}
             },
             "transitions": [
-                {"to_step": "increment_event_index", "priority": 10, "condition_config": {"type": "interactive_reply_id_equals", "value": "next_event"}},
-                {"to_step": "switch_to_main_menu", "priority": 20, "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}}
+                {"to_step": "switch_to_event_booking", "priority": 5, "condition_config": {"type": "interactive_reply_id_equals", "value": "register_for_event"}},
+                {"to_step": "increment_event_index", "priority": 15, "condition_config": {"type": "interactive_reply_id_equals", "value": "next_event"}},
+                {"to_step": "switch_to_main_menu", "priority": 25, "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}}
             ]
         },
         {
@@ -142,6 +147,18 @@ EVENTS_FLOW = {
             "name": "switch_to_main_menu",
             "type": "switch_flow",
             "config": {"target_flow_name": "main_menu"},
+            "transitions": []
+        },
+        {
+            "name": "switch_to_event_booking",
+            "type": "switch_flow",
+            "config": {
+                "target_flow_name": "event_booking",
+                "initial_context_template": {
+                    "event_id": "{{ events_list[event_index | int].id }}",
+                    "event_title": "{{ events_list[event_index | int].title }}"
+                }
+            },
             "transitions": []
         },
         {

@@ -19,6 +19,27 @@ class Event(models.Model):
         verbose_name = _("Event")
         verbose_name_plural = _("Events")
 
+class EventBooking(models.Model):
+    """Represents a booking made by a contact for a specific event."""
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='bookings')
+    contact = models.ForeignKey('conversations.Contact', on_delete=models.CASCADE, related_name='event_bookings')
+    booking_date = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[('confirmed', 'Confirmed'), ('cancelled', 'Cancelled'), ('attended', 'Attended')],
+        default='confirmed'
+    )
+    notes = models.TextField(blank=True, null=True, help_text="Internal notes about the booking.")
+
+    class Meta:
+        ordering = ['-booking_date']
+        unique_together = [['event', 'contact']] # A contact can only book an event once
+        verbose_name = _("Event Booking")
+        verbose_name_plural = _("Event Bookings")
+
+    def __str__(self):
+        return f"Booking for {self.contact} at {self.event.title}"
+
 class Ministry(models.Model):
     name = models.CharField(max_length=150)
     description = models.TextField()

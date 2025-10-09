@@ -10,36 +10,10 @@ MAIN_MENU_FLOW = {
     "trigger_keywords": ["menu", "help", "options", "hi", "hello"],
     "is_active": True,
     "steps": [
-        # 1. NEW ENTRY POINT: Ask for Livechat or to see the full Main Menu
-        {
-            "name": "ask_initial_choice",
-            "is_entry_point": True,
-            "type": "question",
-            "config": {
-                "message_config": {
-                    "message_type": "interactive",
-                    "interactive": {
-                        "type": "button",
-                        "body": {"text": "Welcome! How can I help you today?"},
-                        "action": {
-                            "buttons": [
-                                {"type": "reply", "reply": {"id": "request_livechat", "title": "Request Livechat"}},
-                                {"type": "reply", "reply": {"id": "show_main_menu", "title": "Main Menu"}}
-                            ]
-                        }
-                    }
-                },
-                "reply_config": {"save_to_variable": "initial_choice", "expected_type": "interactive_id"}
-            },
-            "transitions": [
-                {"to_step": "confirm_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "request_livechat"}},
-                {"to_step": "check_if_registered_for_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "show_main_menu"}}
-            ]
-        },
-        # 2. Check if user is registered to show the correct menu (Old entry point, now a secondary step)
+        # 1. Check if user is registered to show the correct menu
         {
             "name": "check_if_registered_for_menu",
-            "is_entry_point": False,
+            "is_entry_point": True,
             "type": "action",
             "config": {"actions_to_run": []},
             "transitions": [
@@ -48,7 +22,7 @@ MAIN_MENU_FLOW = {
             ]
         },
 
-        # 3a. Show menu for REGISTERED users
+        # 2a. Show menu for REGISTERED users
         {
             "name": "show_main_menu_registered",
             "type": "question",
@@ -121,7 +95,7 @@ MAIN_MENU_FLOW = {
             ]
         },
 
-        # 3b. Show menu for GUEST users
+        # 2b. Show menu for GUEST users
         {
             "name": "show_main_menu_visitor",
             "type": "question",

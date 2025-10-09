@@ -21,7 +21,7 @@ from decimal import Decimal, InvalidOperation
 from conversations.models import Contact, Message
 from .models import Flow, FlowStep, FlowTransition, ContactFlowState
 from customer_data.models import MemberProfile, Payment
-from customer_data.utils import record_payment, record_prayer_request
+from customer_data.utils import record_payment, record_prayer_request, record_event_booking
 from notifications.services import queue_notifications_to_users
 from .tasks import resolve_human_intervention_after_timeout
 from paynow_integration.services import PaynowService
@@ -321,7 +321,7 @@ class StepConfigQuestion(BasePydanticConfig):
     fallback_config: Optional[FallbackConfig] = None
 
 class ActionItemConfig(BasePydanticConfig):
-    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "record_payment", "record_prayer_request", "send_admin_notification", "query_model", "initiate_paynow_giving_payment"]
+    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "record_payment", "record_prayer_request", "send_admin_notification", "query_model", "initiate_paynow_giving_payment", "record_event_booking"]
     variable_name: Optional[str] = None
     value_template: Optional[Any] = None
     field_path: Optional[str] = None
@@ -338,6 +338,8 @@ class ActionItemConfig(BasePydanticConfig):
     # Fields for 'initiate_paynow_giving_payment'
     phone_number_template: Optional[str] = None
     email_template: Optional[str] = None
+    # Fields for 'record_event_booking'
+    event_id_template: Optional[str] = None
     # Fields for 'record_prayer_request'
     request_text_template: Optional[str] = None
     category_template: Optional[str] = None
@@ -381,6 +383,9 @@ class ActionItemConfig(BasePydanticConfig):
         elif action_type == 'query_model':
             if not self.app_label or not self.model_name or not self.variable_name:
                 raise ValueError("For query_model, 'app_label', 'model_name', and 'variable_name' are required.")
+        elif action_type == 'record_event_booking':
+            if self.event_id_template is None:
+                raise ValueError("For record_event_booking, 'event_id_template' is required.")
         return self
 
 class StepConfigAction(BasePydanticConfig):
@@ -811,6 +816,45 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     current_step_context.update(context_updates)
                     logger.info(f"Contact {contact.id}: Action in step {step.id} initiated Paynow payment. Context updated: {context_updates}")
 
+                elif action_type == 'record_prayer_request':
+                    request_text = _resolve_value(action_item_conf.request_text_template, current_step_context, contact)
+                    category = _resolve_value(action_item_conf.category_template, current_step_context, contact)
+                    is_anonymous_val = _resolve_value(action_item_conf.is_anonymous_template, current_step_context, contact)
+                    submitted_as_member_val = _resolve_value(action_item_conf.submitted_as_member_template, current_step_context, contact)
+
+                    # Coerce resolved value to boolean
+                    is_anonymous = str(is_anonymous_val).lower() in ['true', '1', 'yes'] if is_anonymous_val is not None else False
+                    submitted_as_member = str(submitted_as_member_val).lower() in ['true', '1', 'yes'] if submitted_as_member_val is not None else False
+
+                    prayer_request_obj = record_prayer_request(
+                        contact=contact,
+                        request_text=str(request_text) if request_text else "",
+                        category=str(category) if category else "other",
+                        is_anonymous=is_anonymous,
+                        submitted_as_member=submitted_as_member
+                    )
+                    if prayer_request_obj:
+                        current_step_context['last_prayer_request_id'] = str(prayer_request_obj.id)
+                        logger.info(f"Contact {contact.id}: Action in step {step.id} recorded prayer request {prayer_request_obj.id}.")
+                    else:
+                        logger.error(f"Contact {contact.id}: Action in step {step.id} failed to record prayer request for text '{str(request_text)[:50]}...'.")
+                elif action_type == 'record_event_booking':
+                    event_id = _resolve_value(action_item_conf.event_id_template, current_step_context, contact)
+                    status = _resolve_value(action_item_conf.status_template, current_step_context, contact)
+                    notes = _resolve_value(action_item_conf.notes_template, current_step_context, contact)
+
+                    booking_obj, context_updates = record_event_booking(
+                        contact=contact,
+                        event_id=event_id,
+                        status=str(status) if status else 'confirmed',
+                        notes=str(notes) if notes else None
+                    )
+                    if booking_obj:
+                        current_step_context.update(context_updates)
+                        logger.info(f"Contact {contact.id}: Action in step {step.id} processed event booking {booking_obj.id}. Context updated.")
+                    else:
+                        current_step_context.update(context_updates)
+                        logger.error(f"Contact {contact.id}: Action in step {step.id} failed to record event booking for event ID '{event_id}'.")
                 elif action_type == 'record_prayer_request':
                     request_text = _resolve_value(action_item_conf.request_text_template, current_step_context, contact)
                     category = _resolve_value(action_item_conf.category_template, current_step_context, contact)
@@ -1697,7 +1741,7 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
 
             else:
                 logger.info(f"No transition met for step '{current_step.name}'. Engaging fallback logic for contact {contact.id}.")
-                fallback_actions = _handle_fallback(current_step, contact, flow_context, contact_flow_state)
+                fallback_actions = _handle_fallback(current_step, contact, flow_context, contact_flow_state, message_data)
                 actions_to_perform.extend(fallback_actions)
                 break # Fallback always breaks the loop
 

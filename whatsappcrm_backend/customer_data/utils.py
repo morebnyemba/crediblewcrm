@@ -3,11 +3,12 @@
 import logging
 from decimal import Decimal, InvalidOperation
 from django.db import transaction
-from django.utils import timezone
+from django.db import IntegrityError
 
 from conversations.models import Contact
 from .models import MemberProfile, Payment, PaymentHistory, PrayerRequest
 from .tasks import process_proof_of_payment_image
+from church_services.models import Event, EventBooking
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,38 @@ def record_payment(
     except Exception as e:
         logger.error(f"Failed to record payment for contact {contact.id} ({contact.whatsapp_id}). Error: {e}", exc_info=True)
         return None, None
+
+def record_event_booking(contact: Contact, event_id: int, status: str = 'confirmed', notes: str = None) -> tuple:
+    """
+    Creates an EventBooking record for a contact.
+    Returns a tuple (EventBooking instance, context_updates dict).
+    """
+    try:
+        event = Event.objects.get(pk=event_id)
+        booking, created = EventBooking.objects.get_or_create(
+            contact=contact,
+            event=event,
+            defaults={'status': status, 'notes': notes}
+        )
+
+        if created:
+            logger.info(f"Successfully created EventBooking {booking.id} for contact {contact.id} and event {event.id}.")
+            context_updates = {'event_booking_success': True, 'last_booking_id': booking.id}
+        else:
+            logger.warning(f"Contact {contact.id} is already booked for event {event.id}. Booking ID: {booking.id}.")
+            context_updates = {'event_booking_success': False, 'event_booking_error': 'You are already registered for this event.'}
+        
+        return booking, context_updates
+
+    except Event.DoesNotExist:
+        logger.error(f"Failed to record booking for contact {contact.id}: Event with ID {event_id} not found.")
+        return None, {'event_booking_success': False, 'event_booking_error': 'Event not found.'}
+    except IntegrityError as e:
+        logger.error(f"Database integrity error while booking event {event_id} for contact {contact.id}: {e}")
+        return None, {'event_booking_success': False, 'event_booking_error': 'A database error occurred.'}
+    except Exception as e:
+        logger.error(f"Unexpected error recording event booking for contact {contact.id}: {e}", exc_info=True)
+        return None, {'event_booking_success': False, 'event_booking_error': 'An unexpected error occurred.'}
 
 def record_prayer_request(
     contact: Contact,
