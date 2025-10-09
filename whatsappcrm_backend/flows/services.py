@@ -1,6 +1,7 @@
 # whatsappcrm_backend/flows/services.py
 from django.db import models
 import logging
+import uuid
 import json
 import re
 from typing import List, Dict, Any, Optional, Union, Literal # For Pydantic type hinting
