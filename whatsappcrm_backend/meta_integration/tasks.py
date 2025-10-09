@@ -1,5 +1,6 @@
 # whatsappcrm_backend/meta_integration/tasks.py
 
+import json
 import logging
 from celery import shared_task
 from django.utils import timezone
@@ -116,11 +117,11 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
         try:
             # Always attempt to retry on any exception. Celery will raise MaxRetriesExceededError
             # if it can't retry anymore, which is caught below.
-            raise self.retry(exc=e)
+            self.retry(exc=e)
         except self.MaxRetriesExceededError:
             # This is the final failure after all retries.
             logger.error(f"Max retries exceeded for sending message.", extra={'message_id': outgoing_message_id})
-            outgoing_msg.status = 'failed'
+            outgoing_msg.status = 'failed' # type: ignore
             
             # --- Improved Error Saving ---
             # Try to extract the specific Meta error from the exception if it was a ValueError from the API call
@@ -129,11 +130,11 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
                 # Extract the dictionary part of the error string
                 try: last_error_details = json.loads(last_error_details.split('Meta API call failed: ', 1)[1].replace("'", "\""))
                 except: pass # Keep as string if parsing fails
-            outgoing_msg.error_details = {'error': 'Max retries exceeded.', 'last_error': last_error_details, 'type': type(e).__name__}
-            outgoing_msg.status_timestamp = timezone.now()
-            outgoing_msg.save(update_fields=['status', 'error_details', 'status_timestamp'])
-            message_send_failed.send(sender=self.__class__, message_instance=outgoing_msg)
-        except self.retry.throws as retry_exc:
+            outgoing_msg.error_details = {'error': 'Max retries exceeded.', 'last_error': last_error_details, 'type': type(e).__name__} # type: ignore
+            outgoing_msg.status_timestamp = timezone.now() # type: ignore
+            outgoing_msg.save(update_fields=['status', 'error_details', 'status_timestamp']) # type: ignore
+            message_send_failed.send(sender=self.__class__, message_instance=outgoing_msg) # type: ignore
+        except self.Retry as retry_exc:
             # This is the case where Celery is about to retry.
             # We just re-raise the exception to let Celery handle it.
             raise retry_exc
