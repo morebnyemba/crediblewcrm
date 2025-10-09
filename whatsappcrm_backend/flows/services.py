@@ -650,12 +650,21 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
 
     if step.step_type == 'send_message':
         try:
-            send_message_config = StepConfigSendMessage.model_validate(raw_step_config)
-            # Resolve the message_type template to get the actual type (e.g., 'image' or 'text')
-            actual_message_type = _resolve_value(send_message_config.message_type, current_step_context, contact)
+            # --- FIX: Pre-resolve message_type if it's a template before validation ---
+            config_to_validate = raw_step_config.copy()
+            potential_message_type = config_to_validate.get('message_type', '')
+            
+            # Check if the message_type field contains Jinja templating
+            if isinstance(potential_message_type, str) and '{%' in potential_message_type:
+                resolved_type = _resolve_value(potential_message_type, current_step_context, contact)
+                config_to_validate['message_type'] = resolved_type
+                logger.debug(f"Contact {contact.id}: Dynamically resolved message_type from '{potential_message_type}' to '{resolved_type}'.")
+
+            send_message_config = StepConfigSendMessage.model_validate(config_to_validate)
+            actual_message_type = send_message_config.message_type
 
             final_api_data_structure = {}
-
+            
             if actual_message_type == "text" and send_message_config.text:
                 text_content = send_message_config.text
                 resolved_body = _resolve_value(text_content.body, current_step_context, contact)
