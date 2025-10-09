@@ -1,6 +1,7 @@
 # whatsappcrm_backend/meta_integration/tasks.py
 
 import logging
+from typing import Dict, Any
 from celery import shared_task
 from django.utils import timezone
 from django.db.models import Q
@@ -10,6 +11,7 @@ from .utils import send_whatsapp_message, send_read_receipt_api
 from .models import MetaAppConfig
 from conversations.models import Message, Contact # To update message status
 from .signals import message_send_failed
+from notifications.services import queue_notifications_to_users
 
 logger = logging.getLogger(__name__)
 
@@ -152,3 +154,41 @@ def send_read_receipt_task(self, wamid: str, config_id: int):
             raise self.retry(exc=e)
         except self.MaxRetriesExceededError:
             logger.error(f"Max retries exceeded for sending read receipt.", extra={'wamid': wamid})
+
+@shared_task(name="meta_integration.tasks.notify_admin_of_send_failure")
+def notify_admin_of_send_failure(message_id: int, error_payload: Dict[str, Any]):
+    """
+    Notifies administrators about a failed outgoing message.
+    """
+    log_prefix = f"[Failure Notify Task - Msg ID: {message_id}]"
+    logger.info(f"{log_prefix} Preparing to notify admins of message send failure.")
+    
+    try:
+        message = Message.objects.select_related('contact').get(pk=message_id)
+    except Message.DoesNotExist:
+        logger.error(f"{log_prefix} Could not find Message with ID {message_id} to process failure notification.")
+        return
+
+    contact = message.contact
+    error_code = error_payload.get('code', 'N/A')
+    error_title = error_payload.get('title', 'Unknown Error')
+    error_message = error_payload.get('message', 'No details provided.')
+    error_details = error_payload.get('error_data', {}).get('details', 'No details provided.')
+
+    notification_body = (
+        f"⚠️ *WhatsApp Message Failure*\n\n"
+        f"Failed to send a message to *{contact.name or contact.whatsapp_id}*.\n\n"
+        f"*Contact ID:* {contact.id}\n"
+        f"*Message ID:* {message.id}\n"
+        f"*Error Code:* {error_code} ({error_title})\n"
+        f"*Reason:* {error_message}\n"
+        f"*Details:* {error_details}\n\n"
+        "Please check the contact's number and the message content. This may happen if the user has blocked the business number or if the number is invalid."
+    )
+
+    queue_notifications_to_users(
+        group_names=["Technical Admin", "Pastoral Team"],
+        message_body=notification_body,
+        related_contact=contact
+    )
+    logger.info(f"{log_prefix} Admin failure notification queued successfully.")
