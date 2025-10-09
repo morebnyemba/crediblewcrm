@@ -159,7 +159,7 @@ def poll_paynow_transaction_status(self, payment_id: str):
             except Exception as e:
                 logger.error(f"{log_prefix} Failed to initialize PaynowService. Error: {e}", exc_info=True)
                 _fail_payment_and_notify_user(pending_payment, "Could not initialize payment service for polling.")
-                return # Stop execution
+                return
 
             poll_url = pending_payment.external_data.get('poll_url')
             if not poll_url:

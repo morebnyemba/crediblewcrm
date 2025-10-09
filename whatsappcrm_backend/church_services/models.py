@@ -9,6 +9,7 @@ class Event(models.Model):
     start_time = models.DateTimeField()
     end_time = models.DateTimeField(blank=True, null=True)
     location = models.CharField(max_length=255, blank=True)
+    registration_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Leave blank for free events.")
     is_active = models.BooleanField(default=True, help_text="Whether the event is publicly visible.")
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, help_text="Optional: Latitude for the event location.")
     longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True, help_text="Optional: Longitude for the event location.")

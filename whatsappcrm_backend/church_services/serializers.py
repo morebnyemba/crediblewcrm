@@ -36,6 +36,7 @@ class EventSerializer(serializers.ModelSerializer):
             'end_time',
             'location',
             'latitude',
+            'registration_fee',
             'longitude',
             'flyer',
             'is_active',

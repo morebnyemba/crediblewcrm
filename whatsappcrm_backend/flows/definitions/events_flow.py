@@ -66,7 +66,8 @@ EVENTS_FLOW = {
                         "🗓️ When: {{ events_list[event_index | int].start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n"
                         "📍 Where: {{ events_list[event_index | int].location }}\n\n"
                         "_{{ events_list[event_index | int].description|truncatewords(35) }}_\n\n"
-                        "{% if events_list[event_index | int].registration_link %}Register here: {{ events_list[event_index | int].registration_link }}{% endif %}"
+                        "{% if events_list[event_index | int].registration_fee > 0 %}Fee: ${{ events_list[event_index | int].registration_fee }}{% else %}Fee: Free{% endif %}\n"
+                        "{% if events_list[event_index | int].registration_link %}More Info: {{ events_list[event_index | int].registration_link }}{% endif %}"
                     )
                 },
                 "text": {
@@ -78,6 +79,7 @@ EVENTS_FLOW = {
             },
             "transitions": [{"to_step": "check_if_location_exists", "condition_config": {"type": "always_true"}}]
         },
+
         {
             "name": "ask_next_event_action",
             "type": "question",
@@ -218,7 +220,8 @@ EVENTS_FLOW = {
                 "target_flow_name": "event_booking",
                 "initial_context_template": {
                     "event_id": "{{ events_list[event_index | int].id }}",
-                    "event_title": "{{ events_list[event_index | int].title }}"
+                    "event_title": "{{ events_list[event_index | int].title }}",
+                    "event_fee": "{{ events_list[event_index | int].registration_fee }}"
                 }
             },
             "transitions": []

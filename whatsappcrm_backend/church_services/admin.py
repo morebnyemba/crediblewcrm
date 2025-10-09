@@ -14,7 +14,7 @@ class EventAdmin(admin.ModelAdmin):
     list_per_page = 25
     readonly_fields = ('display_flyer', 'location_map_link', 'created_at', 'updated_at')
     fieldsets = (
-        (None, {'fields': ('title', 'description', 'is_active')}),
+        (None, {'fields': ('title', 'description', 'is_active', 'registration_fee')}),
         ('Date & Time', {'fields': ('start_time', 'end_time')}),
         ('Location', {'fields': ('location', ('latitude', 'longitude'), 'location_map_link')}),
         ('Media', {'fields': ('flyer', 'display_flyer')}),

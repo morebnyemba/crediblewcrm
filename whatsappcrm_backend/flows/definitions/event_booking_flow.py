@@ -1,5 +1,10 @@
 # whatsappcrm_backend/flows/definitions/event_booking_flow.py
 
+"""
+This flow handles event booking, including a conditional payment step
+for events that have a registration fee.
+"""
+
 EVENT_BOOKING_FLOW = {
     "name": "event_booking",
     "friendly_name": "Event Booking",
@@ -7,9 +12,22 @@ EVENT_BOOKING_FLOW = {
     "trigger_keywords": ["book_event"], # Internal trigger
     "is_active": True,
     "steps": [
+        # 1. Check if the event has a fee to decide the path.
         {
-            "name": "confirm_booking",
+            "name": "check_if_event_is_paid",
             "is_entry_point": True,
+            "type": "action",
+            "config": {"actions_to_run": []},
+            "transitions": [
+                # If event_fee is greater than 0, go to the paid flow.
+                {"to_step": "confirm_paid_booking", "priority": 10, "condition_config": {"type": "variable_greater_than", "variable_name": "event_fee", "value": 0}},
+                # Otherwise, go to the free booking confirmation.
+                {"to_step": "confirm_free_booking", "priority": 20, "condition_config": {"type": "always_true"}}
+            ]
+        },
+        # --- Path for FREE events ---
+        {
+            "name": "confirm_free_booking",
             "type": "question",
             "config": {
                 "message_config": {
@@ -33,12 +51,73 @@ EVENT_BOOKING_FLOW = {
                 }
             },
             "transitions": [
-                {"to_step": "record_booking_action", "condition_config": {"type": "interactive_reply_id_equals", "value": "confirm_booking_yes"}},
+                {"to_step": "record_free_booking_action", "condition_config": {"type": "interactive_reply_id_equals", "value": "confirm_booking_yes"}},
                 {"to_step": "booking_cancelled", "condition_config": {"type": "interactive_reply_id_equals", "value": "confirm_booking_no"}}
             ]
         },
+        # --- Path for PAID events ---
         {
-            "name": "record_booking_action",
+            "name": "confirm_paid_booking",
+            "type": "send_message",
+            "config": {
+                "message_type": "text",
+                "text": {
+                    "body": (
+                        "To register for *{{ event_title }}*, a registration fee of *${{ event_fee }}* is required.\n\n"
+                        "Please use one of the methods below to pay:\n\n"
+                        "🏦 *Bank Transfer*\n"
+                        "Bank: {{ settings.CHURCH_GIVING_DETAILS.BANK_NAME }}\n"
+                        "Account: {{ settings.CHURCH_GIVING_DETAILS.ACCOUNT_NUMBER }}\n\n"
+                        "📱 *Merchant Code*\n"
+                        "Code: {{ settings.CHURCH_GIVING_DETAILS.MERCHANT_CODE }}\n\n"
+                        "After paying, please send a screenshot as proof of payment to complete your registration."
+                    )
+                }
+            },
+            "transitions": [{"to_step": "ask_for_pop", "condition_config": {"type": "always_true"}}]
+        },
+        {
+            "name": "ask_for_pop",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "text",
+                    "text": {"body": "Please send the image of your proof of payment now."}
+                },
+                "reply_config": {
+                    "expected_type": "image",
+                    "save_to_variable": "proof_of_payment_wamid"
+                },
+                "fallback_config": {
+                    "action": "re_prompt",
+                    "max_retries": 2,
+                    "re_prompt_message_text": "That doesn't seem to be an image. Please send a screenshot or photo of your proof of payment."
+                }
+            },
+            "transitions": [{
+                "to_step": "record_paid_booking_action",
+                "condition_config": {"type": "variable_exists", "variable_name": "proof_of_payment_wamid"}
+            }]
+        },
+        # --- Action Steps ---
+        {
+            "name": "record_paid_booking_action",
+            "type": "action",
+            "config": {
+                "actions_to_run": [
+                    {
+                        "action_type": "record_event_booking",
+                        "event_id_template": "{{ event_id }}",
+                        "status_template": "pending_payment_verification",
+                        "notes_template": "Booking pending proof of payment verification for ${{ event_fee }}.",
+                        "proof_of_payment_wamid_template": "{{ proof_of_payment_wamid }}"
+                    }
+                ]
+            },
+            "transitions": [{"to_step": "notify_admin_of_booking", "condition_config": {"type": "always_true"}}]
+        },
+        {
+            "name": "record_free_booking_action",
             "type": "action",
             "config": {
                 "actions_to_run": [
@@ -50,7 +129,7 @@ EVENT_BOOKING_FLOW = {
                 ]
             },
             "transitions": [
-                {"to_step": "notify_admin_of_booking", "priority": 10, "condition_config": {"type": "variable_equals", "variable_name": "event_booking_success", "value": "True"}},
+                {"to_step": "booking_confirmed", "priority": 10, "condition_config": {"type": "variable_equals", "variable_name": "event_booking_success", "value": "True"}},
                 {"to_step": "booking_failed", "priority": 20, "condition_config": {"type": "always_true"}}
             ]
         },
@@ -61,7 +140,10 @@ EVENT_BOOKING_FLOW = {
                 "actions_to_run": [{
                     "action_type": "send_admin_notification",
                     "notify_groups": ["Events Team", "Pastoral Team"],
-                    "message_template": "New Event Booking:\n\n*Event:* {{ event_title }}\n*Who:* {{ contact.name or contact.whatsapp_id }}\n\nThey have been successfully registered."
+                    "message_template": (
+                        "New Event Booking (Payment Pending):\n\n*Event:* {{ event_title }}\n*Who:* {{ contact.name or contact.whatsapp_id }}\n\n"
+                        "They have submitted proof of payment for ${{ event_fee }}. Please verify in the CRM to confirm their booking."
+                    )
                 }]
             },
             "transitions": [{"to_step": "booking_confirmed", "condition_config": {"type": "always_true"}}]
@@ -71,7 +153,11 @@ EVENT_BOOKING_FLOW = {
             "type": "send_message",
             "config": {
                 "message_type": "text",
-                "text": {"body": "Excellent! You are now registered for *{{ event_title }}*. We look forward to seeing you there! 🎉"}
+                "text": {
+                    "body": (
+                        "{% if event_fee > 0 %}Thank you! Your registration for *{{ event_title }}* is now pending verification of your payment. You will receive a final confirmation soon.{% else %}Excellent! You are now registered for *{{ event_title }}*. We look forward to seeing you there! 🎉{% endif %}"
+                    )
+                }
             },
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },

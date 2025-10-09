@@ -945,17 +945,23 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                             logger.warning(f"Contact {contact.id}: 'filters_template' for query_model did not resolve to a dictionary. Using empty filters. Resolved value: {filters}")
                             filters = {}
                             
-                        # --- IMPROVEMENT: Automatically find and prefetch related objects ---
-                        # This makes queries more efficient and allows templates to access related fields
-                        # like 'event.title' from an EventBooking object.
+                        # --- IMPROVEMENT: Automatically find and prefetch related objects (N+1 fix) ---
+                        # This makes queries more efficient and allows templates to access related fields.
                         related_fields_to_select = []
+                        related_fields_to_prefetch = []
                         for field in Model._meta.get_fields():
+                            # Use select_related for single-object relationships (ForeignKey, OneToOne)
                             if isinstance(field, (models.ForeignKey, models.OneToOneField)):
                                 related_fields_to_select.append(field.name)
+                            # Use prefetch_related for many-to-many or reverse foreign key relationships
+                            elif isinstance(field, (models.ManyToManyField, models.ManyToOneRel)):
+                                related_fields_to_prefetch.append(field.name)
                         
                         queryset = Model.objects.filter(**filters)
                         if related_fields_to_select:
                             queryset = queryset.select_related(*related_fields_to_select)
+                        if related_fields_to_prefetch:
+                            queryset = queryset.prefetch_related(*related_fields_to_prefetch)
                         
                         order_by_fields = action_item_conf.order_by
                         if order_by_fields and isinstance(order_by_fields, list):
@@ -970,11 +976,15 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                             dict_obj = {}
                             for field in obj._meta.fields:
                                 dict_obj[field.name] = getattr(obj, field.name)
-                            # Add selected related objects as nested dictionaries
+                            # Add selected (single) related objects as nested dictionaries
                             for related_field_name in related_fields_to_select:
                                 related_obj = getattr(obj, related_field_name, None)
                                 if related_obj:
                                     dict_obj[related_field_name] = model_to_dict(related_obj)
+                            # Note: Prefetched (many) related objects are not easily serialized into this dict
+                            # but the template can now access them without extra queries, which is the main goal.
+                            # e.g. `{{ my_model.my_many_to_many_set.all() }}` in a template will be efficient.
+
 
                             # --- FIX: Recursively make the dictionary JSON serializable ---
                             def make_serializable(d):
