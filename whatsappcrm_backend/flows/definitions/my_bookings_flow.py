@@ -89,6 +89,7 @@ MY_BOOKINGS_FLOW = {
                         "body": {"text": "What would you like to do next?"},
                         "action": {
                             "buttons": [
+                                {"type": "reply", "reply": {"id": "cancel_booking", "title": "Cancel This Booking"}},
                                 {"type": "reply", "reply": {"id": "next_booking", "title": "Next Booking"}},
                                 {"type": "reply", "reply": {"id": "return_to_menu", "title": "Main Menu"}}
                             ]
@@ -98,6 +99,7 @@ MY_BOOKINGS_FLOW = {
                 "reply_config": {"save_to_variable": "booking_nav_choice", "expected_type": "interactive_id"}
             },
             "transitions": [
+                {"to_step": "confirm_cancellation", "priority": 5, "condition_config": {"type": "interactive_reply_id_equals", "value": "cancel_booking"}},
                 {"to_step": "increment_booking_index", "priority": 10, "condition_config": {"type": "interactive_reply_id_equals", "value": "next_booking"}},
                 {"to_step": "switch_to_main_menu", "priority": 20, "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}}
             ]
@@ -152,6 +154,61 @@ MY_BOOKINGS_FLOW = {
             "type": "switch_flow",
             "config": {"target_flow_name": "main_menu"},
             "transitions": []
+        },
+        # --- New Steps for Cancellation ---
+        {
+            "name": "confirm_cancellation",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {"text": "Are you sure you want to cancel your booking for *{{ bookings_list[booking_index | int].event.title }}*?"},
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": "cancel_yes", "title": "Yes, Cancel"}},
+                                {"type": "reply", "reply": {"id": "cancel_no", "title": "Keep Booking"}}
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {"save_to_variable": "cancellation_choice", "expected_type": "interactive_id"}
+            },
+            "transitions": [
+                {"to_step": "process_cancellation", "condition_config": {"type": "interactive_reply_id_equals", "value": "cancel_yes"}},
+                {"to_step": "ask_next_booking_action", "condition_config": {"type": "interactive_reply_id_equals", "value": "cancel_no"}}
+            ]
+        },
+        {
+            "name": "process_cancellation",
+            "type": "action",
+            "config": {
+                "actions_to_run": [
+                    {
+                        "action_type": "update_model_record",
+                        "app_label": "church_services",
+                        "model_name": "EventBooking",
+                        "filters_template": {"id": "{{ bookings_list[booking_index | int].id }}"},
+                        "updates_template": {"status": "cancelled"}
+                    },
+                    {
+                        "action_type": "send_admin_notification",
+                        "notify_groups": ["Events Team"],
+                        "message_template": "Booking Cancellation:\n\n*Event:* {{ bookings_list[booking_index | int].event.title }}\n*Who:* {{ contact.name or contact.whatsapp_id }}\n\nTheir booking has been cancelled."
+                    }
+                ]
+            },
+            "transitions": [{"to_step": "cancellation_confirmed_message", "condition_config": {"type": "always_true"}}]
+        },
+        {
+            "name": "cancellation_confirmed_message",
+            "type": "send_message",
+            "config": {
+                "message_type": "text",
+                "text": {"body": "Your booking has been successfully cancelled. We hope to see you at another event soon."}
+            },
+            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
         {
             "name": "end_flow_goodbye",

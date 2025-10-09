@@ -323,7 +323,7 @@ class StepConfigQuestion(BasePydanticConfig):
     fallback_config: Optional[FallbackConfig] = None
 
 class ActionItemConfig(BasePydanticConfig):
-    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "record_payment", "record_prayer_request", "send_admin_notification", "query_model", "initiate_paynow_giving_payment", "record_event_booking"]
+    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "record_payment", "record_prayer_request", "send_admin_notification", "query_model", "initiate_paynow_giving_payment", "record_event_booking", "update_model_record"]
     variable_name: Optional[str] = None
     value_template: Optional[Any] = None
     field_path: Optional[str] = None
@@ -357,6 +357,8 @@ class ActionItemConfig(BasePydanticConfig):
     filters_template: Optional[Dict[str, Any]] = Field(default_factory=dict)
     order_by: Optional[List[str]] = Field(default_factory=list)
     limit: Optional[int] = None
+    # Fields for 'update_model_record'
+    updates_template: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
     @model_validator(mode='after')
     def check_action_fields(self):
@@ -388,6 +390,9 @@ class ActionItemConfig(BasePydanticConfig):
         elif action_type == 'record_event_booking':
             if self.event_id_template is None:
                 raise ValueError("For record_event_booking, 'event_id_template' is required.")
+        elif action_type == 'update_model_record':
+            if not self.app_label or not self.model_name or not self.updates_template:
+                raise ValueError("For update_model_record, 'app_label', 'model_name', and 'updates_template' are required.")
         return self
 
 class StepConfigAction(BasePydanticConfig):
@@ -991,6 +996,22 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                         logger.info(f"Contact {contact.id}: Action in step {step.id} queried {model_name} and stored {len(results_list)} items in '{variable_name}'.")
                     except LookupError:
                         logger.error(f"Contact {contact.id}: 'query_model' action in step {step.id} failed. Model '{app_label}.{model_name}' not found.")
+                    except Exception as e:
+                        logger.error(f"Contact {contact.id}: 'query_model' action in step {step.id} failed with error: {e}", exc_info=True)
+                elif action_type == 'update_model_record':
+                    app_label = action_item_conf.app_label
+                    model_name = action_item_conf.model_name
+                    if not app_label or not model_name:
+                        logger.error(f"Contact {contact.id}: 'update_model_record' action in step {step.id} is missing 'app_label' or 'model_name'. Skipping.")
+                        continue
+                    try:
+                        Model = apps.get_model(app_label, model_name)
+                        filters = _resolve_value(action_item_conf.filters_template, current_step_context, contact)
+                        updates = _resolve_value(action_item_conf.updates_template, current_step_context, contact)
+                        updated_count = Model.objects.filter(**filters).update(**updates)
+                        logger.info(f"Contact {contact.id}: Action in step {step.id} updated {updated_count} record(s) in {model_name} with filters {filters}.")
+                    except LookupError:
+                        logger.error(f"Contact {contact.id}: 'update_model_record' action in step {step.id} failed. Model '{app_label}.{model_name}' not found.")
                     except Exception as e:
                         logger.error(f"Contact {contact.id}: 'query_model' action in step {step.id} failed with error: {e}", exc_info=True)
                 else:
