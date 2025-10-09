@@ -155,7 +155,7 @@ EVENT_BOOKING_FLOW = {
                 "message_type": "text",
                 "text": {
                     "body": (
-                        "{% if event_fee > 0 %}Thank you! Your registration for *{{ event_title }}* is now pending verification of your payment. You will receive a final confirmation soon.{% else %}Excellent! You are now registered for *{{ event_title }}*. We look forward to seeing you there! 🎉{% endif %}"
+                        "{% if (event_fee | float) > 0 %}Thank you! Your registration for *{{ event_title }}* is now pending verification of your payment. You will receive a final confirmation soon.{% else %}Excellent! You are now registered for *{{ event_title }}*. We look forward to seeing you there! 🎉{% endif %}"
                     )
                 }
             },

@@ -47,7 +47,12 @@ class EventBooking(models.Model):
     )
     status = models.CharField(
         max_length=20,
-        choices=[('confirmed', 'Confirmed'), ('cancelled', 'Cancelled'), ('attended', 'Attended')],
+        choices=[
+            ('confirmed', 'Confirmed'),
+            ('pending_payment_verification', 'Pending Payment Verification'),
+            ('cancelled', 'Cancelled'),
+            ('attended', 'Attended')
+        ],
         default='confirmed'
     )
     check_in_time = models.DateTimeField(

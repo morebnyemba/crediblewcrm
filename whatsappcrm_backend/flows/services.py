@@ -997,6 +997,8 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                                         d[k] = v.url if v else None
                                     elif isinstance(v, Decimal):
                                         d[k] = str(v)
+                                    elif isinstance(v, uuid.UUID):
+                                        d[k] = str(v)
                             
                             make_serializable(dict_obj)
                             
