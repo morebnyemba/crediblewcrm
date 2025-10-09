@@ -1,6 +1,6 @@
 # whatsappcrm_backend/church_services/serializers.py
 from rest_framework import serializers
-from .models import Sermon, Event, Ministry
+from .models import Sermon, Event, Ministry, EventBooking
 
 class SermonSerializer(serializers.ModelSerializer):
     """
@@ -21,6 +21,27 @@ class SermonSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+class EventBookingSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the EventBooking model.
+    """
+    event_title = serializers.CharField(source='event.title', read_only=True)
+    contact_name = serializers.CharField(source='contact.name', read_only=True)
+
+    class Meta:
+        model = EventBooking
+        fields = [
+            'id',
+            'booking_reference',
+            'event',
+            'event_title',
+            'contact',
+            'contact_name',
+            'status',
+            'booking_date',
+        ]
+        read_only_fields = ('id', 'booking_reference', 'booking_date', 'event_title', 'contact_name')
 
 class EventSerializer(serializers.ModelSerializer):
     """

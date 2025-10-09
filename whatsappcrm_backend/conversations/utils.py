@@ -10,5 +10,12 @@ def async_signal_handler(func):
     """
     @wraps(func)
     def wrapper(*args, **kwargs):
-        asyncio.run(func(*args, **kwargs))
+        # FIX: asyncio.run() cannot be called from a running event loop (like eventlet's).
+        # Instead, get the current loop and schedule the task on it.
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(func(*args, **kwargs))
+        except RuntimeError: # 'RuntimeError: There is no current event loop...'
+            # If no loop is running, we can safely start one.
+            asyncio.run(func(*args, **kwargs))
     return wrapper

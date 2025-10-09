@@ -131,6 +131,10 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', DB_PASSWORD_DEFAULT), # Ensure this is in your .env!
         'HOST': os.getenv('DB_HOST', DB_HOST_DEFAULT),
         'PORT': os.getenv('DB_PORT', DB_PORT_DEFAULT),
+        # --- FIX for 'too many clients' error ---
+        # Close connections older than 300 seconds (5 minutes).
+        # This helps prevent connection leaks in long-running processes like Celery.
+        'CONN_MAX_AGE': 300,
     }
 }
 
