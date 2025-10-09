@@ -119,7 +119,10 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             # if it can't retry anymore, which is caught below.
             self.retry(exc=e)
         except self.MaxRetriesExceededError:
-            # This is the final failure after all retries are exhausted.
+            # This is the final failure after all retries are exhausted. This block will NOT be entered
+            # if the task fails due to an un-retryable error like a code bug (AttributeError, etc.).
+            # Those are caught by the final `except Exception` block in Celery's trace.
+            # This block is specifically for when the retry mechanism itself gives up.
             logger.error(f"Max retries exceeded for sending message.", extra={'message_id': outgoing_message_id})
             outgoing_msg.status = 'failed' # type: ignore
             
@@ -127,7 +130,8 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             # Try to extract the specific Meta error from the exception if it was a ValueError from the API call
             last_error_details: Any = str(e)
             if isinstance(e, ValueError) and "Meta API call failed" in last_error_details:
-                # Extract the dictionary part of the error string
+                # --- FIX: More robustly handle error string parsing ---
+                # The error might not be a clean JSON string, so we handle that gracefully.
                 try: last_error_details = json.loads(last_error_details.split('Meta API call failed: ', 1)[1].replace("'", "\""))
                 except: pass # Keep as string if parsing fails
             outgoing_msg.error_details = {'error': 'Max retries exceeded.', 'last_error': last_error_details, 'type': type(e).__name__} # type: ignore

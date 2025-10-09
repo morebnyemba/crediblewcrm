@@ -15,6 +15,7 @@ from jinja2 import Environment, select_autoescape, Undefined
 from django.core.exceptions import ValidationError as DjangoValidationError
 from pydantic import BaseModel, ValidationError, field_validator, model_validator, Field
 from django.conf import settings
+from django.http import HttpRequest
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
@@ -638,7 +639,7 @@ def _clear_contact_flow_state(contact: Contact, error: bool = False):
     if deleted_count > 0:        
         logger.info(f"Contact {contact.id}: Cleared flow state ({contact.whatsapp_id})." + (" Due to an error." if error else ""))
 
-def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, is_re_execution: bool = False) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, request: Optional[HttpRequest] = None, is_re_execution: bool = False) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
     actions_to_perform = []
     raw_step_config = step.config or {} 
     current_step_context = flow_context.copy() 
@@ -692,7 +693,13 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                         media_data_to_send['id'] = _resolve_value(media_conf.id, current_step_context, contact)
                         valid_source_found = True
                     elif media_conf.link:
-                        media_data_to_send['link'] = _resolve_value(media_conf.link, current_step_context, contact)
+                        resolved_link = _resolve_value(media_conf.link, current_step_context, contact)
+                        # --- FIX: Ensure the link is an absolute URL ---
+                        if resolved_link.startswith('/') and request:
+                            media_data_to_send['link'] = request.build_absolute_uri(resolved_link)
+                            logger.debug(f"Contact {contact.id}: Converted relative media link '{resolved_link}' to absolute URL '{media_data_to_send['link']}'.")
+                        else:
+                            media_data_to_send['link'] = resolved_link
                         valid_source_found = True
                 
                 if not valid_source_found:
@@ -752,8 +759,8 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
             if question_config.message_config and not is_re_execution: # Only send initial prompt if not a re-execution for fallback
                 try:
                     temp_msg_pydantic_config = StepConfigSendMessage.model_validate(question_config.message_config)
-                    dummy_send_step = FlowStep(name=f"{step.name}_prompt", step_type="send_message", config=temp_msg_pydantic_config.model_dump())
-                    send_actions, _ = _execute_step_actions(dummy_send_step, contact, current_step_context) # Pass current_step_context
+                    dummy_send_step = FlowStep(name=f"{step.name}_prompt", step_type="send_message", config=temp_msg_pydantic_config.model_dump(exclude_none=True))
+                    send_actions, _ = _execute_step_actions(dummy_send_step, contact, current_step_context, request=request) # Pass request
                     actions_to_perform.extend(send_actions)
                 except ValidationError as ve:
                     logger.error(f"Contact {contact.id}: Pydantic validation error for 'message_config' within 'question' step '{step.name}' (ID: {step.id}): {ve.errors()}", exc_info=False)
@@ -1018,8 +1025,8 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
             if end_flow_config.message_config:
                 try:
                     final_msg_pydantic_config = StepConfigSendMessage.model_validate(end_flow_config.message_config)
-                    dummy_end_msg_step = FlowStep(name=f"{step.name}_final_msg", step_type="send_message", config=final_msg_pydantic_config.model_dump())
-                    send_actions, _ = _execute_step_actions(dummy_end_msg_step, contact, current_step_context)
+                    dummy_end_msg_step = FlowStep(name=f"{step.name}_final_msg", step_type="send_message", config=final_msg_pydantic_config.model_dump(exclude_none=True))
+                    send_actions, _ = _execute_step_actions(dummy_end_msg_step, contact, current_step_context, request=request)
                     actions_to_perform.extend(send_actions)
                 except ValidationError as ve:
                      logger.error(f"Contact {contact.id}: Pydantic validation for 'message_config' in 'end_flow' step '{step.name}' (ID: {step.id}): {ve.errors()}", exc_info=False)
@@ -1074,7 +1081,7 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
         logger.warning(f"Unhandled step_type: '{step.step_type}' for step '{step.name}'.")
 
     return actions_to_perform, current_step_context
-
+    
 
 def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dict, contact_flow_state: ContactFlowState, message_data: dict) -> List[Dict[str, Any]]:
     """
@@ -1208,12 +1215,12 @@ def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dic
 
     return actions_to_perform
 
-
-def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj: Message) -> bool:
+def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj: Message, request: Optional[HttpRequest] = None) -> bool:
     """
     Finds and sets up the initial state for a new flow based on a trigger keyword.
     This function does NOT execute the first step; it only creates the state.
-    The main processing loop is responsible for all step executions.
+    The main processing loop is responsible for all step executions. The request object
+    is passed along to be available for step execution context.
 
     Returns:
         True if a flow was triggered, False otherwise.
@@ -1407,7 +1414,7 @@ def _evaluate_transition_condition(transition: FlowTransition, contact: Contact,
     return False
 
 
-def _transition_to_step(contact_flow_state: ContactFlowState, next_step: FlowStep, current_flow_context: dict, contact: Contact, message_data: dict) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def _transition_to_step(contact_flow_state: ContactFlowState, next_step: FlowStep, current_flow_context: dict, contact: Contact, message_data: dict, request: Optional[HttpRequest] = None) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
     logger.info(f"Transitioning contact {contact.whatsapp_id} from '{contact_flow_state.current_step.name}' to '{next_step.name}' in flow '{contact_flow_state.current_flow.name}'.")
     
     # Clear question-specific context from the *previous* step if it was a question
@@ -1426,7 +1433,7 @@ def _transition_to_step(contact_flow_state: ContactFlowState, next_step: FlowSte
     contact_flow_state.save()
 
     actions_from_new_step, context_after_new_step_execution = _execute_step_actions(
-        next_step, contact, current_flow_context.copy() # Pass a copy to avoid modification by reference if new step also modifies
+        next_step, contact, current_flow_context.copy(), request=request # Pass a copy to avoid modification by reference if new step also modifies
     )
     
     # Re-fetch state to see if it was cleared or changed by _execute_step_actions (e.g., by end_flow, human_handover, switch_flow)
@@ -1578,7 +1585,7 @@ def _update_member_profile_data(contact: Contact, fields_to_update_config: Dict[
 # --- Main Service Function (process_message_for_flow) ---
 # This is the function that should be imported by meta_integration/views.py
 @transaction.atomic
-def process_message_for_flow(contact: Contact, message_data: dict, incoming_message_obj: Message) -> List[Dict[str, Any]]:
+def process_message_for_flow(contact: Contact, message_data: dict, incoming_message_obj: Message, request: Optional[HttpRequest] = None) -> List[Dict[str, Any]]:
     """
     Main entry point to process an incoming message for a contact against flows.
     Determines if the contact is in an active flow or if a new flow should be triggered.
@@ -1617,7 +1624,7 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                 logger.info(f"No active flow state for contact {contact.whatsapp_id}. Attempting to trigger a new flow.")
                 
                 # _trigger_new_flow now returns a boolean and handles state creation.
-                flow_was_triggered = _trigger_new_flow(contact, message_data, incoming_message_obj)
+                flow_was_triggered = _trigger_new_flow(contact, message_data, incoming_message_obj, request=request)
                 
                 if flow_was_triggered:
                     # A new flow was started, re-run the loop to process its first step.
@@ -1710,7 +1717,7 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                     break
             
             if next_step_to_transition_to:
-                actions, flow_context = _transition_to_step(contact_flow_state, next_step_to_transition_to, flow_context, contact, message_data)
+                actions, flow_context = _transition_to_step(contact_flow_state, next_step_to_transition_to, flow_context, contact, message_data, request=request)
                 
                 # Check for a switch_flow command specifically to handle it within the loop
                 switch_action = next((a for a in actions if a.get('type') == '_internal_command_switch_flow'), None)
@@ -1742,7 +1749,7 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                         # This ensures that 'action' steps at the start of a flow are run immediately
                         # after a switch, before the loop continues to evaluate transitions.
                         entry_actions, updated_context = _execute_step_actions(
-                            entry_point_step, contact, initial_context_for_new_flow.copy()
+                            entry_point_step, contact, initial_context_for_new_flow.copy(), request=request
                         )
                         actions_to_perform.extend(entry_actions)
                         

@@ -396,7 +396,7 @@ class MetaWebhookAPIView(View):
         try:
             # This service function contains its own robust error handling and will
             # return actions, including user-facing error messages if something goes wrong inside the flow.
-            flow_actions = process_message_for_flow(contact, msg_data, incoming_msg_obj)
+            flow_actions = process_message_for_flow(contact, msg_data, incoming_msg_obj, request=request)
             
             sent_message_count = 0
             # Introduce a small delay for subsequent messages in the same flow response
