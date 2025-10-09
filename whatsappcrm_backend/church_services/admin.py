@@ -7,18 +7,36 @@ from .models import Event, Ministry, Sermon, EventBooking
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
     """Admin configuration for the Event model."""
-    list_display = ('title', 'start_time', 'location', 'is_active', 'display_flyer_thumbnail', 'updated_at')
+    list_display = ('title', 'start_time', 'location', 'is_active', 'has_location_pin', 'display_flyer_thumbnail', 'updated_at')
     search_fields = ('title', 'description', 'location')
     list_filter = ('is_active', 'start_time')
     ordering = ('-start_time',)
     list_per_page = 25
-    readonly_fields = ('display_flyer',)
+    readonly_fields = ('display_flyer', 'location_map_link')
+    fieldsets = (
+        (None, {'fields': ('title', 'description', 'is_active')}),
+        ('Date & Time', {'fields': ('start_time', 'end_time')}),
+        ('Location', {'fields': ('location', ('latitude', 'longitude'), 'location_map_link')}),
+        ('Media', {'fields': ('flyer', 'display_flyer')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
+    )
 
     def display_flyer_thumbnail(self, obj):
         if obj.flyer:
             return format_html('<a href="{0}" target="_blank"><img src="{0}" style="max-width: 80px; max-height: 80px;" /></a>', obj.flyer.url)
         return "No Flyer"
     display_flyer_thumbnail.short_description = 'Flyer'
+
+    def has_location_pin(self, obj):
+        return bool(obj.latitude and obj.longitude)
+    has_location_pin.boolean = True
+    has_location_pin.short_description = 'Has Pin'
+
+    def location_map_link(self, obj):
+        if obj.latitude and obj.longitude:
+            return format_html('<a href="https://www.google.com/maps/search/?api=1&query={0},{1}" target="_blank">View on Google Maps</a>', obj.latitude, obj.longitude)
+        return "N/A"
+    location_map_link.short_description = 'Map Link'
 
 @admin.register(EventBooking)
 class EventBookingAdmin(admin.ModelAdmin):

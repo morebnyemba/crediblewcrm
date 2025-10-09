@@ -10,6 +10,8 @@ class Event(models.Model):
     end_time = models.DateTimeField(blank=True, null=True)
     location = models.CharField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True, help_text="Whether the event is publicly visible.")
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, help_text="Optional: Latitude for the event location.")
+    longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True, help_text="Optional: Longitude for the event location.")
     flyer = models.ImageField(upload_to='event_flyers/%Y/%m/', blank=True, null=True, help_text="Optional flyer or picture for the event.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

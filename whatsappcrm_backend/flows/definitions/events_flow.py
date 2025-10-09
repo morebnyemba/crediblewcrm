@@ -76,7 +76,7 @@ EVENTS_FLOW = {
                     )
                 }
             },
-            "transitions": [{"to_step": "ask_next_event_action", "condition_config": {"type": "always_true"}}]
+            "transitions": [{"to_step": "check_if_location_exists", "condition_config": {"type": "always_true"}}]
         },
         {
             "name": "ask_next_event_action",
@@ -111,6 +111,39 @@ EVENTS_FLOW = {
                 {"to_step": "switch_to_my_bookings", "priority": 10, "condition_config": {"type": "interactive_reply_id_equals", "value": "my_bookings"}},
                 {"to_step": "increment_event_index", "priority": 15, "condition_config": {"type": "interactive_reply_id_equals", "value": "next_event"}},
                 {"to_step": "switch_to_main_menu", "priority": 25, "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}}
+            ]
+        },
+        {
+            "name": "check_if_location_exists",
+            "type": "action",
+            "config": {"actions_to_run": []},
+            "transitions": [
+                {"to_step": "ask_get_directions", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "events_list[{{ event_index | int }}].latitude"}},
+                {"to_step": "ask_next_event_action", "priority": 20, "condition_config": {"type": "always_true"}}
+            ]
+        },
+        {
+            "name": "ask_get_directions",
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {"text": "We have a precise location for this event. Would you like to get directions?"},
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": "get_directions_yes", "title": "Get Directions"}},
+                                {"type": "reply", "reply": {"id": "get_directions_no", "title": "Not Now"}}
+                            ]
+                        }
+                    }
+                },
+                "reply_config": {"save_to_variable": "get_directions_choice", "expected_type": "interactive_id"}
+            },
+            "transitions": [
+                {"to_step": "send_location_pin", "condition_config": {"type": "interactive_reply_id_equals", "value": "get_directions_yes"}},
+                {"to_step": "ask_next_event_action", "condition_config": {"type": "interactive_reply_id_equals", "value": "get_directions_no"}}
             ]
         },
         {
@@ -163,6 +196,20 @@ EVENTS_FLOW = {
             "type": "switch_flow",
             "config": {"target_flow_name": "main_menu"},
             "transitions": []
+        },
+        {
+            "name": "send_location_pin",
+            "type": "send_message",
+            "config": {
+                "message_type": "location",
+                "location": {
+                    "latitude": "{{ events_list[event_index | int].latitude }}",
+                    "longitude": "{{ events_list[event_index | int].longitude }}",
+                    "name": "{{ events_list[event_index | int].title }}",
+                    "address": "{{ events_list[event_index | int].location }}"
+                }
+            },
+            "transitions": [{"to_step": "ask_next_event_action", "condition_config": {"type": "always_true"}}]
         },
         {
             "name": "switch_to_event_booking",
