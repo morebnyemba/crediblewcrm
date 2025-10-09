@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
+import uuid
 
 class Event(models.Model):
     title = models.CharField(max_length=200)
@@ -8,6 +10,7 @@ class Event(models.Model):
     end_time = models.DateTimeField(blank=True, null=True)
     location = models.CharField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True, help_text="Whether the event is publicly visible.")
+    flyer = models.ImageField(upload_to='event_flyers/%Y/%m/', blank=True, null=True, help_text="Optional flyer or picture for the event.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -21,15 +24,56 @@ class Event(models.Model):
 
 class EventBooking(models.Model):
     """Represents a booking made by a contact for a specific event."""
+    BOOKING_SOURCE_CHOICES = [
+        ('whatsapp_flow', _('WhatsApp Flow')),
+        ('admin_panel', _('Admin Panel')),
+        ('web_form', _('Web Form')),
+        ('other', _('Other')),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    booking_reference = models.CharField(max_length=20, unique=True, editable=False, blank=True, null=True, help_text="Unique, human-readable reference for the booking.")
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='bookings')
     contact = models.ForeignKey('conversations.Contact', on_delete=models.CASCADE, related_name='event_bookings')
     booking_date = models.DateTimeField(auto_now_add=True)
+    booking_source = models.CharField(
+        max_length=20,
+        choices=BOOKING_SOURCE_CHOICES,
+        default='whatsapp_flow',
+        help_text="How this booking was created."
+    )
     status = models.CharField(
         max_length=20,
         choices=[('confirmed', 'Confirmed'), ('cancelled', 'Cancelled'), ('attended', 'Attended')],
         default='confirmed'
     )
+    check_in_time = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Timestamp of when the contact was checked in at the event."
+    )
     notes = models.TextField(blank=True, null=True, help_text="Internal notes about the booking.")
+
+    def clean(self):
+        super().clean()
+        # Prevent booking for events that have already started, unless it's an admin override.
+        if self.event and self.event.start_time < timezone.now() and self.booking_source != 'admin_panel':
+            raise models.ValidationError(_("Bookings cannot be made for events that have already started."))
+
+    def save(self, *args, **kwargs):
+        if not self.booking_reference:
+            # Generate a unique reference, e.g., EVT-2024-0001
+            today = timezone.now().date()
+            year = today.year
+            last_booking = EventBooking.objects.filter(booking_reference__startswith=f'EVT-{year}-').order_by('booking_reference').last()
+            if last_booking and last_booking.booking_reference:
+                last_num = int(last_booking.booking_reference.split('-')[-1])
+                new_num = last_num + 1
+            else:
+                new_num = 1
+            self.booking_reference = f'EVT-{year}-{new_num:04d}'
+        
+        self.full_clean() # Run validation before saving
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['-booking_date']
@@ -38,7 +82,7 @@ class EventBooking(models.Model):
         verbose_name_plural = _("Event Bookings")
 
     def __str__(self):
-        return f"Booking for {self.contact} at {self.event.title}"
+        return f"Booking ({self.booking_reference or 'N/A'}) for {self.contact} at {self.event.title}"
 
 class Ministry(models.Model):
     name = models.CharField(max_length=150)

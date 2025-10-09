@@ -55,15 +55,24 @@ EVENTS_FLOW = {
             "name": "display_event",
             "type": "send_message",
             "config": {
-                "message_type": "text",
-                "text": {
-                    "body": (
+                # Use a Jinja 'if' to dynamically set the message type.
+                # If a flyer exists, send an 'image' message. Otherwise, send 'text'.
+                "message_type": "{% if events_list[event_index | int].flyer %}image{% else %}text{% endif %}",
+                "image": {
+                    "link": "{{ events_list[event_index | int].flyer }}",
+                    "caption": (
                         "Upcoming Event ({{ (event_index | int) + 1 }} of {{ events_list|length }}):\n\n"
                         "*{{ events_list[event_index | int].title }}*\n"
                         "🗓️ When: {{ events_list[event_index | int].start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n"
                         "📍 Where: {{ events_list[event_index | int].location }}\n\n"
                         "_{{ events_list[event_index | int].description|truncatewords(35) }}_\n\n"
                         "{% if events_list[event_index | int].registration_link %}Register here: {{ events_list[event_index | int].registration_link }}{% endif %}"
+                    )
+                },
+                "text": {
+                    # This 'body' is identical to the 'caption' above. It will only be used if the message_type resolves to 'text'.
+                    "body": (
+                        "Upcoming Event ({{ (event_index | int) + 1 }} of {{ events_list|length }}):\n\n*{{ events_list[event_index | int].title }}*\n🗓️ When: {{ events_list[event_index | int].start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n📍 Where: {{ events_list[event_index | int].location }}\n\n_{{ events_list[event_index | int].description|truncatewords(35) }}_\n\n{% if events_list[event_index | int].registration_link %}Register here: {{ events_list[event_index | int].registration_link }}{% endif %}"
                     )
                 }
             },

@@ -952,13 +952,18 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                                 if related_obj:
                                     dict_obj[related_field_name] = model_to_dict(related_obj)
 
-                            # Post-process to ensure all values are JSON serializable
-                            for key, value in dict_obj.items():
-                                if isinstance(value, (date, datetime)):
-                                    dict_obj[key] = value.isoformat()
-                                elif isinstance(value, Decimal):
-                                    dict_obj[key] = str(value)
-
+                            # --- FIX: Recursively make the dictionary JSON serializable ---
+                            def make_serializable(d):
+                                for k, v in d.items():
+                                    if isinstance(v, dict):
+                                        make_serializable(v)
+                                    elif isinstance(v, (datetime, date)):
+                                        d[k] = v.isoformat()
+                                    elif isinstance(v, Decimal):
+                                        d[k] = str(v)
+                            
+                            make_serializable(dict_obj)
+                            
                             results_list.append(dict_obj)
                             
                         current_step_context[variable_name] = results_list

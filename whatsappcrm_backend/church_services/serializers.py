@@ -35,6 +35,7 @@ class EventSerializer(serializers.ModelSerializer):
             'start_time',
             'end_time',
             'location',
+            'flyer',
             'is_active',
             'created_at',
             'updated_at',
