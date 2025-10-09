@@ -1405,6 +1405,24 @@ def _evaluate_transition_condition(transition: FlowTransition, contact: Contact,
         )
         return result
 
+    elif condition_type == 'variable_greater_than':
+        variable_name = config.get('variable_name')
+        if variable_name is None: return False
+        actual_value = _get_value_from_context_or_contact(variable_name, flow_context, contact)
+        try:
+            # Attempt to convert both to floats for a numeric comparison
+            result = float(actual_value) > float(value_for_condition)
+            logger.debug(
+                f"Contact {contact.id}, Flow {transition.current_step.flow.id}, Step {transition.current_step.id}: "
+                f"Condition 'variable_greater_than' check for '{variable_name}'. "
+                f"Actual: '{actual_value}', Expected >: '{value_for_condition}'. Result: {result}"
+            )
+            return result
+        except (ValueError, TypeError):
+            logger.warning(f"Could not perform 'variable_greater_than' comparison for contact {contact.id}. "
+                           f"Could not convert '{actual_value}' or '{value_for_condition}' to float.")
+            return False
+
     elif condition_type == 'nfm_response_field_equals' and nfm_response_data:
         field_path = config.get('field_path')
         if not field_path: return False

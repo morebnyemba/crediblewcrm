@@ -66,7 +66,7 @@ EVENTS_FLOW = {
                         "🗓️ When: {{ events_list[event_index | int].start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n"
                         "📍 Where: {{ events_list[event_index | int].location }}\n\n"
                         "_{{ events_list[event_index | int].description|truncatewords(35) }}_\n\n"
-                        "{% if events_list[event_index | int].registration_fee > 0 %}Fee: ${{ events_list[event_index | int].registration_fee }}{% else %}Fee: Free{% endif %}\n"
+                        "{% if (events_list[event_index | int].registration_fee | float) > 0 %}Fee: ${{ events_list[event_index | int].registration_fee }}{% else %}Fee: Free{% endif %}\n"
                         "{% if events_list[event_index | int].registration_link %}More Info: {{ events_list[event_index | int].registration_link }}{% endif %}"
                     )
                 },

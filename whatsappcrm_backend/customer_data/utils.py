@@ -147,7 +147,7 @@ def record_event_booking(contact: Contact, event_id: int, status: str = 'confirm
 
         if created:
             logger.info(f"Successfully created EventBooking {booking.id} for contact {contact.id} and event {event.id}.")
-            context_updates = {'event_booking_success': True, 'last_booking_id': booking.id}
+            context_updates = {'event_booking_success': True, 'last_booking_id': str(booking.id)}
         else:
             logger.warning(f"Contact {contact.id} is already booked for event {event.id}. Booking ID: {booking.id}.")
             context_updates = {'event_booking_success': False, 'event_booking_error': 'You are already registered for this event.'}
