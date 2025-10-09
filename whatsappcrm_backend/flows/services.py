@@ -959,6 +959,8 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                                         make_serializable(v)
                                     elif isinstance(v, (datetime, date)):
                                         d[k] = v.isoformat()
+                                    elif isinstance(v, models.fields.files.FieldFile):
+                                        d[k] = v.url if v else None
                                     elif isinstance(v, Decimal):
                                         d[k] = str(v)
                             
