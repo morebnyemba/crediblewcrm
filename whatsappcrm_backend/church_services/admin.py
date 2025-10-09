@@ -21,6 +21,13 @@ class EventBookingAdmin(admin.ModelAdmin):
     list_select_related = ('event', 'contact')
     readonly_fields = ('booking_date',)
 
+    def contact_name(self, obj):
+        """Returns the contact's name or WhatsApp ID for display."""
+        if obj.contact:
+            return obj.contact.name or obj.contact.whatsapp_id
+        return "N/A"
+    contact_name.short_description = 'Contact Name'
+
 @admin.register(Ministry)
 class MinistryAdmin(admin.ModelAdmin):
     """Admin configuration for the Ministry model."""
