@@ -252,7 +252,7 @@ class MetaWebhookAPIView(View):
                                             name=profile_name,
                                             meta_app_config=active_config
                                         )
-                                        self._handle_message(msg_data, metadata, value, active_config, log_entry, contact)
+                                        self._handle_message(msg_data, metadata, value, active_config, log_entry, contact, request)
                                     else:
                                         logger.info(f"Skipping already processed/ignored WebhookEventLog for WAMID: {wamid} (DB ID: {log_entry.id})")
                             
@@ -345,7 +345,7 @@ class MetaWebhookAPIView(View):
 
 
     @transaction.atomic
-    def _handle_message(self, msg_data: dict, metadata: dict, value_entry: dict, active_config: MetaAppConfig, log_entry: WebhookEventLog, contact):
+    def _handle_message(self, msg_data: dict, metadata: dict, value_entry: dict, active_config: MetaAppConfig, log_entry: WebhookEventLog, contact, request: HttpRequest):
         # Local imports
         from conversations.models import Message
         from flows.services import process_message_for_flow
