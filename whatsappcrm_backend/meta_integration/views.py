@@ -34,7 +34,7 @@ from .serializers import (
 # from flows.services import process_message_for_flow # Imported locally in _handle_message
 # from conversations.services import get_or_create_contact_by_wa_id # Imported locally in post
 from conversations.models import Message # Imported locally in _handle_message
-from .tasks import send_whatsapp_message_task, send_read_receipt_task
+from .tasks import send_whatsapp_message_task, send_read_receipt_task, notify_admin_of_send_failure
 
 logger = logging.getLogger('meta_integration') # Using the app-specific logger from your original file
 
@@ -493,6 +493,12 @@ class MetaWebhookAPIView(View):
                 if 'pricing' in status_data and isinstance(status_data['pricing'], dict):
                     msg_to_update.pricing_model_from_meta = status_data['pricing'].get('pricing_model')
                     update_fields_list.append('pricing_model_from_meta')
+                
+                if status_value == 'failed' and 'errors' in status_data:
+                    error_payload = status_data['errors'][0] # Get the first error
+                    msg_to_update.error_details = error_payload
+                    update_fields_list.append('error_details')
+                    notify_admin_of_send_failure.delay(message_id=msg_to_update.id, error_payload=error_payload)
                 msg_to_update.save(update_fields=update_fields_list)
                 notes.append("DB record updated.")
                 self._save_log(log_entry, 'processed', " ".join(notes))
