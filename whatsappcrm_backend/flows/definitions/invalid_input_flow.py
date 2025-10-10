@@ -62,13 +62,12 @@ INVALID_INPUT_FLOW = {
             "config": {
                 # The original_flow_name and original_step_name are passed in the context
                 # when this fallback flow is triggered.
-                "target_flow_name": "{{ original_flow_name }}",
-                "initial_context_template": {
-                    # Pass back the original context, but also set a special keyword
-                    # to tell the target flow to re-prompt the original question.
-                    **"{{ original_context }}",
-                    "simulated_trigger_keyword": "reprompt_step_{{ original_step_name }}"
-                }
+                "target_flow_name": "{{ original_flow_name }}", # Dynamically switch back to the original flow
+                "initial_context_template": """
+                    {% set new_context = original_context.copy() %}
+                    {% do new_context.update({'simulated_trigger_keyword': 'reprompt_step_' ~ original_step_name}) %}
+                    {{ new_context | tojson }}
+                """
             },
             "transitions": []
         },
@@ -96,4 +95,3 @@ INVALID_INPUT_FLOW = {
         }
     ]
 }
-
