@@ -13,6 +13,7 @@ import logging
 from conversations.models import Message
 from meta_integration.models import MetaAppConfig
 from meta_integration.tasks import send_whatsapp_message_task
+from church_services.models import EventBooking
 from .exports import (
     export_members_to_excel, export_members_to_pdf,
     export_payment_summary_to_excel, export_payment_summary_to_pdf,
@@ -298,6 +299,42 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
                 if self._send_status_notification(payment, active_config, message_text):
                     notified_count += 1
         
+            # --- New Logic: Check for and update related EventBooking ---
+            try:
+                # The related_name from EventBooking's OneToOneField to Payment is 'event_booking'
+                booking = payment.event_booking
+                if booking and booking.status == 'pending_payment_verification':
+                    booking.status = 'confirmed'
+                    booking.save(update_fields=['status'])
+                    logger.info(f"Updated EventBooking {booking.id} to 'confirmed' for approved payment {payment.id}.")
+
+                    # Send a specific notification for the event booking confirmation
+                    if active_config and booking.contact:
+                        recipient_name = booking.contact.name or 'church member'
+                        event_title = booking.event.title if booking.event else "the event"
+                        booking_confirmation_message = (
+                            f"🎉 Great news, {recipient_name}!\n\n"
+                            f"Your payment has been confirmed, and you are now officially registered for *{event_title}*.\n\n"
+                            "We can't wait to see you there! Get ready for a blessed time.\n\n"
+                            "In His Grace,\n"
+                            "The Events Team"
+                        )
+                        # We can reuse the _send_status_notification helper, but we need to adapt it
+                        # to take a contact and message directly, or create a new one.
+                        # For now, let's create a new message and task.
+                        booking_message = Message.objects.create(
+                            contact=booking.contact, app_config=active_config, direction='out',
+                            message_type='text', content_payload={'body': booking_confirmation_message},
+                            status='pending_dispatch', timestamp=timezone.now()
+                        )
+                        transaction.on_commit(lambda: send_whatsapp_message_task.delay(booking_message.id, active_config.id))
+            except EventBooking.DoesNotExist:
+                # This is expected for payments not related to an event booking.
+                pass
+            except Exception as e:
+                logger.error(f"Error updating related event booking for payment {payment.id}: {e}", exc_info=True)
+                self.message_user(request, f"Payment {payment.id} approved, but failed to update linked event booking: {e}", level='error')
+
         message = f'{approved_count} payments were successfully marked as completed.'
         if active_config:
             message += f' {notified_count} notifications were queued for sending.'
