@@ -1406,10 +1406,14 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                 if reply_is_valid and variable_to_save_name:
                     flow_context[variable_to_save_name] = value_to_save
                     logger.info(f"Saved valid reply for '{variable_to_save_name}' in question step '{current_step.name}': {value_to_save}")
+                    # Clear any previous fallback state since the reply is now valid
                     flow_context.pop('_question_awaiting_reply_for', None)
                     flow_context.pop('_fallback_count', None)
                 else:
                     logger.info(f"Reply for question step '{current_step.name}' was not valid. Expected: {expected_reply_type}")
+                    # --- FIX: Engage fallback immediately for invalid reply ---
+                    actions_to_perform.extend(_handle_fallback(current_step, contact, flow_context, contact_flow_state, message_data))
+                    break # Stop processing this message further; wait for new input.
 
             # --- Step 2: Evaluate transitions from the current step ---
             transitions = FlowTransition.objects.filter(current_step=current_step).select_related('next_step').order_by('priority')
