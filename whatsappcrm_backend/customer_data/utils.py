@@ -67,11 +67,14 @@ def record_payment(
             payment_status = status
             is_manual_payment = payment_method == 'manual_payment'
             if not payment_status:
-                if proof_of_payment_wamid:
-                    payment_status = 'pending_verification'
-                else:
-                    payment_status = 'pending' if is_manual_payment else 'completed'
+                payment_status = 'pending' if is_manual_payment else 'completed'
 
+            # --- FIX: Always prioritize 'pending_verification' if proof is provided ---
+            # This ensures that even if a default status like 'pending' is passed,
+            # it gets correctly upgraded if there's a proof of payment to verify.
+            if proof_of_payment_wamid:
+                payment_status = 'pending_verification'
+                
             logger.debug(
                 f"Creating Payment object for contact {contact.id} with: "
                 f"Amount={amount}, Currency={currency}, Type={payment_type}, "

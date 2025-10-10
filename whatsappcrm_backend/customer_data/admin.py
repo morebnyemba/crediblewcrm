@@ -202,7 +202,7 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
     """
     Admin view specifically for verifying manual payments that are in 'pending_verification' status.
     """
-    list_display = ('id', 'member', 'contact', 'amount', 'currency', 'payment_type', 'created_at', 'display_proof_of_payment_thumbnail')
+    list_display = ('id', 'member', 'contact', 'amount', 'currency', 'payment_type', 'created_at', 'updated_at', 'display_proof_of_payment_thumbnail')
     list_filter = ('payment_type', 'currency')
     search_fields = ('id', 'member__first_name', 'member__last_name', 'contact__whatsapp_id')
     readonly_fields = (
@@ -211,6 +211,7 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
     )
     actions = ['approve_selected_payments', 'deny_selected_payments']
     list_per_page = 25
+    ordering = ('-updated_at',) # Order by most recently updated, so oldest pending are first
 
     def get_queryset(self, request):
         # Filter to only show payments pending verification
