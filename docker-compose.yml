@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
 
   pgbouncer:
-    image: pgbouncer/pgbouncer:1.22.1
+    image: pgbouncer/pgbouncer:latest
     container_name: whatsappcrm_pgbouncer
     volumes:
       - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
