@@ -38,6 +38,11 @@ class EventBooking(models.Model):
     booking_reference = models.CharField(max_length=20, unique=True, editable=False, blank=True, null=True, help_text="Unique, human-readable reference for the booking.")
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='bookings')
     contact = models.ForeignKey('conversations.Contact', on_delete=models.CASCADE, related_name='event_bookings')
+    payment = models.OneToOneField(
+        'customer_data.Payment',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='event_booking', help_text="Link to the payment record for this booking, if applicable.")
     booking_date = models.DateTimeField(auto_now_add=True)
     booking_source = models.CharField(
         max_length=20,
