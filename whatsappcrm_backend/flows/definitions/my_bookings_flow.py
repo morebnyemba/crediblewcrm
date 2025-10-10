@@ -101,7 +101,7 @@ MY_BOOKINGS_FLOW = {
             "transitions": [
                 {"to_step": "confirm_cancellation", "priority": 5, "condition_config": {"type": "interactive_reply_id_equals", "value": "cancel_booking"}},
                 {"to_step": "increment_booking_index", "priority": 10, "condition_config": {"type": "interactive_reply_id_equals", "value": "next_booking"}},
-                {"to_step": "switch_to_main_menu", "priority": 20, "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}}
+                {"to_step": "end_flow_and_prompt_menu", "priority": 20, "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}}
             ]
         },
         {
@@ -146,14 +146,8 @@ MY_BOOKINGS_FLOW = {
             },
             "transitions": [
                 {"to_step": "switch_to_main_menu", "condition_config": {"type": "interactive_reply_id_equals", "value": "return_to_menu"}},
-                {"to_step": "end_flow_goodbye", "condition_config": {"type": "interactive_reply_id_equals", "value": "end_conversation"}}
+                {"to_step": "end_flow_goodbye", "condition_config": {"type": "interactive_reply_id_equals", "value": "end_conversation"}},
             ]
-        },
-        {
-            "name": "switch_to_main_menu",
-            "type": "switch_flow",
-            "config": {"target_flow_name": "main_menu"},
-            "transitions": []
         },
         # --- New Steps for Cancellation ---
         {
@@ -199,17 +193,26 @@ MY_BOOKINGS_FLOW = {
                     }
                 ]
             },
-            "transitions": [{"to_step": "cancellation_confirmed_message", "condition_config": {"type": "always_true"}}]
+            "transitions": [{"to_step": "cancellation_confirmed_and_requery", "condition_config": {"type": "always_true"}}]
         },
         {
-            "name": "cancellation_confirmed_message",
+            "name": "cancellation_confirmed_and_requery",
             "type": "send_message",
             "config": {
                 "message_type": "text",
-                "text": {"body": "Your booking has been successfully cancelled. We hope to see you at another event soon."}
+                "text": {"body": "Your booking has been successfully cancelled."}
             },
-            "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
+            "transitions": [{"to_step": "query_my_bookings", "condition_config": {"type": "always_true"}}]
         },
+        {
+            "name": "switch_to_main_menu",
+            "type": "switch_flow",
+            "config": {"target_flow_name": "main_menu"},
+            "transitions": []
+        },
+        # New step to end the flow and prompt user to type 'menu'
+        {"name": "end_flow_and_prompt_menu", "type": "end_flow", "config": {"message_config": {"message_type": "text", "text": {"body": "Okay, you can type 'menu' at any time to return to the main menu."}}}, "transitions": []},
+
         {
             "name": "end_flow_goodbye",
             "type": "end_flow",

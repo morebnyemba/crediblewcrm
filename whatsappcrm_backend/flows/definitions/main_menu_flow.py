@@ -38,6 +38,12 @@ MAIN_MENU_FLOW = {
                             "button": "Show Menu",
                             "sections": [
                                 {
+                                    "title": "Pastoral Support",
+                                    "rows": [
+                                        {"id": "talk_to_pastor", "title": "Talk to a Pastor", "description": "Request a conversation with our leadership."}
+                                    ]
+                                },
+                                {
                                     "title": "My Profile & Giving",
                                     "rows": [
                                         {"id": "go_to_profile_summary", "title": "Check My Profile", "description": "View your current information."},
@@ -57,12 +63,6 @@ MAIN_MENU_FLOW = {
                                     "rows": [
                                         {"id": "view_upcoming_events", "title": "Upcoming Events", "description": "See what's happening at our church."},
                                         {"id": "explore_ministries", "title": "Ministries & Groups", "description": "Find a group to connect with."}
-                                    ]
-                                },
-                                {
-                                    "title": "Support",
-                                    "rows": [
-                                        {"id": "talk_to_pastor", "title": "Talk to a Pastor", "description": "Request a conversation with our leadership."}
                                     ]
                                 },
                                 {
@@ -112,6 +112,12 @@ MAIN_MENU_FLOW = {
                             "button": "Show Menu",
                             "sections": [
                                 {
+                                    "title": "Pastoral Support",
+                                    "rows": [
+                                        {"id": "talk_to_pastor", "title": "Talk to a Pastor", "description": "Request a conversation with our leadership."}
+                                    ]
+                                },
+                                {
                                     "title": "Get Involved",
                                     "rows": [
                                         {"id": "trigger_registration_flow", "title": "New Member Registration", "description": "Join our church family officially."},
@@ -129,8 +135,7 @@ MAIN_MENU_FLOW = {
                                 {
                                     "title": "Giving & Support",
                                     "rows": [
-                                        {"id": "give_online", "title": "Give Online", "description": "Support our ministry through tithes & offerings."},
-                                        {"id": "talk_to_pastor", "title": "Talk to a Pastor", "description": "Request a conversation with our leadership."}
+                                        {"id": "give_online", "title": "Give Online", "description": "Support our ministry through tithes & offerings."}
                                     ]
                                 },
                                 {
