@@ -761,7 +761,7 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
     elif step.step_type == 'human_handover':
         try:
             handover_config = StepConfigHumanHandover.model_validate(raw_step_config)
-            logger.info(f"Executing 'human_handover' step '{step.name}'.")
+            logger.info(f"Contact {contact.id}: Executing 'human_handover' step '{step.name}'.")
             if handover_config.pre_handover_message_text and not is_re_execution: # Avoid sending pre-handover message on re-execution/fallback
                 resolved_msg = _resolve_value(handover_config.pre_handover_message_text, current_step_context, contact)
                 actions_to_perform.append({'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text', 'data': {'body': resolved_msg}})
@@ -769,9 +769,10 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
             # Flag for human intervention and record the exact time
             contact.needs_human_intervention = True
             intervention_time = timezone.now()
-            contact.intervention_requested_at = intervention_time
-            contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at'])
-            logger.info(f"Contact {contact.id} ({contact.whatsapp_id}) flagged for human intervention at {intervention_time.isoformat()}.")
+            contact.intervention_requested_at = intervention_time # Set timestamp
+            # Save last_seen as well, since this is an interaction
+            contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at', 'last_seen'])
+            logger.info(f"Contact {contact.id} ({contact.whatsapp_id}) flagged for human intervention via step '{step.name}' at {intervention_time.isoformat()}.")
 
             # Schedule the timeout task to run in 5 minutes
             timeout_seconds = 5 * 60
@@ -779,24 +780,54 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                 args=[contact.id, intervention_time.isoformat()],
                 countdown=timeout_seconds
             )
-            logger.info(f"Scheduled human intervention timeout task for contact {contact.id} in {timeout_seconds} seconds.")
+            logger.info(f"Scheduled human intervention timeout task for contact {contact.id} in {timeout_seconds} seconds (triggered by step '{step.name}').")
 
             # Send notification to admin/pastoral groups
-            notification_info = _resolve_value(handover_config.notification_details or f"Contact {contact.name or contact.whatsapp_id} requires help.", current_step_context, contact)
+            # --- Enhanced Notification Details ---
+            # If a detailed template is provided, use it. Otherwise, create a default one.
+            if handover_config.notification_details:
+                notification_info = _resolve_value(handover_config.notification_details, current_step_context, contact)
+            else:
+                # Build a default, informative notification if one isn't specified in the flow
+                user_reply = current_step_context.get('last_user_message', 'N/A')
+                
+                # Sanitize context for display, removing internal keys
+                context_to_display = {k: v for k, v in current_step_context.items() if not k.startswith('_')}
+                context_str = json.dumps(context_to_display, indent=2, default=str) if context_to_display else "Empty"
+                if len(context_str) > 1000: # Truncate for readability
+                    context_str = context_str[:1000] + "\n... (truncated)"
+
+                notification_info = (
+                    f"⚠️ *Human Handover Required* ⚠️\n\n"
+                    f"*Contact:* {contact.name or contact.whatsapp_id}\n"
+                    f"*Flow:* {current_step_context.get('original_flow_name', step.flow.name)}\n"
+                    f"*Step:* {current_step_context.get('original_step_name', step.name)}\n\n"
+                    f"*Last User Input:*\n`{user_reply}`\n\n"
+                    f"*Current Flow Context:*\n```\n{context_str}\n```"
+                )
+
             if handover_config.notify_groups:
                 queue_notifications_to_users(
                     group_names=handover_config.notify_groups,
                     message_body=notification_info,
                     related_contact=contact,
-                    related_flow=step.flow
+                    related_flow=step.flow # Use the flow from the current step
                 )
                 logger.info(f"Queued human intervention notification for groups {handover_config.notify_groups}.")
             else:
                 logger.warning(f"Human handover for contact {contact.id} triggered, but no 'notify_groups' configured in step '{step.name}'.")
 
             actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
+
         except ValidationError as e:
             logger.error(f"Contact {contact.id}: Pydantic validation for 'human_handover' step '{step.name}' (ID: {step.id}) failed: {e.errors()}", exc_info=False)
+            # Send an error to the user and clear state to prevent getting stuck
+            actions_to_perform.append({'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text', 'data': {'body': "I'm sorry, I've encountered a system error while trying to connect you. Please type 'menu' to start again."}})
+            actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
+        except Exception as e:
+            logger.error(f"Contact {contact.id}: Unexpected error in 'human_handover' step '{step.name}': {e}", exc_info=True)
+            actions_to_perform.append({'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id, 'message_type': 'text', 'data': {'body': "I'm sorry, I've encountered a system error while trying to connect you. Please type 'menu' to start again."}})
+            actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
 
     elif step.step_type in ['condition', 'wait_for_reply', 'start_flow_node']: # 'wait_for_reply' is more a state than an executable step here
         logger.debug(f"'{step.step_type}' step '{step.name}' processed. No direct actions from this function, logic handled by transitions or flow control.")
@@ -814,129 +845,44 @@ def _handle_fallback(current_step: FlowStep, contact: Contact, flow_context: dic
     actions_to_perform = []
     updated_context = flow_context.copy()
     try:
-        fallback_config = FallbackConfig.model_validate(current_step.config.get('fallback_config', {}) if isinstance(current_step.config, dict) else {})
+        # --- New Fallback Logic ---
+        # Instead of complex logic here, we switch to a dedicated fallback flow.
+        # This makes the system more modular and user-friendly.
+        
+        logger.info(f"Contact {contact.id}: Invalid input for step '{current_step.name}'. Switching to invalid_input_flow.")
+
+        # We need to preserve the original context and details to potentially return to this step.
+        # We remove internal keys that shouldn't be passed between flows.
+        original_context_for_switch = {k: v for k, v in updated_context.items() if not k.startswith('_')}
+
+        # Prepare the context for the invalid_input_flow
+        initial_context_for_fallback_flow = {
+            "original_flow_name": current_step.flow.name,
+            "original_step_name": current_step.name,
+            "original_context": original_context_for_switch,
+            "last_user_message": message_data.get('text', {}).get('body', '[non-text message]')
+        }
+
+        # Create the internal command to switch to the fallback flow
+        actions_to_perform.append({
+            'type': '_internal_command_switch_flow',
+            'target_flow_name': 'invalid_input_flow',
+            'initial_context': initial_context_for_fallback_flow
+        })
+
+        return actions_to_perform
+
     except ValidationError as e:
         logger.warning(f"Invalid fallback_config for step {current_step.id}. Using defaults. Errors: {e.errors()}")
-        fallback_config = FallbackConfig()
-
-    # Check if we can re-prompt for a question step
-    if current_step.step_type == 'question':
-        max_retries = fallback_config.max_retries
-        current_fallback_count = updated_context.get('_fallback_count', 0)
-
-        if fallback_config.action == 're_prompt' and current_fallback_count < max_retries:
-            logger.info(f"Fallback: Re-prompting question step '{current_step.name}' for contact {contact.id} (Attempt {current_fallback_count + 1}/{max_retries}).")
-            updated_context['_fallback_count'] = current_fallback_count + 1
-            
-            re_prompt_message_text = fallback_config.re_prompt_message_text
-            if re_prompt_message_text:
-                resolved_re_prompt_text = _resolve_value(re_prompt_message_text, updated_context, contact)
-                actions_to_perform.append({
-                    'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id,
-                    'message_type': 'text', 'data': {'body': resolved_re_prompt_text}
-                })
-            else:  # Re-execute the original question's message_config if no specific re-prompt text
-                step_actions, re_executed_context = _execute_step_actions(current_step, contact, updated_context, is_re_execution=True)
-                actions_to_perform.extend(step_actions)
-                updated_context = re_executed_context
-            
-            # Save the updated context (with incremented fallback_count) and keep the user in the step
-            contact_flow_state.flow_context_data = updated_context
-            contact_flow_state.save(update_fields=['flow_context_data', 'last_updated_at'])
-            return actions_to_perform
-
-    # If we reach here, it means either:
-    # 1. It was a question, but retries are exhausted.
-    # 2. It was not a question step (a logical dead end).
-    # In both cases, we should initiate human handover.
-
-    if current_step.step_type == 'question':
-        log_message = (
-            f"Contact {contact.id} has exhausted all retries for question step '{current_step.name}'. "
-            "Initiating human handover."
-        )
-    else:
-        log_message = (
-            f"CRITICAL: Flow for contact {contact.id} reached a dead end at step '{current_step.name}' (type: {current_step.step_type}). "
-            "No valid transition was found. This indicates a flow design issue. Initiating human handover."
-        )
-    
-    logger.error(log_message)
-
-    # Use the fallback_message_text if available, otherwise a generic one.
-    fallback_message = fallback_config.fallback_message_text or "Apologies, I'm having trouble understanding. I'm alerting a team member to assist you shortly."
-    resolved_fallback_message = _resolve_value(fallback_message, updated_context, contact)
-    actions_to_perform.append({
-        'type': 'send_whatsapp_message', 
-        'recipient_wa_id': contact.whatsapp_id, 
-        'message_type': 'text', 
-        'data': {'body': resolved_fallback_message}
-    })
-
-    # --- Robust Handover Logic ---
-    # Extract details from the user's last message for the notification
-    user_reply = ""
-    msg_type = message_data.get('type')
-    if msg_type == 'text':
-        user_reply = message_data.get('text', {}).get('body', '')
-    elif msg_type == 'interactive':
-        interactive_payload = message_data.get('interactive', {})
-        interactive_type = interactive_payload.get('type')
-        if interactive_type == 'button_reply':
-            reply_data = interactive_payload.get('button_reply', {})
-            user_reply = f"Button Click: '{reply_data.get('title', 'N/A')}' (ID: {reply_data.get('id')})"
-        elif interactive_type == 'list_reply':
-            reply_data = interactive_payload.get('list_reply', {})
-            user_reply = f"List Selection: '{reply_data.get('title', 'N/A')}' (ID: {reply_data.get('id')})"
-    elif msg_type and msg_type not in ['internal_fallthrough', 'internal_switch_flow']:
-        user_reply = f"Message Type: {msg_type}"
-
-    # Sanitize context for display, removing internal keys
-    context_to_display = {k: v for k, v in updated_context.items() if not k.startswith('_')}
-    context_str = json.dumps(context_to_display, indent=2, default=str) if context_to_display else "Empty"
-    if len(context_str) > 1000: # Truncate for readability in notifications
-        context_str = context_str[:1000] + "\n... (truncated)"
-
-    # Flag for human intervention and record the exact time
-    intervention_time = timezone.now()
-    contact.needs_human_intervention = True
-    contact.intervention_requested_at = intervention_time
-    contact.save(update_fields=['needs_human_intervention', 'intervention_requested_at'])
-    logger.info(f"Contact {contact.id} ({contact.whatsapp_id}) flagged for human intervention via fallback at {intervention_time.isoformat()}.")
-
-    # Schedule the timeout task to run in 5 minutes
-    timeout_seconds = 5 * 60
-    resolve_human_intervention_after_timeout.apply_async(
-        args=[contact.id, intervention_time.isoformat()],
-        countdown=timeout_seconds
-    )
-    logger.info(f"Scheduled human intervention timeout task for contact {contact.id} in {timeout_seconds} seconds (triggered by fallback).")
-
-    # Send notification to admin/pastoral groups
-    notification_info = (
-        f"⚠️ *Fallback Handover Required* ⚠️\n\n"
-        f"*Contact:* {contact.name or contact.whatsapp_id}\n"
-        f"*Flow:* {current_step.flow.name}\n"
-        f"*Stuck at Step:* {current_step.name}\n\n"
-        f"*Last User Input:*\n`{user_reply or 'N/A (likely a fall-through error)'}`\n\n"
-        f"*Current Flow Context:*\n```\n{context_str}\n```"
-    )
-    
-    if fallback_config.notify_groups:
-        queue_notifications_to_users(
-            group_names=fallback_config.notify_groups,
-            message_body=notification_info,
-            related_contact=contact,
-            related_flow=current_step.flow
-        )
-        logger.info(f"Queued fallback handover notification for groups {fallback_config.notify_groups}.")
-    else:
-        logger.warning(f"Fallback handover for contact {contact.id} triggered, but no 'notify_groups' configured in fallback_config for step '{current_step.name}'.")
-    
-    # Also clear the flow state so the user isn't stuck
-    actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
-
-    return actions_to_perform
+    except Exception as e:
+        logger.error(f"CRITICAL: Error during fallback handling for contact {contact.id} at step {current_step.id}. Error: {e}", exc_info=True)
+        # As a last resort, clear state and notify user of a system error.
+        actions_to_perform.append({'type': '_internal_command_clear_flow_state'})
+        actions_to_perform.append({
+            'type': 'send_whatsapp_message', 'recipient_wa_id': contact.whatsapp_id,
+            'message_type': 'text', 'data': {'body': "I'm sorry, I've encountered a system error. Please type 'menu' to start again."}
+        })
+        return actions_to_perform
 
 def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj: Message, request: Optional[HttpRequest] = None) -> bool:
     """
@@ -958,6 +904,16 @@ def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj
     if message_text_body:  # Only attempt keyword trigger if there's text
         for flow_candidate in active_flows:
             if isinstance(flow_candidate.trigger_keywords, list):
+                # --- New Reprompt Logic ---
+                # Check for a special "reprompt" keyword from the invalid_input_flow
+                # e.g., "reprompt_step_ask_for_amount"
+                reprompt_prefix = "reprompt_step_"
+                if message_text_body.startswith(reprompt_prefix):
+                    step_name_to_reprompt = message_text_body[len(reprompt_prefix):]
+                    # Find the step in the current candidate flow
+                    reprompt_step = flow_candidate.steps.filter(name=step_name_to_reprompt).first()
+                    if reprompt_step:
+                        return _setup_flow_at_specific_step(contact, flow_candidate, reprompt_step, incoming_message_obj.flow_context_data)
                 for keyword in flow_candidate.trigger_keywords:
                     # Ensure keyword is a non-empty string before lowercasing
                     if isinstance(keyword, str) and keyword.strip() and keyword.strip().lower() in message_text_body:
@@ -970,25 +926,32 @@ def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj
     if triggered_flow:
         entry_point_step = FlowStep.objects.filter(flow=triggered_flow, is_entry_point=True).first()
         if entry_point_step:
-            logger.info(f"Setting up new flow '{triggered_flow.name}' for contact {contact.whatsapp_id} at entry step '{entry_point_step.name}'.")
-
-            # Clear any existing flow state before starting a new one by keyword
-            _clear_contact_flow_state(contact)
-
-            ContactFlowState.objects.create(
-                contact=contact,
-                current_flow=triggered_flow,
-                current_step=entry_point_step,
-                flow_context_data={},  # Always start with an empty context
-                started_at=timezone.now()
-            )
-            return True  # Successfully triggered
+            return _setup_flow_at_specific_step(contact, triggered_flow, entry_point_step)
         else:
             logger.error(f"Flow '{triggered_flow.name}' is active but has no entry point step defined.")
             return False  # Failed to trigger
     else:
         logger.info(f"No active flow triggered for contact {contact.whatsapp_id} with message: {message_text_body[:100] if message_text_body else message_data.get('type')}")
         return False # No flow triggered
+
+def _setup_flow_at_specific_step(contact: Contact, flow: Flow, step: FlowStep, initial_context: dict = None) -> bool:
+    """Helper to set up a contact's flow state at a specific step."""
+    logger.info(
+        f"Setting up flow '{flow.name}' for contact {contact.whatsapp_id} at step '{step.name}'. "
+        f"Initial context: {'Exists' if initial_context else 'Empty'}"
+    )
+
+    # Clear any existing flow state before starting a new one.
+    _clear_contact_flow_state(contact)
+
+    ContactFlowState.objects.create(
+        contact=contact,
+        current_flow=flow,
+        current_step=step,
+        flow_context_data=initial_context or {},
+        started_at=timezone.now()
+    )
+    return True  # Successfully triggered
 
 
 def _evaluate_transition_condition(transition: FlowTransition, contact: Contact, message_data: dict, flow_context: dict, incoming_message_obj: Message) -> bool:

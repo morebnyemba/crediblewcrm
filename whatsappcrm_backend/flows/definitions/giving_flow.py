@@ -68,12 +68,7 @@ GIVING_FLOW = {
                 "validation_regex": "^(0(\\.\\d{1,2})?|[1-9]\\d*(\\.\\d{1,2})?)$",
                 "save_to_variable": "giving_amount"
             },
-            "fallback_config": {
-                "action": "re_prompt",
-                "max_retries": 2,
-                "re_prompt_message_text": "Sorry, that doesn't look like a valid amount. Please enter a number (e.g., 10 or 25.50).",
-                "fallback_message_text": "Sorry, we couldn't process that. Please type 'give' to try again."
-            }
+            "fallback_config": {}
         },
         "transitions": [
             {
