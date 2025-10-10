@@ -867,12 +867,19 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     event_id = _resolve_value(action_item_conf.event_id_template, current_step_context, contact)
                     status = _resolve_value(action_item_conf.status_template, current_step_context, contact)
                     notes = _resolve_value(action_item_conf.notes_template, current_step_context, contact)
+                    proof_of_payment_wamid = _resolve_value(action_item_conf.proof_of_payment_wamid_template, current_step_context, contact)
+                    event_fee_str = _resolve_value(current_step_context.get('event_fee'), current_step_context, contact)
+                    event_fee = Decimal(event_fee_str) if event_fee_str else None
+                    event_title = _resolve_value(current_step_context.get('event_title'), current_step_context, contact)
 
                     booking_obj, context_updates = record_event_booking(
                         contact=contact,
                         event_id=event_id,
                         status=str(status) if status else 'confirmed',
-                        notes=str(notes) if notes else None
+                        notes=str(notes) if notes else None,
+                        proof_of_payment_wamid=str(proof_of_payment_wamid) if proof_of_payment_wamid else None,
+                        event_fee=event_fee,
+                        event_title=str(event_title) if event_title else None
                     )
                     if booking_obj:
                         current_step_context.update(context_updates)

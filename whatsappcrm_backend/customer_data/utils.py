@@ -135,17 +135,42 @@ def record_payment(
         logger.error(f"Failed to record payment for contact {contact.id} ({contact.whatsapp_id}). Error: {e}", exc_info=True)
         return None, None
 
-def record_event_booking(contact: Contact, event_id: int, status: str = 'confirmed', notes: str = None) -> tuple:
+def record_event_booking(
+    contact: Contact,
+    event_id: int,
+    status: str = 'confirmed',
+    notes: str = None,
+    proof_of_payment_wamid: str = None,
+    event_fee: Decimal = None,
+    event_title: str = None
+) -> tuple:
     """
     Creates an EventBooking record for a contact.
+    If the booking requires payment verification, it also creates a corresponding Payment record.
     Returns a tuple (EventBooking instance, context_updates dict).
     """
     try:
         event = Event.objects.get(pk=event_id)
+
+        # If the booking is for a paid event and requires verification, create a payment record first.
+        if status == 'pending_payment_verification' and event_fee and event_fee > 0:
+            payment_obj, _ = record_payment(
+                contact=contact,
+                amount_str=str(event_fee),
+                payment_type='event_registration',
+                payment_method='manual_payment',
+                status='pending_verification',
+                notes=f"Payment for event: {event_title or event.title}",
+                proof_of_payment_wamid=proof_of_payment_wamid
+            )
+            if not payment_obj:
+                logger.error(f"Failed to create payment record for event booking for contact {contact.id} and event {event.id}.")
+                return None, {'event_booking_success': False, 'event_booking_error': 'Could not create payment record.'}
+
         booking, created = EventBooking.objects.get_or_create(
             contact=contact,
             event=event,
-            defaults={'status': status, 'notes': notes}
+            defaults={'status': status, 'notes': notes, 'payment': payment_obj if 'payment_obj' in locals() else None}
         )
 
         if created:

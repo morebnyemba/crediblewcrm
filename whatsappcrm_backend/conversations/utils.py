@@ -10,12 +10,13 @@ def async_signal_handler(func):
     """
     @wraps(func)
     def wrapper(*args, **kwargs):
-        # FIX: asyncio.run() cannot be called from a running event loop (like eventlet's).
-        # Instead, get the current loop and schedule the task on it.
         try:
+            # If an event loop is already running (e.g., in Celery with eventlet),
+            # schedule the async function on it.
             loop = asyncio.get_running_loop()
             loop.create_task(func(*args, **kwargs))
         except RuntimeError: # 'RuntimeError: There is no current event loop...'
-            # If no loop is running, we can safely start one.
+            # If no event loop is running (e.g., in a standard Django sync view),
+            # start a new one to run the async function.
             asyncio.run(func(*args, **kwargs))
     return wrapper
