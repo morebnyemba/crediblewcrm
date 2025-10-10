@@ -894,9 +894,20 @@ def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj
     Returns:
         True if a flow was triggered, False otherwise.
     """
+    # --- FIX: Check for simulated keyword in both message data and initial context ---
+    # The `simulated_trigger_keyword` can come from a user message (legacy) or be passed
+    # in the context during a flow switch (e.g., from invalid_input_flow).
     message_text_body = None
     if message_data.get('type') == 'text':
         message_text_body = message_data.get('text', {}).get('body', '').lower().strip()
+
+    # The incoming_message_obj can carry context from a flow switch action.
+    initial_context_from_switch = getattr(incoming_message_obj, 'flow_context_data', {})
+    simulated_keyword = initial_context_from_switch.get('simulated_trigger_keyword')
+
+    # The keyword can be in the message body OR in the context from a switch.
+    # This makes the "reprompt" feature work from the invalid_input_flow.
+    trigger_keyword_source = simulated_keyword or message_text_body
 
     triggered_flow = None
     active_flows = Flow.objects.filter(is_active=True).order_by('name')
@@ -908,8 +919,8 @@ def _trigger_new_flow(contact: Contact, message_data: dict, incoming_message_obj
                 # Check for a special "reprompt" keyword from the invalid_input_flow
                 # e.g., "reprompt_step_ask_for_amount"
                 reprompt_prefix = "reprompt_step_"
-                if message_text_body.startswith(reprompt_prefix):
-                    step_name_to_reprompt = message_text_body[len(reprompt_prefix):]
+                if trigger_keyword_source and trigger_keyword_source.startswith(reprompt_prefix):
+                    step_name_to_reprompt = trigger_keyword_source[len(reprompt_prefix):]
                     # Find the step in the current candidate flow
                     reprompt_step = flow_candidate.steps.filter(name=step_name_to_reprompt).first()
                     if reprompt_step:
