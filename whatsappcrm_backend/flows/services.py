@@ -591,7 +591,8 @@ def _resolve_value(template_value: Any, flow_context: dict, contact: Contact) ->
             render_context = {
                 **flow_context,
                 'contact': contact,
-                'member_profile': getattr(contact, 'member_profile', None)
+                'member_profile': getattr(contact, 'member_profile', None),
+                'settings': {'CHURCH_GIVING_DETAILS': settings.CHURCH_GIVING_DETAILS}
             }
             return template.render(render_context)
         except Exception as e:

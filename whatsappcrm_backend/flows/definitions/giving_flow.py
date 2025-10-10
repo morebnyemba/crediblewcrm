@@ -294,11 +294,14 @@ GIVING_FLOW = {
             "text": {
                 "body": (
                     "Thank you. Please use one of the methods below to give:\n\n"
-                    "🏦 *Bank Transfer*\n"
-                    "Bank: Steward Bank\n"
-                    "Account: 123456789\n\n"
+                    "🏦 *{{ settings.CHURCH_GIVING_DETAILS.BANK_1_NAME }}*\n"
+                    "Account: {{ settings.CHURCH_GIVING_DETAILS.BANK_1_ACCOUNT }}\n\n"
+                    "{% if settings.CHURCH_GIVING_DETAILS.BANK_2_NAME %}"
+                    "🏦 *{{ settings.CHURCH_GIVING_DETAILS.BANK_2_NAME }}*\n"
+                    "Account: {{ settings.CHURCH_GIVING_DETAILS.BANK_2_ACCOUNT }}\n\n"
+                    "{% endif %}"
                     "📱 *Merchant Code*\n"
-                    "Code: *123*456*1#\n\n"
+                    "Code: {{ settings.CHURCH_GIVING_DETAILS.MERCHANT_CODE }}\n\n"
                     "After paying, please send a screenshot as proof of payment."
                 )
             }
