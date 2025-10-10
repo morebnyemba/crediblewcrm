@@ -203,21 +203,62 @@ class StepConfigSendMessage(BasePydanticConfig):
 
 class ReplyConfig(BasePydanticConfig):
     save_to_variable: str
-    expected_type: Literal["text", "email", "number", "interactive_id"]
+    expected_type: Literal["text", "email", "number", "interactive_id", "image"]
     validation_regex: Optional[str] = None
+
+class FallbackConfig(BasePydanticConfig):
+    action: Literal["re_prompt", "human_handover"] = "re_prompt"
+    max_retries: int = Field(1, ge=0)
+    re_prompt_message_text: Optional[str] = None
+    fallback_message_text: Optional[str] = None
+    handover_after_message: bool = False
+    pre_handover_message_text: Optional[str] = None
+    notify_groups: Optional[List[str]] = None
 
 class StepConfigQuestion(BasePydanticConfig):
     message_config: StepConfigSendMessage
     reply_config: ReplyConfig
+    fallback_config: Optional[FallbackConfig] = None
 
 class ActionItemConfig(BasePydanticConfig):
-    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "switch_flow"]
+    action_type: Literal["set_context_variable", "update_contact_field", "update_member_profile", "record_payment", "record_prayer_request", "send_admin_notification", "query_model", "initiate_paynow_giving_payment", "record_event_booking", "update_model_record"]
     variable_name: Optional[str] = None
     value_template: Optional[Any] = None
     field_path: Optional[str] = None
     fields_to_update: Optional[Dict[str, Any]] = None
-    target_flow_name: Optional[str] = None
-    initial_context_template: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    # Fields for 'record_payment'
+    amount_template: Optional[str] = None
+    payment_type_template: Optional[str] = None
+    payment_method_template: Optional[str] = None
+    currency_template: Optional[str] = None
+    notes_template: Optional[str] = None
+    transaction_ref_template: Optional[str] = None
+    status_template: Optional[str] = None
+    proof_of_payment_wamid_template: Optional[str] = None
+    # Fields for 'initiate_paynow_giving_payment'
+    phone_number_template: Optional[str] = None
+    email_template: Optional[str] = None
+    # Fields for 'record_event_booking'
+    event_id_template: Optional[str] = None
+    event_fee_template: Optional[str] = None
+    event_title_template: Optional[str] = None
+    # Fields for 'record_prayer_request'
+    request_text_template: Optional[str] = None
+    category_template: Optional[str] = None
+    is_anonymous_template: Optional[Any] = None
+    submitted_as_member_template: Optional[Any] = None
+    # Fields for 'send_admin_notification'
+    message_template: Optional[str] = None
+    notify_groups: Optional[List[str]] = None
+    notify_user_ids: Optional[List[int]] = None
+    # Fields for 'query_model'
+    app_label: Optional[str] = None
+    model_name: Optional[str] = None
+    filters_template: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    order_by: Optional[List[str]] = Field(default_factory=list)
+    limit: Optional[int] = None
+    # Fields for 'update_model_record'
+    updates_template: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
     @model_validator(mode='after')
     def check_action_fields(self):
@@ -231,9 +272,27 @@ class ActionItemConfig(BasePydanticConfig):
         elif action_type == 'update_member_profile':
             if not self.fields_to_update or not isinstance(self.fields_to_update, dict):
                 raise ValueError("For update_member_profile, 'fields_to_update' (a dictionary) is required.")
-        elif action_type == 'switch_flow':
-            if not self.target_flow_name:
-                raise ValueError("For switch_flow, 'target_flow_name' is required.")
+        elif action_type == 'record_payment':
+            if self.amount_template is None or self.payment_type_template is None:
+                raise ValueError("For record_payment, 'amount_template' and 'payment_type_template' are required.")
+        elif action_type == 'initiate_paynow_giving_payment':
+            if self.amount_template is None or self.phone_number_template is None:
+                raise ValueError("For initiate_paynow_giving_payment, 'amount_template' and 'phone_number_template' are required.")
+        elif action_type == 'record_prayer_request':
+            if self.request_text_template is None:
+                raise ValueError("For record_prayer_request, 'request_text_template' is required.")
+        elif action_type == 'send_admin_notification':
+            if self.message_template is None:
+                raise ValueError("For send_admin_notification, 'message_template' is required.")
+        elif action_type == 'query_model':
+            if not self.app_label or not self.model_name or not self.variable_name:
+                raise ValueError("For query_model, 'app_label', 'model_name', and 'variable_name' are required.")
+        elif action_type == 'record_event_booking':
+            if self.event_id_template is None:
+                raise ValueError("For record_event_booking, 'event_id_template' is required.")
+        elif action_type == 'update_model_record':
+            if not self.app_label or not self.model_name or not self.updates_template:
+                raise ValueError("For update_model_record, 'app_label', 'model_name', and 'updates_template' are required.")
         return self
 
 class StepConfigAction(BasePydanticConfig):
@@ -242,9 +301,15 @@ class StepConfigAction(BasePydanticConfig):
 class StepConfigHumanHandover(BasePydanticConfig):
     pre_handover_message_text: Optional[str] = None
     notification_details: Optional[str] = None
+    notify_groups: Optional[List[str]] = None
 
 class StepConfigEndFlow(BasePydanticConfig):
     message_config: Optional[StepConfigSendMessage] = None
+
+class StepConfigSwitchFlow(BasePydanticConfig):
+    target_flow_name: str
+    initial_context_template: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    trigger_keyword_to_pass: Optional[str] = None
 
 # Rebuild InteractiveMessagePayload if it had forward references to models defined after it
 InteractiveMessagePayload.model_rebuild()

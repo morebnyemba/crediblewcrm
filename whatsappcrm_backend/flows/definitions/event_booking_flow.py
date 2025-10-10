@@ -113,9 +113,7 @@ EVENT_BOOKING_FLOW = {
                         "event_id_template": "{{ event_id }}",
                         "status_template": "pending_payment_verification",
                         "notes_template": "Booking pending proof of payment verification for ${{ event_fee }}.",
-                        "proof_of_payment_wamid_template": "{{ proof_of_payment_wamid }}",
-                        "event_fee_template": "{{ event_fee }}",
-                        "event_title_template": "{{ event_title }}"
+                        "proof_of_payment_wamid_template": "{{ proof_of_payment_wamid }}"
                     }
                 ]
             },
