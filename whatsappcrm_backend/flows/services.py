@@ -1528,6 +1528,35 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
             # --- FIX: Actually clear the state when the command is processed. ---
             _clear_contact_flow_state(contact)
             logger.debug(f"Contact {contact.id}: Processed internal command to clear flow state.")
+        elif action.get('type') == '_internal_command_switch_flow':
+            logger.info(f"Contact {contact.id}: Processing final internal command to switch flow.")
+            try:
+                _clear_contact_flow_state(contact) # Clear old state before switching
+
+                new_flow_name = action.get('target_flow_name')
+                initial_context = action.get('initial_context', {})
+
+                target_flow = Flow.objects.get(name=new_flow_name, is_active=True)
+                entry_point_step = FlowStep.objects.filter(flow=target_flow, is_entry_point=True).first()
+
+                if not entry_point_step:
+                    raise ValueError(f"Flow '{new_flow_name}' is active but has no entry point step defined.")
+
+                logger.info(f"Contact {contact.id}: Switching to flow '{target_flow.name}' at entry step '{entry_point_step.name}'.")
+                
+                # Create the new state
+                new_contact_flow_state = ContactFlowState.objects.create(
+                    contact=contact, current_flow=target_flow, current_step=entry_point_step,
+                    flow_context_data=initial_context, started_at=timezone.now()
+                )
+
+                # Execute the new entry step's actions and add them to the final list
+                entry_actions, updated_context = _execute_step_actions(entry_point_step, contact, initial_context.copy(), request=request)
+                new_contact_flow_state.flow_context_data = updated_context
+                new_contact_flow_state.save(update_fields=['flow_context_data', 'last_updated_at'])
+                final_actions_for_meta_view.extend(entry_actions)
+            except Exception as e:
+                logger.error(f"Contact {contact.id}: Failed to process final switch flow command. Error: {e}", exc_info=True)
         elif action.get('type') == 'send_whatsapp_message': # Only pass valid message actions
             final_actions_for_meta_view.append(action)
         else:
