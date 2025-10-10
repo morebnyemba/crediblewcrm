@@ -57,6 +57,9 @@ services:
   frontend:
     build: ./whatsapp-crm-frontend
     container_name: whatsappcrm_frontend_app
+    environment:
+      - DB_HOST=pgbouncer
+      - TZ=Africa/Harare
     depends_on:
       - backend
     restart: unless-stopped
@@ -121,7 +124,8 @@ services:
       - ./whatsappcrm_backend/mediafiles:/srv/www/media/:ro
       - /var/www/letsencrypt:/var/www/letsencrypt:ro
       - /etc/letsencrypt:/etc/nginx/ssl:ro
-    environment: # <-- Added environment section for logging
+    environment:
+      - DB_HOST=pgbouncer
       - TZ=Africa/Harare
     depends_on:
       - backend
