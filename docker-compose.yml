@@ -24,6 +24,10 @@ services:
     depends_on:
       - db
     environment:
+      - POSTGRES_DB=${DB_NAME:-whatsapp_crm_dev}
+      - POSTGRES_USER=${DB_USER:-crm_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
+      - DB_HOST=db # PgBouncer needs to know the hostname of the actual database
       - TZ=Africa/Harare
     restart: unless-stopped
 
