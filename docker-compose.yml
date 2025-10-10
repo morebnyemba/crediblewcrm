@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
 
   pgbouncer:
-    image: pgbouncer/pgbouncer:latest
+    build: ./pgbouncer_docker # <-- Build from the new Dockerfile
     container_name: whatsappcrm_pgbouncer
     volumes:
       - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
