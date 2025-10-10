@@ -38,8 +38,6 @@ class TokenAuthMiddleware(BaseMiddleware):
     passed in the query string.
     """
     async def __call__(self, scope, receive, send):
-        close_old_connections()
-
         query_string = scope.get("query_string", b"").decode("utf-8")
         query_params = parse_qs(query_string)
         token = query_params.get("token", [None])[0]
@@ -51,4 +49,11 @@ class TokenAuthMiddleware(BaseMiddleware):
             # The consumer will handle the rejection.
             scope['user'] = AnonymousUser()
 
-        return await super().__call__(scope, receive, send)
+        # Close old database connections to prevent usage of stale connections
+        # This is crucial for long-running applications like Channels consumers.
+        close_old_connections()
+        try:
+            return await super().__call__(scope, receive, send)
+        finally:
+            # Close the database connection when the consumer is finished
+            close_old_connections()
