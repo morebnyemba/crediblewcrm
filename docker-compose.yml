@@ -44,11 +44,15 @@ services:
     volumes:
       - ./whatsappcrm_backend:/app
       - staticfiles_volume:/app/staticfiles
-    environment: # <-- Added environment section
-      - DB_HOST=pgbouncer # <-- Point to PgBouncer
+    environment:
+      - DB_HOST=pgbouncer
       - TZ=Africa/Harare
-    env_file:
-      - ./whatsappcrm_backend/.env
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=${DB_NAME:-whatsapp_crm_dev}
+      - DB_USER=${DB_USER:-crm_user}
+      - DB_PASSWORD=${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
+      - DB_PORT=6432
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-kayden}@redis:6379/0
     depends_on:
       - db
       - pgbouncer
@@ -71,11 +75,15 @@ services:
     command: celery -A whatsappcrm_backend worker -l INFO -P eventlet -c 1000 -Q celery
     volumes:
       - ./whatsappcrm_backend:/app
-    environment: # <-- Added environment section
-      - DB_HOST=pgbouncer # <-- Point to PgBouncer
+    environment:
+      - DB_HOST=pgbouncer
       - TZ=Africa/Harare
-    env_file:
-      - ./whatsappcrm_backend/.env
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=${DB_NAME:-whatsapp_crm_dev}
+      - DB_USER=${DB_USER:-crm_user}
+      - DB_PASSWORD=${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
+      - DB_PORT=6432
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-kayden}@redis:6379/0
     depends_on:
       - redis
       - pgbouncer
@@ -88,11 +96,15 @@ services:
     command: celery -A whatsappcrm_backend worker -l INFO -P prefork -c 2 -Q cpu_intensive
     volumes:
       - ./whatsappcrm_backend:/app
-    environment: # <-- Added environment section
-      - DB_HOST=pgbouncer # <-- Point to PgBouncer
+    environment:
+      - DB_HOST=pgbouncer
       - TZ=Africa/Harare
-    env_file:
-      - ./whatsappcrm_backend/.env
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=${DB_NAME:-whatsapp_crm_dev}
+      - DB_USER=${DB_USER:-crm_user}
+      - DB_PASSWORD=${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
+      - DB_PORT=6432
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-kayden}@redis:6379/0
     depends_on:
       - redis
       - pgbouncer
@@ -105,11 +117,15 @@ services:
     command: celery -A whatsappcrm_backend beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
     volumes:
       - ./whatsappcrm_backend:/app
-    environment: # <-- Added environment section
-      - DB_HOST=pgbouncer # <-- Point to PgBouncer
+    environment:
+      - DB_HOST=pgbouncer
       - TZ=Africa/Harare
-    env_file:
-      - ./whatsappcrm_backend/.env
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=${DB_NAME:-whatsapp_crm_dev}
+      - DB_USER=${DB_USER:-crm_user}
+      - DB_PASSWORD=${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
+      - DB_PORT=6432
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-kayden}@redis:6379/0
     depends_on:
       - redis
       - pgbouncer
