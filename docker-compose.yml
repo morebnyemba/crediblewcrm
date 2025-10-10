@@ -68,8 +68,9 @@ services:
       pgbouncer:
         condition: service_healthy
       db:
-        condition: service_started # db doesn't need a healthcheck, just needs to be started
-      - redis
+        condition: service_started
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   frontend:
@@ -102,7 +103,8 @@ services:
         condition: service_healthy
       db:
         condition: service_started
-      - redis
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   celery_worker_cpu:
@@ -125,7 +127,8 @@ services:
         condition: service_healthy
       db:
         condition: service_started
-      - redis
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   celery_beat:
@@ -148,7 +151,8 @@ services:
         condition: service_healthy
       db:
         condition: service_started
-      - redis
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   nginx_proxy:
