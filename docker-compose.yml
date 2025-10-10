@@ -51,6 +51,7 @@ services:
       - ./whatsappcrm_backend/.env
     depends_on:
       - db
+      - pgbouncer
       - redis
     restart: unless-stopped
 
@@ -77,6 +78,7 @@ services:
       - ./whatsappcrm_backend/.env
     depends_on:
       - redis
+      - pgbouncer
       - db
     restart: unless-stopped
 
@@ -93,6 +95,7 @@ services:
       - ./whatsappcrm_backend/.env
     depends_on:
       - redis
+      - pgbouncer
       - db
     restart: unless-stopped
 
@@ -109,6 +112,7 @@ services:
       - ./whatsappcrm_backend/.env
     depends_on:
       - redis
+      - pgbouncer
       - db
     restart: unless-stopped
 
