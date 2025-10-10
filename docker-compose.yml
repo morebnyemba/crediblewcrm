@@ -31,6 +31,7 @@ services:
       - ./whatsappcrm_backend:/app
       - staticfiles_volume:/app/staticfiles
     environment: # <-- Added environment section
+      - DB_HOST=db
       - TZ=Africa/Harare
     env_file:
       - ./whatsappcrm_backend/.env
@@ -53,6 +54,7 @@ services:
     volumes:
       - ./whatsappcrm_backend:/app
     environment: # <-- Added environment section
+      - DB_HOST=db
       - TZ=Africa/Harare
     env_file:
       - ./whatsappcrm_backend/.env
@@ -64,10 +66,11 @@ services:
   celery_worker_cpu:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_worker_cpu
-    command: celery -A whatsappcrm_backend worker -l INFO -P prefork -Q cpu_intensive
+    command: celery -A whatsappcrm_backend worker -l INFO -P prefork -c 2 -Q cpu_intensive
     volumes:
       - ./whatsappcrm_backend:/app
     environment: # <-- Added environment section
+      - DB_HOST=db
       - TZ=Africa/Harare
     env_file:
       - ./whatsappcrm_backend/.env
@@ -83,6 +86,7 @@ services:
     volumes:
       - ./whatsappcrm_backend:/app
     environment: # <-- Added environment section
+      - DB_HOST=db
       - TZ=Africa/Harare
     env_file:
       - ./whatsappcrm_backend/.env
