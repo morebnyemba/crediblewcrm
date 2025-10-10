@@ -13,31 +13,6 @@ services:
       - "5432:5432"
     restart: unless-stopped
 
-  pgbouncer:
-    build: ./pgbouncer_docker # <-- Build from the new Dockerfile
-    container_name: whatsappcrm_pgbouncer
-    volumes:
-      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
-      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
-    ports:
-      - "6432:6432" # Expose PgBouncer on a different port
-    depends_on:
-      - db
-    environment:
-      - POSTGRES_DB=${DB_NAME:-whatsapp_crm_dev}
-      - POSTGRES_USER=${DB_USER:-crm_user}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
-      - DB_HOST=db # PgBouncer needs to know the hostname of the actual database
-      - TZ=Africa/Harare
-    healthcheck:
-      # Use pg_isready to check if pgbouncer is accepting connections on its port (6432)
-      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U crm_user -d whatsapp_crm_dev"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    restart: unless-stopped
-
   redis:
     image: redis:7-alpine
     container_name: whatsappcrm_redis
@@ -55,30 +30,19 @@ services:
     volumes:
       - ./whatsappcrm_backend:/app
       - staticfiles_volume:/app/staticfiles
-    environment:
-      - DB_HOST=pgbouncer
+    environment: # <-- Added environment section
+      - DB_HOST=db
       - TZ=Africa/Harare
-      - DB_ENGINE=django.db.backends.postgresql
-      - DB_NAME=${DB_NAME:-whatsapp_crm_dev}
-      - DB_USER=${DB_USER:-crm_user}
-      - DB_PASSWORD=${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
-      - DB_PORT=6432
-      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-kayden}@redis:6379/0
-    depends_on: # Modified to wait for healthcheck
-      pgbouncer:
-        condition: service_healthy
-      db:
-        condition: service_started
-      redis:
-        condition: service_started
+    env_file:
+      - ./whatsappcrm_backend/.env
+    depends_on:
+      - db
+      - redis
     restart: unless-stopped
 
   frontend:
     build: ./whatsapp-crm-frontend
     container_name: whatsappcrm_frontend_app
-    environment:
-      - DB_HOST=pgbouncer
-      - TZ=Africa/Harare
     depends_on:
       - backend
     restart: unless-stopped
@@ -89,22 +53,14 @@ services:
     command: celery -A whatsappcrm_backend worker -l INFO -P eventlet -c 1000 -Q celery
     volumes:
       - ./whatsappcrm_backend:/app
-    environment:
-      - DB_HOST=pgbouncer
+    environment: # <-- Added environment section
+      - DB_HOST=db
       - TZ=Africa/Harare
-      - DB_ENGINE=django.db.backends.postgresql
-      - DB_NAME=${DB_NAME:-whatsapp_crm_dev}
-      - DB_USER=${DB_USER:-crm_user}
-      - DB_PASSWORD=${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
-      - DB_PORT=6432
-      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-kayden}@redis:6379/0
-    depends_on: # Modified to wait for healthcheck
-      pgbouncer:
-        condition: service_healthy
-      db:
-        condition: service_started
-      redis:
-        condition: service_started
+    env_file:
+      - ./whatsappcrm_backend/.env
+    depends_on:
+      - redis
+      - db
     restart: unless-stopped
 
   celery_worker_cpu:
@@ -113,22 +69,14 @@ services:
     command: celery -A whatsappcrm_backend worker -l INFO -P prefork -c 2 -Q cpu_intensive
     volumes:
       - ./whatsappcrm_backend:/app
-    environment:
-      - DB_HOST=pgbouncer
+    environment: # <-- Added environment section
+      - DB_HOST=db
       - TZ=Africa/Harare
-      - DB_ENGINE=django.db.backends.postgresql
-      - DB_NAME=${DB_NAME:-whatsapp_crm_dev}
-      - DB_USER=${DB_USER:-crm_user}
-      - DB_PASSWORD=${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
-      - DB_PORT=6432
-      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-kayden}@redis:6379/0
-    depends_on: # Modified to wait for healthcheck
-      pgbouncer:
-        condition: service_healthy
-      db:
-        condition: service_started
-      redis:
-        condition: service_started
+    env_file:
+      - ./whatsappcrm_backend/.env
+    depends_on:
+      - redis
+      - db
     restart: unless-stopped
 
   celery_beat:
@@ -137,22 +85,14 @@ services:
     command: celery -A whatsappcrm_backend beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
     volumes:
       - ./whatsappcrm_backend:/app
-    environment:
-      - DB_HOST=pgbouncer
+    environment: # <-- Added environment section
+      - DB_HOST=db
       - TZ=Africa/Harare
-      - DB_ENGINE=django.db.backends.postgresql
-      - DB_NAME=${DB_NAME:-whatsapp_crm_dev}
-      - DB_USER=${DB_USER:-crm_user}
-      - DB_PASSWORD=${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
-      - DB_PORT=6432
-      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-kayden}@redis:6379/0
-    depends_on: # Modified to wait for healthcheck
-      pgbouncer:
-        condition: service_healthy
-      db:
-        condition: service_started
-      redis:
-        condition: service_started
+    env_file:
+      - ./whatsappcrm_backend/.env
+    depends_on:
+      - redis
+      - db
     restart: unless-stopped
 
   nginx_proxy:
@@ -167,8 +107,7 @@ services:
       - ./whatsappcrm_backend/mediafiles:/srv/www/media/:ro
       - /var/www/letsencrypt:/var/www/letsencrypt:ro
       - /etc/letsencrypt:/etc/nginx/ssl:ro
-    environment:
-      - DB_HOST=pgbouncer
+    environment: # <-- Added environment section for logging
       - TZ=Africa/Harare
     depends_on:
       - backend
