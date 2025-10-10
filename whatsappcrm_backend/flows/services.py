@@ -35,8 +35,8 @@ except ImportError:
     MEDIA_ASSET_ENABLED = False
 
 from .schemas import (
-    StepConfigSendMessage, StepConfigQuestion, StepConfigAction, StepConfigHumanHandover,
-    StepConfigEndFlow, StepConfigSwitchFlow
+    MediaMessageContent, StepConfigSendMessage, StepConfigQuestion, StepConfigAction, StepConfigHumanHandover,
+    StepConfigEndFlow, StepConfigSwitchFlow, FallbackConfig
 )
 
 logger = logging.getLogger(__name__)

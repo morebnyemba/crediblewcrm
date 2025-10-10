@@ -375,6 +375,38 @@ class PendingVerificationPaymentAdmin(admin.ModelAdmin):
                 )
                 if self._send_status_notification(payment, active_config, message_text):
                     notified_count += 1
+
+            # --- New Logic: Check for and cancel related EventBooking ---
+            try:
+                booking = payment.event_booking
+                if booking and booking.status == 'pending_payment_verification':
+                    booking.status = 'cancelled'
+                    booking.save(update_fields=['status'])
+                    logger.info(f"Cancelled EventBooking {booking.id} for denied payment {payment.id}.")
+
+                    # Send a specific notification for the event booking cancellation
+                    if active_config and booking.contact:
+                        recipient_name = booking.contact.name or 'church member'
+                        event_title = booking.event.title if booking.event else "the event"
+                        booking_cancellation_message = (
+                            f"Hello {recipient_name},\n\n"
+                            f"We're writing regarding your registration for *{event_title}*. Unfortunately, there was an issue with the payment verification, and we were unable to confirm your spot. As a result, your booking has been cancelled.\n\n"
+                            "If you believe this is an error or wish to try registering again, please contact the church office.\n\n"
+                            "We apologize for any inconvenience.\n\n"
+                            "In His Grace,\n"
+                            "The Events Team"
+                        )
+                        booking_message = Message.objects.create(
+                            contact=booking.contact, app_config=active_config, direction='out',
+                            message_type='text', content_payload={'body': booking_cancellation_message},
+                            status='pending_dispatch', timestamp=timezone.now()
+                        )
+                        transaction.on_commit(lambda: send_whatsapp_message_task.delay(booking_message.id, active_config.id))
+            except EventBooking.DoesNotExist:
+                pass # Expected for non-event payments
+            except Exception as e:
+                logger.error(f"Error cancelling related event booking for payment {payment.id}: {e}", exc_info=True)
+                self.message_user(request, f"Payment {payment.id} denied, but failed to cancel linked event booking: {e}", level='error')
         
         message = f'{denied_count} payments were successfully denied and marked as failed.'
         if active_config:
@@ -420,14 +452,14 @@ class PrayerRequestAdmin(admin.ModelAdmin):
                         "\"Therefore I tell you, whatever you ask for in prayer, believe that you have received it, and it will be yours.\" - Mark 11:24\n\n"
                         "May you find comfort and strength in His presence. 🙏"
                     )
-                    self._send_status_notification(prayer_request, active_config, message)
+                    self._send_status_notification(request, prayer_request, active_config, message)
                 except MetaAppConfig.DoesNotExist:
                     self.message_user(request, "No active Meta App Configuration found.  Notification not sent.", level='WARNING')
                 except Exception as e:
                     self.message_user(request, f"An error occurred while sending the notification: {e}", level='ERROR')
             else:
                 self.message_user(request, f"Prayer request {prayer_request.id} is already in progress.", level='WARNING')
-
+    
     mark_as_in_progress.short_description = "Mark as In Progress and Notify"
 
     def mark_as_completed(self, request, queryset):
@@ -443,7 +475,7 @@ class PrayerRequestAdmin(admin.ModelAdmin):
                         "\"Rejoice always, pray continually, give thanks in all circumstances; for this is God’s will for you in Christ Jesus.\" - 1 Thessalonians 5:16-18\n\n"
                         "May God's blessings be upon you! 🙏"
                     )
-                    self._send_status_notification(prayer_request, active_config, message)
+                    self._send_status_notification(request, prayer_request, active_config, message)
                 except MetaAppConfig.DoesNotExist:
                     self.message_user(request, "No active Meta App Configuration found. Notification not sent.", level='WARNING')
                 except Exception as e:
@@ -451,7 +483,7 @@ class PrayerRequestAdmin(admin.ModelAdmin):
             else:
                 self.message_user(request, f"Prayer request {prayer_request.id} is already completed.", level='WARNING')
 
-    mark_as_completed.short_description = "Mark as Completed and Notify"
+    mark_as_completed.short_description = "Mark as Answered and Notify"
 
     def mark_as_closed(self, request, queryset):
         for prayer_request in queryset:
@@ -465,7 +497,7 @@ class PrayerRequestAdmin(admin.ModelAdmin):
     actions = ['mark_as_in_progress', 'mark_as_completed', 'mark_as_closed']
 
 
-    def _send_status_notification(self, prayer_request: PrayerRequest, active_config: MetaAppConfig, message_text: str) -> bool:
+    def _send_status_notification(self, request, prayer_request: PrayerRequest, active_config: MetaAppConfig, message_text: str) -> bool:
         """Helper to create and dispatch a WhatsApp notification for a prayer request status change."""
         if not prayer_request.contact:
             self.message_user(request, f"Prayer Request {prayer_request.id} has no associated contact. Cannot send notification.", level='WARNING')
