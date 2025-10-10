@@ -13,6 +13,20 @@ services:
       - "5432:5432"
     restart: unless-stopped
 
+  pgbouncer:
+    image: pgbouncer/pgbouncer:1.22.1
+    container_name: whatsappcrm_pgbouncer
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    ports:
+      - "6432:6432" # Expose PgBouncer on a different port
+    depends_on:
+      - db
+    environment:
+      - TZ=Africa/Harare
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     container_name: whatsappcrm_redis
@@ -31,7 +45,7 @@ services:
       - ./whatsappcrm_backend:/app
       - staticfiles_volume:/app/staticfiles
     environment: # <-- Added environment section
-      - DB_HOST=db
+      - DB_HOST=pgbouncer # <-- Point to PgBouncer
       - TZ=Africa/Harare
     env_file:
       - ./whatsappcrm_backend/.env
@@ -54,7 +68,7 @@ services:
     volumes:
       - ./whatsappcrm_backend:/app
     environment: # <-- Added environment section
-      - DB_HOST=db
+      - DB_HOST=pgbouncer # <-- Point to PgBouncer
       - TZ=Africa/Harare
     env_file:
       - ./whatsappcrm_backend/.env
@@ -70,7 +84,7 @@ services:
     volumes:
       - ./whatsappcrm_backend:/app
     environment: # <-- Added environment section
-      - DB_HOST=db
+      - DB_HOST=pgbouncer # <-- Point to PgBouncer
       - TZ=Africa/Harare
     env_file:
       - ./whatsappcrm_backend/.env
@@ -86,7 +100,7 @@ services:
     volumes:
       - ./whatsappcrm_backend:/app
     environment: # <-- Added environment section
-      - DB_HOST=db
+      - DB_HOST=pgbouncer # <-- Point to PgBouncer
       - TZ=Africa/Harare
     env_file:
       - ./whatsappcrm_backend/.env

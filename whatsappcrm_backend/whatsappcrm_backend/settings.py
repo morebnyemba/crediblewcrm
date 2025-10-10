@@ -121,7 +121,7 @@ DB_NAME_DEFAULT = 'whatsapp_crm_dev'  # The database name you created
 DB_USER_DEFAULT = 'crm_user'          # The user you created
 DB_PASSWORD_DEFAULT = ''                # It's best to set this in your .env file
 DB_HOST_DEFAULT = 'localhost'           # Or '127.0.0.1'
-DB_PORT_DEFAULT = '5432'                # Default PostgreSQL port
+DB_PORT_DEFAULT = '6432'                # Default PgBouncer port
 
 DATABASES = {
     'default': {
@@ -132,9 +132,10 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST', DB_HOST_DEFAULT),
         'PORT': os.getenv('DB_PORT', DB_PORT_DEFAULT),
         # --- FIX for 'too many clients' error ---
-        # Close connections older than 300 seconds (5 minutes).
-        # This helps prevent connection leaks in long-running processes like Celery.
-        'CONN_MAX_AGE': 300,
+        # When using PgBouncer in transaction pooling mode, persistent connections (CONN_MAX_AGE)
+        # must be disabled. PgBouncer handles the connection persistence to the actual database.
+        # Each request from Django will get a connection from PgBouncer's pool for the duration of the transaction.
+        'CONN_MAX_AGE': 0,
     }
 }
 
