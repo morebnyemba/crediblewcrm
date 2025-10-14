@@ -92,7 +92,7 @@ EVENT_BOOKING_FLOW = {
                 "message_type": "text",
                 "text": {
                     "body": (
-                        "To register for *{{ event_title }}*, a payment of *${{ total_fee | round(2) }}* is required for *{{ number_of_tickets }} ticket(s)* (at ${{ event_fee }} each).\n\n"
+                        "To register for *{{ event_title }}*, a payment of *${{      (total_fee | float) | round(2) }}* is required for *{{ number_of_tickets }} ticket(s)* (at ${{ event_fee }} each).\n\n"
                         "{% if event_payment_instructions %}"
                         "Please use the payment instructions provided by the event organizer below:\n\n"
                         "{{ event_payment_instructions }}\n\n"
@@ -145,7 +145,7 @@ EVENT_BOOKING_FLOW = {
                         "action_type": "record_event_booking",
                         "event_id_template": "{{ event_id }}",
                         "number_of_tickets_template": "{{ number_of_tickets }}",
-                        "status_template": "pending_payment_verification",
+                        "status_template": "pending_payment",
                         "notes_template": "Booking for {{ number_of_tickets }} ticket(s) pending proof of payment verification for ${{ total_fee | round(2) }}.",
                         "proof_of_payment_wamid_template": "{{ proof_of_payment_wamid }}"
                     }
@@ -180,7 +180,7 @@ EVENT_BOOKING_FLOW = {
                     "notify_groups": ["Events Team", "Pastoral Team"],
                     "message_template": (
                         "New Event Booking (Payment Pending):\n\n*Event:* {{ event_title }}\n*Who:* {{ contact.name or contact.whatsapp_id }}\n*Tickets:* {{ number_of_tickets }}\n\n"
-                        "They have submitted proof of payment for ${{ total_fee | round(2) }}. Please verify in the CRM to confirm their booking."
+                        "They have submitted proof of payment for ${{ (total_fee | float) | round(2) }}. Please verify in the CRM to confirm their booking."
                     )
                 }]
             },

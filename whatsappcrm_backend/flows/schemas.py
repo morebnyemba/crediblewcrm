@@ -172,8 +172,8 @@ class ContactObject(BasePydanticConfig):
     urls: Optional[List[ContactUrl]] = None
 
 class LocationMessageContent(BasePydanticConfig):
-    longitude: float
-    latitude: float
+    longitude: Union[float, str]
+    latitude: Union[float, str]
     name: Optional[str] = None
     address: Optional[str] = None
 
