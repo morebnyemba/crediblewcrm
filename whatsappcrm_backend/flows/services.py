@@ -272,8 +272,7 @@ def _resolve_value(template_value: Any, flow_context: dict, contact: Contact) ->
             render_context = {
                 **flow_context,
                 'contact': contact,
-                'member_profile': getattr(contact, 'member_profile', None),
-                'settings': {'CHURCH_GIVING_DETAILS': settings.CHURCH_GIVING_DETAILS}
+                'member_profile': getattr(contact, 'member_profile', None)
             }
             return template.render(render_context)
         except Exception as e:
@@ -546,6 +545,7 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                         logger.error(f"Contact {contact.id}: Action in step {step.id} failed to record prayer request for text '{str(request_text)[:50]}...'.")
                 elif action_type == 'record_event_booking':
                     event_id = _resolve_value(action_item_conf.event_id_template, current_step_context, contact)
+                    number_of_tickets = _resolve_value(action_item_conf.number_of_tickets_template, current_step_context, contact)
                     status = _resolve_value(action_item_conf.status_template, current_step_context, contact)
                     notes = _resolve_value(action_item_conf.notes_template, current_step_context, contact)
                     proof_of_payment_wamid = _resolve_value(action_item_conf.proof_of_payment_wamid_template, current_step_context, contact)
@@ -556,6 +556,7 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     booking_obj, context_updates = record_event_booking(
                         contact=contact,
                         event_id=event_id,
+                        number_of_tickets=int(number_of_tickets) if number_of_tickets else 1,
                         status=str(status) if status else 'confirmed',
                         notes=str(notes) if notes else None,
                         proof_of_payment_wamid=str(proof_of_payment_wamid) if proof_of_payment_wamid else None,

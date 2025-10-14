@@ -240,6 +240,7 @@ class ActionItemConfig(BasePydanticConfig):
     email_template: Optional[str] = None
     # Fields for 'record_event_booking'
     event_id_template: Optional[str] = None
+    number_of_tickets_template: Optional[str] = None
     event_fee_template: Optional[str] = None
     event_title_template: Optional[str] = None
     # Fields for 'record_prayer_request'

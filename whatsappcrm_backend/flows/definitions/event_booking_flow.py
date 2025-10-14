@@ -13,14 +13,43 @@ EVENT_BOOKING_FLOW = {
     "is_active": True,
     "steps": [
         # 1. Check if the event has a fee to decide the path.
+        # NEW: Ask for number of tickets first.
         {
-            "name": "check_if_event_is_paid",
+            "name": "ask_for_number_of_tickets",
             "is_entry_point": True,
+            "type": "question",
+            "config": {
+                "message_config": {
+                    "message_type": "text",
+                    "text": {"body": "How many tickets would you like to book for *{{ event_title }}*?"}
+                },
+                "reply_config": {
+                    "expected_type": "number",
+                    "save_to_variable": "number_of_tickets",
+                    "validation_regex": "^[1-9][0-9]*$"
+                },
+                "fallback_config": {
+                    "action": "re_prompt",
+                    "max_retries": 2,
+                    "re_prompt_message_text": "Please enter a valid number (e.g., 1, 2, 5)."
+                }
+            },
+            "transitions": [{"to_step": "calculate_total_fee", "condition_config": {"type": "always_true"}}]
+        },
+        # NEW: Calculate total fee and then check if it's a paid event.
+        {
+            "name": "calculate_total_fee",
             "type": "action",
-            "config": {"actions_to_run": []},
+            "config": {
+                "actions_to_run": [{
+                    "action_type": "set_context_variable",
+                    "variable_name": "total_fee",
+                    "value_template": "{{ (event_fee | float) * (number_of_tickets | int) }}"
+                }]
+            },
             "transitions": [
                 # If event_fee is greater than 0, go to the paid flow.
-                {"to_step": "confirm_paid_booking", "priority": 10, "condition_config": {"type": "variable_greater_than", "variable_name": "event_fee", "value": 0}},
+                {"to_step": "confirm_paid_booking", "priority": 10, "condition_config": {"type": "variable_greater_than", "variable_name": "total_fee", "value": 0}},
                 # Otherwise, go to the free booking confirmation.
                 {"to_step": "confirm_free_booking", "priority": 20, "condition_config": {"type": "always_true"}}
             ]
@@ -35,7 +64,7 @@ EVENT_BOOKING_FLOW = {
                     "interactive": {
                         "type": "button",
                         "body": {
-                            "text": "You're about to register for the event: *{{ event_title }}*.\n\nCan you confirm you'd like to book your spot?"
+                            "text": "You're about to book *{{ number_of_tickets }} ticket(s)* for the free event: *{{ event_title }}*.\n\nCan you confirm?"
                         },
                         "action": {
                             "buttons": [
@@ -63,16 +92,20 @@ EVENT_BOOKING_FLOW = {
                 "message_type": "text",
                 "text": {
                     "body": (
-                        "To register for *{{ event_title }}*, a registration fee of *${{ event_fee }}* is required.\n\n"
-                        "Please use one of the methods below to pay:\n\n"
-                        "🏦 *{{ settings.CHURCH_GIVING_DETAILS.BANK_1_NAME }}*\n"
-                        "Account: {{ settings.CHURCH_GIVING_DETAILS.BANK_1_ACCOUNT }}\n\n"
-                        "{% if settings.CHURCH_GIVING_DETAILS.BANK_2_NAME %}"
-                        "🏦 *{{ settings.CHURCH_GIVING_DETAILS.BANK_2_NAME }}*\n"
-                        "Account: {{ settings.CHURCH_GIVING_DETAILS.BANK_2_ACCOUNT }}\n\n"
+                        "To register for *{{ event_title }}*, a payment of *${{ total_fee | round(2) }}* is required for *{{ number_of_tickets }} ticket(s)* (at ${{ event_fee }} each).\n\n"
+                        "{% if event_payment_instructions %}"
+                        "Please use the payment instructions provided by the event organizer below:\n\n"
+                        "{{ event_payment_instructions }}\n\n"
+                        "{% else %}"
+                        "Please use one of the default church payment methods below:\n\n"
+                        "🇺🇸 *International & USA*\n"
+                        "1. *Bank of America*\n   - Routing: `061000052`\n   - Account: `3340 7458 7536`\n"
+                        "2. *PayPal*\n   https://paypal.me/LifeInternational704\n"
+                        "3. *Zelle*\n   `LifeInternationalusa@gmail.com`\n\n"
+                        "🇿🇼 *Zimbabwe*\n"
+                        "4. *EcoCash Merchant (USD/ZWG)*\n   Code: `030630`\n"
+                        "5. *Agribank (ZWG)*\n   - Account: `100009498774`\n   - Branch: N. Mandela, Zimbabwe\n\n"
                         "{% endif %}"
-                        "📱 *Merchant Code*\n"
-                        "Code: {{ settings.CHURCH_GIVING_DETAILS.MERCHANT_CODE }}\n\n"
                         "After paying, please send a screenshot as proof of payment to complete your registration."
                     )
                 }
@@ -111,8 +144,9 @@ EVENT_BOOKING_FLOW = {
                     {
                         "action_type": "record_event_booking",
                         "event_id_template": "{{ event_id }}",
+                        "number_of_tickets_template": "{{ number_of_tickets }}",
                         "status_template": "pending_payment_verification",
-                        "notes_template": "Booking pending proof of payment verification for ${{ event_fee }}.",
+                        "notes_template": "Booking for {{ number_of_tickets }} ticket(s) pending proof of payment verification for ${{ total_fee | round(2) }}.",
                         "proof_of_payment_wamid_template": "{{ proof_of_payment_wamid }}"
                     }
                 ]
@@ -127,6 +161,7 @@ EVENT_BOOKING_FLOW = {
                     {
                         "action_type": "record_event_booking",
                         "event_id_template": "{{ event_id }}",
+                        "number_of_tickets_template": "{{ number_of_tickets }}",
                         "status_template": "confirmed"
                     }
                 ]
@@ -144,8 +179,8 @@ EVENT_BOOKING_FLOW = {
                     "action_type": "send_admin_notification",
                     "notify_groups": ["Events Team", "Pastoral Team"],
                     "message_template": (
-                        "New Event Booking (Payment Pending):\n\n*Event:* {{ event_title }}\n*Who:* {{ contact.name or contact.whatsapp_id }}\n\n"
-                        "They have submitted proof of payment for ${{ event_fee }}. Please verify in the CRM to confirm their booking."
+                        "New Event Booking (Payment Pending):\n\n*Event:* {{ event_title }}\n*Who:* {{ contact.name or contact.whatsapp_id }}\n*Tickets:* {{ number_of_tickets }}\n\n"
+                        "They have submitted proof of payment for ${{ total_fee | round(2) }}. Please verify in the CRM to confirm their booking."
                     )
                 }]
             },
@@ -158,7 +193,7 @@ EVENT_BOOKING_FLOW = {
                 "message_type": "text",
                 "text": {
                     "body": (
-                        "{% if (event_fee | float) > 0 %}Thank you! Your registration for *{{ event_title }}* is now pending verification of your payment. You will receive a final confirmation soon.{% else %}Excellent! You are now registered for *{{ event_title }}*. We look forward to seeing you there! 🎉{% endif %}"
+                        "{% if (total_fee | float) > 0 %}Thank you! Your registration for *{{ number_of_tickets }} ticket(s)* for *{{ event_title }}* is now pending verification. You will receive a final confirmation soon.{% else %}Excellent! You are now registered for *{{ number_of_tickets }} ticket(s)* for *{{ event_title }}*. We look forward to seeing you there! 🎉{% endif %}"
                     )
                 }
             },

@@ -288,15 +288,14 @@ GIVING_FLOW = {
             "message_type": "text",
             "text": {
                 "body": (
-                    "Thank you. Please use one of the methods below to give:\n\n"
-                    "🏦 *{{ settings.CHURCH_GIVING_DETAILS.BANK_1_NAME }}*\n"
-                    "Account: {{ settings.CHURCH_GIVING_DETAILS.BANK_1_ACCOUNT }}\n\n"
-                    "{% if settings.CHURCH_GIVING_DETAILS.BANK_2_NAME %}"
-                    "🏦 *{{ settings.CHURCH_GIVING_DETAILS.BANK_2_NAME }}*\n"
-                    "Account: {{ settings.CHURCH_GIVING_DETAILS.BANK_2_ACCOUNT }}\n\n"
-                    "{% endif %}"
-                    "📱 *Merchant Code*\n"
-                    "Code: {{ settings.CHURCH_GIVING_DETAILS.MERCHANT_CODE }}\n\n"
+                    "Thank you for your heart to give! Please use one of the methods below:\n\n"
+                    "🇺🇸 *International & USA*\n"
+                    "1. *Bank of America*\n   - Routing: `061000052`\n   - Account: `3340 7458 7536`\n"
+                    "2. *PayPal*\n   https://paypal.me/LifeInternational704\n"
+                    "3. *Zelle*\n   `LifeInternationalusa@gmail.com`\n\n"
+                    "🇿🇼 *Zimbabwe*\n"
+                    "4. *EcoCash Merchant (USD/ZWG)*\n   Code: `030630`\n"
+                    "5. *Agribank (ZWG)*\n   - Account: `100009498774`\n   - Branch: N. Mandela, Zimbabwe\n\n"
                     "After paying, please send a screenshot as proof of payment."
                 )
             }

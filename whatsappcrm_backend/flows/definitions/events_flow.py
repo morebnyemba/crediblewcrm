@@ -221,7 +221,8 @@ EVENTS_FLOW = {
                 "initial_context_template": {
                     "event_id": "{{ events_list[event_index | int].id }}",
                     "event_title": "{{ events_list[event_index | int].title }}",
-                    "event_fee": "{{ events_list[event_index | int].registration_fee }}"
+                    "event_fee": "{{ events_list[event_index | int].registration_fee }}",
+                    "event_payment_instructions": "{{ events_list[event_index | int].payment_instructions }}"
                 }
             },
             "transitions": []

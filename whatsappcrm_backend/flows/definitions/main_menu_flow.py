@@ -300,16 +300,21 @@ MAIN_MENU_FLOW = {
                 "message_type": "text",
                 "text": {
                     "body": (
-                        "Here is your profile summary:\n\n"
-                        "*Full Name:* {{ member_profile.first_name or 'N/A' }} {{ member_profile.last_name or '' }}\n"
-                        "*Email:* {{ member_profile.email or 'N/A' }}\n"
-                        "*Date of Birth:* {{ member_profile.date_of_birth or 'N/A' }}\n"
-                        "*Marital Status:* {{ (member_profile.marital_status | replace('_', ' ') | title) or 'N/A' }}\n\n"
-                        "--- Church Details ---\n"
-                        "*Membership Status:* {{ (member_profile.membership_status | replace('_', ' ') | title) or 'N/A' }}\n"
-                        "*Date Joined:* {{ member_profile.date_joined or 'N/A' }}\n"
-                        "*Baptism Date:* {{ member_profile.baptism_date or 'N/A' }}\n\n"
-                        "If any details are incorrect, you can select 'Update My Profile' from the main menu."
+                        "Here is your profile summary, {{ member_profile.first_name or 'member' }}:\n\n"
+                        "👤 *Personal Details*\n"
+                        "*Full Name:* {{ member_profile.get_full_name() or 'Not Set' }}\n"
+                        "*Email:* {{ member_profile.email or 'Not Set' }}\n"
+                        "*Date of Birth:* {{ member_profile.date_of_birth | strftime('%d %B %Y') if member_profile.date_of_birth else 'Not Set' }}\n"
+                        "*Gender:* {{ member_profile.get_gender_display() or 'Not Set' }}\n"
+                        "*Marital Status:* {{ member_profile.get_marital_status_display() or 'Not Set' }}\n\n"
+                        "📍 *Location*\n"
+                        "*Address:* {{ member_profile.address_line_1 or 'Not Set' }}\n"
+                        "*City:* {{ member_profile.city or 'Not Set' }}\n\n"
+                        "⛪ *Church Details*\n"
+                        "*Membership Status:* {{ member_profile.get_membership_status_display() or 'Not Set' }}\n"
+                        "*Date Joined:* {{ member_profile.date_joined | strftime('%d %B %Y') if member_profile.date_joined else 'Not Set' }}\n"
+                        "*Baptism Date:* {{ member_profile.baptism_date | strftime('%d %B %Y') if member_profile.baptism_date else 'Not Set' }}\n\n"
+                        "If any details are incorrect, you can select 'Update My Profile' from the main menu to make changes."
                     )
                 }
             },

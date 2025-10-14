@@ -48,7 +48,7 @@ class EventAdmin(admin.ModelAdmin):
 @admin.register(EventBooking)
 class EventBookingAdmin(admin.ModelAdmin):
     """Admin configuration for the EventBooking model."""
-    list_display = ('booking_reference', 'event', 'contact_name', 'status', 'booking_source', 'booking_date')
+    list_display = ('booking_reference', 'event', 'contact_name', 'number_of_tickets', 'status', 'booking_source', 'booking_date')
     search_fields = ('booking_reference', 'event__title', 'contact__name', 'contact__whatsapp_id')
     list_filter = ('status', 'event', 'booking_source')
     list_select_related = ('event', 'contact')
