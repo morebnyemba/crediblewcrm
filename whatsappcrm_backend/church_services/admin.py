@@ -1,21 +1,29 @@
 # whatsappcrm_backend/church_services/admin.py
 
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from .models import Event, Ministry, Sermon, EventBooking
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
     """Admin configuration for the Event model."""
-    list_display = ('title', 'start_time', 'location', 'is_active', 'has_location_pin', 'display_flyer_thumbnail', 'updated_at')
+    list_display = ('title', 'start_time', 'location', 'registration_fee', 'is_active', 'has_location_pin', 'display_flyer_thumbnail')
     search_fields = ('title', 'description', 'location')
-    list_filter = ('is_active', 'start_time')
+    list_filter = ('is_active', 'start_time', 'registration_fee')
     ordering = ('-start_time',)
     list_per_page = 25
     readonly_fields = ('display_flyer', 'location_map_link', 'created_at', 'updated_at')
     fieldsets = (
-        (None, {'fields': ('title', 'description', 'is_active', 'registration_fee')}),
+        (None, {'fields': ('title', 'description', 'is_active')}),
         ('Date & Time', {'fields': ('start_time', 'end_time')}),
+        ('Registration & Payment', {
+            'fields': ('registration_fee', 'payment_instructions', 'registration_link'),
+            'description': _(
+                "Set a registration fee greater than 0 for paid events. "
+                "If 'Payment Instructions' are provided, they will override the default church-wide details in the booking flow."
+            )
+        }),
         ('Location', {'fields': ('location', ('latitude', 'longitude'), 'location_map_link')}),
         ('Media', {'fields': ('flyer', 'display_flyer')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
