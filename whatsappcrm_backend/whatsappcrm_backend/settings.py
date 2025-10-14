@@ -247,21 +247,12 @@ CELERY_TASK_ROUTES = {
 CELERY_IMPORTS = (
     'conversations.tasks',
     'customer_data.tasks',
-    'media_manager.tasks',
-    'meta_integration.tasks',
-    'notifications.tasks',
-    'paynow_integration.tasks',
-    'whatsappcrm_backend.celery', # For the debug_task
-)
-CELERY_IMPORTS = (
-    'conversations.tasks',
-    'customer_data.tasks',
     'flows.tasks',
     'media_manager.tasks',
     'meta_integration.tasks',
     'notifications.tasks',
     'paynow_integration.tasks',
-    'whatsappcrm_backend.celery',
+    'whatsappcrm_backend.celery', # For the debug_task
 )
 
 # --- Channels (WebSocket) Configuration ---
@@ -344,7 +335,7 @@ LOGGING = {
     'loggers': {
         'django': {'handlers': ['console'], 'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'), 'propagate': False},
         'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
-        'celery': {'handlers': ['console'], 'level': 'INFO', 'propagate': True},
+        'celery': {'handlers': ['console'], 'level': os.getenv('CELERY_LOG_LEVEL', 'INFO'), 'propagate': True},
         'meta_integration': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': True},
         'conversations': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': True},
         'flows': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': True},

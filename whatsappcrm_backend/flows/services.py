@@ -199,65 +199,24 @@ def _initiate_paynow_payment(contact: Contact, amount_str: str, payment_type: st
         return {'paynow_initiation_success': False, 'paynow_initiation_error': error_message, 'last_payment_id': str(payment.id)}
 
 def _get_value_from_context_or_contact(variable_path: str, flow_context: dict, contact: Contact) -> Any:
-    """
-    Resolves a variable path (e.g., 'contact.name', 'flow_context.user_email') to its value.
-    Safely accesses attributes on Django models and keys in dictionaries. Does NOT execute methods.
-    """
-    if not variable_path: return None
-    parts = variable_path.split('.')
-    current_value = None
-    source_object_name = parts[0]
+	"""
+	Resolves a variable path (e.g., 'contact.name', 'user_email') to its value
+	by rendering it as a Jinja2 template. This is safer and more consistent.
+	"""
+	if not isinstance(variable_path, str):
+		return variable_path
 
-    if source_object_name == 'flow_context':
-        current_value = flow_context
-        path_to_traverse = parts[1:]
-    elif source_object_name == 'contact':
-        current_value = contact
-        path_to_traverse = parts[1:]
-    elif source_object_name == 'member_profile':
-        try:
-            current_value = contact.member_profile # Access related object via Django ORM
-            path_to_traverse = parts[1:]
-        except (MemberProfile.DoesNotExist, AttributeError):
-            logger.debug(
-                f"Contact {contact.id}: MemberProfile does not exist when accessing '{variable_path}'"
-            )
-            return None
-    else: # Default to flow_context if no recognized prefix
-        current_value = flow_context
-        path_to_traverse = parts # Use all parts as keys for the context dict
+	# The variable path is treated as a Jinja2 expression.
+	# e.g., "contact.name", "payment_history_list.0.amount"
+	template_string = f"{{{{ {variable_path} }}}}"
+	resolved_value = _resolve_value(template_string, flow_context, contact)
 
-    for i, part in enumerate(path_to_traverse):
-        if current_value is None: # If an intermediate part was None, the final value is None
-            return None
-        try:
-            if isinstance(current_value, dict):
-                current_value = current_value.get(part)
-            elif isinstance(current_value, list) and part.isdigit():
-                index = int(part)
-                if 0 <= index < len(current_value):
-                    current_value = current_value[index]
-                else:
-                    return None # Index out of bounds
-            elif hasattr(current_value, part): # Check for model field or property
-                attr = getattr(current_value, part)
-                if callable(attr) and not isinstance(getattr(type(current_value), part, None), property):
-                    # This is a method, not a property. Do not call it for security/predictability.
-                    logger.warning(
-                        f"Contact {contact.id}: Attempted to access a callable method '{part}' "
-                        f"via template variable '{variable_path}'. This is not allowed. Returning None."
-                    )
-                    return None
-                current_value = attr # Access property or attribute
-            else: # Part not found
-                return None
-        except Exception as e:
-            logger.warning(
-                f"Contact {contact.id}: Error accessing path '{'.'.join(path_to_traverse[:i+1])}' "
-                f"for variable '{variable_path}': {e}"
-            )
-            return None
-    return current_value
+	# Jinja returns an empty string for undefined variables. If the original path
+	# was just the variable name, we can interpret an empty string result as None.
+	if resolved_value == '' and template_string == f"{{{{ {resolved_value} }}}}":
+		return None
+
+	return resolved_value
 
 def _resolve_value(template_value: Any, flow_context: dict, contact: Contact) -> Any:
     """
@@ -569,28 +528,6 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     else:
                         current_step_context.update(context_updates)
                         logger.error(f"Contact {contact.id}: Action in step {step.id} failed to record event booking for event ID '{event_id}'.")
-                elif action_type == 'record_prayer_request':
-                    request_text = _resolve_value(action_item_conf.request_text_template, current_step_context, contact)
-                    category = _resolve_value(action_item_conf.category_template, current_step_context, contact)
-                    is_anonymous_val = _resolve_value(action_item_conf.is_anonymous_template, current_step_context, contact)
-                    submitted_as_member_val = _resolve_value(action_item_conf.submitted_as_member_template, current_step_context, contact)
-
-                    # Coerce resolved value to boolean
-                    is_anonymous = str(is_anonymous_val).lower() in ['true', '1', 'yes'] if is_anonymous_val is not None else False
-                    submitted_as_member = str(submitted_as_member_val).lower() in ['true', '1', 'yes'] if submitted_as_member_val is not None else False
-
-                    prayer_request_obj = record_prayer_request(
-                        contact=contact,
-                        request_text=str(request_text) if request_text else "",
-                        category=str(category) if category else "other",
-                        is_anonymous=is_anonymous,
-                        submitted_as_member=submitted_as_member
-                    )
-                    if prayer_request_obj:
-                        current_step_context['last_prayer_request_id'] = str(prayer_request_obj.id)
-                        logger.info(f"Contact {contact.id}: Action in step {step.id} recorded prayer request {prayer_request_obj.id}.")
-                    else:
-                        logger.error(f"Contact {contact.id}: Action in step {step.id} failed to record prayer request for text '{str(request_text)[:50]}...'.")
                 elif action_type == 'send_admin_notification':
                     message_body = _resolve_value(action_item_conf.message_template, current_step_context, contact)
                     if not message_body:
