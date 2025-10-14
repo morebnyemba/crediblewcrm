@@ -19,11 +19,16 @@ def run_async(coro):
     """
     try:
         loop = asyncio.get_running_loop()
+        # If a loop is running, schedule the coroutine on it.
+        # This is crucial for environments like Celery with eventlet/gevent
+        # or an already running async server.
+        return asyncio.run_coroutine_threadsafe(coro, loop).result()
     except RuntimeError:  # 'RuntimeError: There is no current event loop...'
+        # If no loop is running (e.g., standard sync Django request),
+        # create a new one to run the coroutine.
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    
-    return loop.run_until_complete(coro)
+        return loop.run_until_complete(coro)
 
 @receiver(post_save, sender=Message)
 def on_new_or_updated_message(sender, instance, created, **kwargs):

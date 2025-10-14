@@ -6,6 +6,7 @@ from celery import shared_task, exceptions
 from django.utils import timezone
 from django.db.models import Q
 from datetime import timedelta
+from django.db import close_old_connections
 
 from .utils import send_whatsapp_message, send_read_receipt_api
 from .models import MetaAppConfig
@@ -125,6 +126,8 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             # This block is specifically for when the retry mechanism itself gives up.
             logger.error(f"Max retries exceeded for sending message.", extra={'message_id': outgoing_message_id})
             outgoing_msg.status = 'failed' # type: ignore
+            # Close the connection before the final save attempt to prevent connection errors during error logging.
+            close_old_connections()
             
             # --- Improved Error Saving ---
             # Try to extract the specific Meta error from the exception if it was a ValueError from the API call
