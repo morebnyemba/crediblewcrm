@@ -1,5 +1,10 @@
 import os
 from celery import Celery
+# --- FIX for eventlet RLock warning ---
+# eventlet.monkey_patch() must be called before any other modules are imported,
+# especially before django.setup(), to ensure all standard library modules
+# are patched for cooperative multitasking.
+import eventlet; eventlet.monkey_patch()
 import django
 
 import logging

@@ -382,7 +382,10 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
             elif actual_message_type == "location" and send_message_config.location:
                 location_obj = send_message_config.location
                 location_dict = location_obj.model_dump(exclude_none=True, by_alias=True)
-                final_api_data_structure = {"location": _resolve_value(location_dict, current_step_context, contact)}
+                # --- FIX: The send_whatsapp_message utility wraps the data in a key matching the message_type.
+                # We should provide only the inner dictionary of location details, not a dict containing a 'location' key.
+                # The utility will create the final payload: {"type": "location", "location": {...}}
+                final_api_data_structure = _resolve_value(location_dict, current_step_context, contact)
 
             if final_api_data_structure:
                 actions_to_perform.append({

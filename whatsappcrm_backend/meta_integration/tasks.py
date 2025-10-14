@@ -131,13 +131,17 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             
             # --- Improved Error Saving ---
             # Try to extract the specific Meta error from the exception if it was a ValueError from the API call
-            last_error_details: Any = str(e)
-            if isinstance(e, ValueError) and "Meta API call failed" in last_error_details:
-                # --- FIX: More robustly handle error string parsing ---
-                # The error might not be a clean JSON string, so we handle that gracefully.
-                try: last_error_details = json.loads(last_error_details.split('Meta API call failed: ', 1)[1].replace("'", "\""))
-                except: pass # Keep as string if parsing fails
-            outgoing_msg.error_details = {'error': 'Max retries exceeded.', 'last_error': last_error_details, 'type': type(e).__name__} # type: ignore
+            last_error_details: Any
+            error_str = str(e)
+            if isinstance(e, ValueError) and "Meta API call failed" in error_str:
+                try:
+                    # The actual error dict is in the exception args
+                    last_error_details = e.args[0].split('Meta API call failed: ', 1)[1]
+                except (IndexError, AttributeError):
+                    last_error_details = error_str # Fallback to the full string
+            else:
+                last_error_details = error_str
+            outgoing_msg.error_details = {'error': 'Max retries exceeded.', 'last_error': last_error_details, 'type': type(e).__name__}
             outgoing_msg.status_timestamp = timezone.now() # type: ignore
             outgoing_msg.save(update_fields=['status', 'error_details', 'status_timestamp']) # type: ignore
             message_send_failed.send(sender=self.__class__, message_instance=outgoing_msg)
