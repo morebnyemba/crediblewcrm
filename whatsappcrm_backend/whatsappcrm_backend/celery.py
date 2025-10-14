@@ -1,10 +1,14 @@
 import os
 from celery import Celery
-# --- FIX for eventlet RLock warning ---
-# eventlet.monkey_patch() must be called before any other modules are imported,
-# especially before django.setup(), to ensure all standard library modules
-# are patched for cooperative multitasking.
-import eventlet; eventlet.monkey_patch()
+
+# --- FIX for eventlet/prefork pool conflict ---
+# Conditionally apply eventlet monkey-patching based on an environment variable.
+# This allows you to run different worker types (eventlet for I/O, prefork for CPU)
+# from the same codebase without conflicts.
+if os.environ.get('CELERY_EXECUTION_POOL') == 'eventlet':
+    import eventlet
+    eventlet.monkey_patch()
+
 import django
 
 import logging
@@ -21,15 +25,6 @@ app = Celery('whatsappcrm_backend')
 
 # Configure Celery using settings from Django settings.py
 app.config_from_object('django.conf:settings', namespace='CELERY')
-
-# ---- TEMPORARY DEBUG PRINT ----
-print(f"[DEBUG celery.py] CELERY_BROKER_URL from app.conf: {app.conf.broker_url}")
-print(f"[DEBUG celery.py] CELERY_RESULT_BACKEND from app.conf: {app.conf.result_backend}")
-# ---- END TEMPORARY DEBUG PRINT ----
-
-# This ensures all task results will be stored in django-db
-app.conf.result_backend = 'django-db'
-app.conf.result_extended = True  # Store additional task metadata
 
 # Load task modules from all registered Django apps
 # We now use the explicit CELERY_IMPORTS setting in settings.py, which is more robust.
