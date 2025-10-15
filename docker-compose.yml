@@ -54,8 +54,6 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - ADMIN_WHATSAPP_NUMBER=${ADMIN_WHATSAPP_NUMBER}
       - WHATSAPP_APP_SECRET=${WHATSAPP_APP_SECRET}
-    env_file:
-      - ./whatsappcrm_backend/.env
     depends_on:
       db:
         condition: service_healthy
@@ -80,8 +78,6 @@ services:
       - REDIS_HOST=redis
       - TZ=${TZ:-Africa/Harare}
       - CELERY_EXECUTION_POOL=eventlet
-    env_file:
-      - ./whatsappcrm_backend/.env
     depends_on:
       redis:
         condition: service_healthy
@@ -97,8 +93,6 @@ services:
       - DB_HOST=db
       - REDIS_HOST=redis
       - TZ=${TZ:-Africa/Harare}
-    env_file:
-      - ./whatsappcrm_backend/.env
     depends_on:
       redis:
         condition: service_healthy
@@ -115,8 +109,6 @@ services:
       - REDIS_HOST=redis
       - TZ=${TZ:-Africa/Harare}
       - CELERY_EXECUTION_POOL=eventlet
-    env_file:
-      - ./whatsappcrm_backend/.env
     depends_on:
       redis:
         condition: service_healthy
