@@ -266,7 +266,12 @@ CHANNEL_LAYERS = {
             # In a Docker environment, 'localhost' refers to the container itself.
             # You must use the service name of the Redis container (e.g., 'redis') and password
             # as defined in your docker-compose.yml file.
-            "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/1')],
+            "hosts": [os.getenv(
+                'REDIS_URL',
+                f"redis://:{os.getenv('REDIS_PASSWORD', '')}@redis:6379/1"
+            )],
+            # If Redis does not require a password, the URL should look like this:
+            # "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/1')],
         },
         # Use in-memory for local development if you don't have Redis running
         # "BACKEND": "channels.layers.InMemoryChannelLayer"
