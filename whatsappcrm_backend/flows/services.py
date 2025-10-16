@@ -518,7 +518,7 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     booking_obj, context_updates = record_event_booking(
                         contact=contact,
                         event_id=event_id,
-                        number_of_tickets=int(number_of_tickets) if number_of_tickets else 1,
+                        num_tickets=int(number_of_tickets) if number_of_tickets else 1,
                         status=str(status) if status else 'confirmed',
                         notes=str(notes) if notes else None,
                         proof_of_payment_wamid=str(proof_of_payment_wamid) if proof_of_payment_wamid else None,
