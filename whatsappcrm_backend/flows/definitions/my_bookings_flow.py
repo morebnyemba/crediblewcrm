@@ -115,7 +115,10 @@ MY_BOOKINGS_FLOW = {
                 }]
             },
             "transitions": [
-                {"to_step": "display_booking", "priority": 10, "condition_config": {"type": "variable_exists", "variable_name": "bookings_list.{{ booking_index }}"}},
+                # Use a direct numeric comparison for robustness. This checks if the new index is less than the total number of bookings.
+                # e.g., if list has 2 items (length 2), and index becomes 1, 1 < 2 is true.
+                # if index becomes 2, 2 < 2 is false, correctly ending the loop.
+                {"to_step": "display_booking", "priority": 10, "condition_config": {"type": "variable_less_than", "variable_name": "booking_index", "value": "{{ bookings_list|length }}"}},
                 {"to_step": "end_of_bookings", "priority": 20, "condition_config": {"type": "always_true"}}
             ]
         },
