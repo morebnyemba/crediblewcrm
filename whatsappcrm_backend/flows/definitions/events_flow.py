@@ -3,6 +3,17 @@ This flow displays upcoming events to the user, one at a time,
 allowing them to navigate through the list.
 """
 
+# --- Shared Template for DRY Principle ---
+EVENT_DETAILS_TEMPLATE = (
+    "Upcoming Event ({{ (event_index | int) + 1 }} of {{ events_list|length }}):\n\n"
+    "*{{ events_list[event_index | int].title }}*\n"
+    "🗓️ When: {{ events_list[event_index | int].start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n"
+    "📍 Where: {{ events_list[event_index | int].location }}\n\n"
+    "_{{ events_list[event_index | int].description|truncatewords(35) }}_\n\n"
+    "{% if (events_list[event_index | int].registration_fee | float) > 0 %}Fee: ${{ events_list[event_index | int].registration_fee }}{% else %}Fee: Free{% endif %}\n"
+    "{% if events_list[event_index | int].registration_link %}More Info: {{ events_list[event_index | int].registration_link }}{% endif %}"
+)
+
 EVENTS_FLOW = {
     "name": "view_events",
     "friendly_name": "View Upcoming Events",
@@ -60,21 +71,11 @@ EVENTS_FLOW = {
                 "message_type": "{% if events_list[event_index | int].flyer %}image{% else %}text{% endif %}",
                 "image": {
                     "link": "{{ events_list[event_index | int].flyer }}",
-                    "caption": (
-                        "Upcoming Event ({{ (event_index | int) + 1 }} of {{ events_list|length }}):\n\n"
-                        "*{{ events_list[event_index | int].title }}*\n"
-                        "🗓️ When: {{ events_list[event_index | int].start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n"
-                        "📍 Where: {{ events_list[event_index | int].location }}\n\n"
-                        "_{{ events_list[event_index | int].description|truncatewords(35) }}_\n\n"
-                        "{% if (events_list[event_index | int].registration_fee | float) > 0 %}Fee: ${{ events_list[event_index | int].registration_fee }}{% else %}Fee: Free{% endif %}\n"
-                        "{% if events_list[event_index | int].registration_link %}More Info: {{ events_list[event_index | int].registration_link }}{% endif %}"
-                    )
+                    "caption": EVENT_DETAILS_TEMPLATE
                 },
                 "text": {
-                    # This 'body' is identical to the 'caption' above. It will only be used if the message_type resolves to 'text'.
-                    "body": (
-                        "Upcoming Event ({{ (event_index | int) + 1 }} of {{ events_list|length }}):\n\n*{{ events_list[event_index | int].title }}*\n🗓️ When: {{ events_list[event_index | int].start_time|strftime('%a, %b %d, %Y @ %I:%M %p') }}\n📍 Where: {{ events_list[event_index | int].location }}\n\n_{{ events_list[event_index | int].description|truncatewords(35) }}_\n\n{% if events_list[event_index | int].registration_link %}Register here: {{ events_list[event_index | int].registration_link }}{% endif %}"
-                    )
+                    # This 'body' is now identical to the 'caption' above for consistency.
+                    "body": EVENT_DETAILS_TEMPLATE
                 }
             },
             "transitions": [{"to_step": "ask_next_event_action", "condition_config": {"type": "always_true"}}]
@@ -164,6 +165,7 @@ EVENTS_FLOW = {
             "name": "switch_to_main_menu",
             "type": "switch_flow",
             "config": {"target_flow_name": "main_menu"},
+            "transitions": []
         },
         {
             "name": "switch_to_event_booking",
