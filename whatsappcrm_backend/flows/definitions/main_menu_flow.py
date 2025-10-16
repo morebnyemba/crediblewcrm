@@ -3,6 +3,41 @@ This flow definition provides a main menu for users to navigate to different
 parts of the application, such as registration, viewing events, or giving.
 """
 
+# --- Shared Menu Sections for DRY Principle ---
+# Define common menu sections here to avoid repetition and make updates easier.
+
+PASTORAL_SUPPORT_SECTION = {
+    "title": "Pastoral Support",
+    "rows": [
+        {"id": "talk_to_pastor", "title": "Talk to a Pastor", "description": "Request a conversation with our leadership."}
+    ]
+}
+
+SPIRITUAL_GROWTH_SECTION = {
+    "title": "Spiritual Growth",
+    "rows": [
+        {"id": "watch_recent_sermons", "title": "Recent Sermons", "description": "Catch up on the latest messages."},
+        {"id": "submit_prayer_request", "title": "Prayer Request", "description": "Let us know how we can pray for you."}
+    ]
+}
+
+GET_INVOLVED_SECTION_SHARED = {
+    "title": "Church Life",
+    "rows": [
+        {"id": "view_upcoming_events", "title": "Upcoming Events", "description": "See what's happening at our church."},
+        {"id": "explore_ministries", "title": "Ministries & Groups", "description": "Find a group to connect with."}
+    ]
+}
+
+GIVING_SECTION = {
+    "title": "Giving & Support",
+    "rows": [
+        {"id": "give_online", "title": "Give Online", "description": "Support our ministry through tithes & offerings."}
+    ]
+}
+
+ABOUT_SECTION = {"title": "About This Service", "rows": [{"id": "show_dev_info", "title": "Development Info", "description": "Learn more about the creators of this service."}]}
+
 MAIN_MENU_FLOW = {
     "name": "main_menu",
     "friendly_name": "Main Menu",
@@ -37,40 +72,19 @@ MAIN_MENU_FLOW = {
                         "action": {
                             "button": "Show Menu",
                             "sections": [
-                                {
-                                    "title": "Pastoral Support",
-                                    "rows": [
-                                        {"id": "talk_to_pastor", "title": "Talk to a Pastor", "description": "Request a conversation with our leadership."}
-                                    ]
-                                },
+                                PASTORAL_SUPPORT_SECTION,
                                 {
                                     "title": "My Profile & Giving",
                                     "rows": [
-                                        {"id": "go_to_profile_summary", "title": "Check My Profile", "description": "View your current information."},
+                                        {"id": "go_to_profile_summary", "title": "View My Profile", "description": "See your current information."},
                                         {"id": "trigger_registration_flow", "title": "Update My Profile", "description": "Change your registration details."},
+                                        {"id": "my_bookings", "title": "My Event Bookings", "description": "View or cancel your event registrations."},
                                         {"id": "give_online", "title": "Give Online", "description": "Support our ministry through tithes & offerings."}
                                     ]
                                 },
-                                {
-                                    "title": "Spiritual Growth",
-                                    "rows": [
-                                        {"id": "watch_recent_sermons", "title": "Recent Sermons", "description": "Catch up on the latest messages."},
-                                        {"id": "submit_prayer_request", "title": "Submit a Prayer Request", "description": "Let us know how we can pray for you."}
-                                    ]
-                                },
-                                {
-                                    "title": "Get Involved",
-                                    "rows": [
-                                        {"id": "view_upcoming_events", "title": "Upcoming Events", "description": "See what's happening at our church."},
-                                        {"id": "explore_ministries", "title": "Ministries & Groups", "description": "Find a group to connect with."}
-                                    ]
-                                },
-                                {
-                                    "title": "About This Service",
-                                    "rows": [
-                                        {"id": "show_dev_info", "title": "Development Info", "description": "Learn more about the creators of this service."}
-                                    ]
-                                }
+                                SPIRITUAL_GROWTH_SECTION,
+                                GET_INVOLVED_SECTION_SHARED,
+                                ABOUT_SECTION
                             ]
                         }
                     }
@@ -88,6 +102,7 @@ MAIN_MENU_FLOW = {
                 {"to_step": "switch_to_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "submit_prayer_request"}},
                 {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
                 {"to_step": "confirm_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
+                {"to_step": "switch_to_my_bookings", "condition_config": {"type": "interactive_reply_id_equals", "value": "my_bookings"}},
                 {"to_step": "show_profile_summary", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}},
                 {"to_step": "switch_to_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
                 {"to_step": "switch_to_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
@@ -111,12 +126,7 @@ MAIN_MENU_FLOW = {
                         "action": {
                             "button": "Show Menu",
                             "sections": [
-                                {
-                                    "title": "Pastoral Support",
-                                    "rows": [
-                                        {"id": "talk_to_pastor", "title": "Talk to a Pastor", "description": "Request a conversation with our leadership."}
-                                    ]
-                                },
+                                PASTORAL_SUPPORT_SECTION,
                                 {
                                     "title": "Get Involved",
                                     "rows": [
@@ -125,31 +135,9 @@ MAIN_MENU_FLOW = {
                                         {"id": "explore_ministries", "title": "Ministries & Groups", "description": "Find a group to connect with."}
                                     ]
                                 },
-                                {
-                                    "title": "Spiritual Growth",
-                                    "rows": [
-                                        {"id": "watch_recent_sermons", "title": "Recent Sermons", "description": "Catch up on the latest messages."},
-                                        {"id": "submit_prayer_request", "title": "Submit a Prayer Request", "description": "Let us know how we can pray for you."}
-                                    ]
-                                },
-                                {
-                                    "title": "Giving & Support",
-                                    "rows": [
-                                        {"id": "give_online", "title": "Give Online", "description": "Support our ministry through tithes & offerings."}
-                                    ]
-                                },
-                                {
-                                    "title": "My Profile",
-                                    "rows": [
-                                        {"id": "go_to_profile_summary", "title": "Check My Profile", "description": "View your current information."}
-                                    ]
-                                },
-                                {
-                                    "title": "About This Service",
-                                    "rows": [
-                                        {"id": "show_dev_info", "title": "Development Info", "description": "Learn more about the creators of this service."}
-                                    ]
-                                }
+                                SPIRITUAL_GROWTH_SECTION,
+                                GIVING_SECTION,
+                                ABOUT_SECTION
                             ]
                         }
                     }
@@ -167,7 +155,7 @@ MAIN_MENU_FLOW = {
                 {"to_step": "switch_to_prayer_request", "condition_config": {"type": "interactive_reply_id_equals", "value": "submit_prayer_request"}},
                 {"to_step": "switch_to_giving", "condition_config": {"type": "interactive_reply_id_equals", "value": "give_online"}},
                 {"to_step": "confirm_pastor_handover", "condition_config": {"type": "interactive_reply_id_equals", "value": "talk_to_pastor"}},
-                {"to_step": "prompt_to_register", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}}, # Visitor selected check profile - prompt them to register
+                {"to_step": "prompt_to_register_for_profile", "condition_config": {"type": "interactive_reply_id_equals", "value": "go_to_profile_summary"}}, # Visitor selected check profile - prompt them to register
                 {"to_step": "switch_to_events", "condition_config": {"type": "interactive_reply_id_equals", "value": "view_upcoming_events"}},
                 {"to_step": "switch_to_ministries", "condition_config": {"type": "interactive_reply_id_equals", "value": "explore_ministries"}},
                 {"to_step": "switch_to_sermons", "condition_config": {"type": "interactive_reply_id_equals", "value": "watch_recent_sermons"}},
@@ -274,7 +262,7 @@ MAIN_MENU_FLOW = {
                 "actions_to_run": [
                     {
                         "action_type": "send_admin_notification",
-                        "message_template": "New pastor intervention request from {{ contact.name or contact.whatsapp_id }}. Please attend to them in the CRM.",
+                        "message_template": "New pastor intervention request from {{ contact.name or contact.whatsapp_id }}.\n\nView conversation: {{ settings.CORS_ALLOWED_ORIGINS[2] }}/conversations/{{ contact.id }}/",
                         "notify_groups": ["Pastoral Team"]
                     }
                 ]
@@ -321,7 +309,7 @@ MAIN_MENU_FLOW = {
             "transitions": [{"to_step": "offer_return_to_menu", "condition_config": {"type": "always_true"}}]
         },
         {
-            "name": "prompt_to_register",
+            "name": "prompt_to_register_for_profile",
             "type": "send_message",
             "config": {"message_type": "text", "text": {"body": "It looks like your profile is incomplete. Please register first to view your summary.\n\nType 'register' to begin, or 'menu' to go back."}},
             "transitions": [{"to_step": "end_flow_silently", "condition_config": {"type": "always_true"}}]

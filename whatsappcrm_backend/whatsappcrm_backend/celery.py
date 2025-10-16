@@ -13,6 +13,7 @@ from celery import Celery
 import django
 import logging
 from celery.signals import task_prerun, task_postrun
+from celery.signals import worker_process_init, task_prerun, task_postrun
 from django.db import close_old_connections
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'whatsappcrm_backend.settings')
@@ -34,6 +35,12 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 # --- Database Connection Management for Celery ---
 # This is crucial for preventing 'too many clients' errors with PostgreSQL
 # when using persistent worker processes like eventlet/gevent.
+@worker_process_init.connect
+def on_worker_init(**kwargs):
+    """Close old database connections when a worker process starts."""
+    close_old_connections()
+    logger.info("Closed old DB connections at worker process init.")
+
 @task_prerun.connect
 def on_task_prerun(*args, **kwargs):
     """Close old database connections before the task runs."""
