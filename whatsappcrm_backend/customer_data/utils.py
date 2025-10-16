@@ -138,6 +138,7 @@ def record_payment(
 def record_event_booking(
     contact: Contact,
     event_id: int,
+    num_tickets: int = 1,
     status: str = 'confirmed',
     notes: str = None,
     proof_of_payment_wamid: str = None,
@@ -170,7 +171,12 @@ def record_event_booking(
         booking, created = EventBooking.objects.get_or_create(
             contact=contact,
             event=event,
-            defaults={'status': status, 'notes': notes, 'payment': payment_obj if 'payment_obj' in locals() else None}
+            defaults={
+                'number_of_tickets': num_tickets,
+                'status': status,
+                'notes': notes,
+                'payment': payment_obj if 'payment_obj' in locals() else None
+            }
         )
 
         if created:
