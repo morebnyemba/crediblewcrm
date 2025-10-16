@@ -68,6 +68,16 @@ def send_whatsapp_message(to_phone_number: str, message_type: str, data: dict, c
         message_type: data,
     }
 
+    # --- FIX for location messages with invalid coordinates ---
+    # Ensure latitude and longitude are valid numbers before sending.
+    if message_type == "location":
+        loc_data = data
+        lat = loc_data.get("latitude")
+        lon = loc_data.get("longitude")
+        if not (isinstance(lat, (int, float)) and isinstance(lon, (int, float))):
+            logger.error(f"Invalid coordinates for location message to {to_phone_number}. Lat: {lat}, Lon: {lon}. Aborting send.")
+            return None # Abort the API call
+
     if message_type == "text" and "preview_url" in data:
         if not isinstance(data["preview_url"], bool):
             logger.warning(f"Correcting preview_url to boolean for text message. Original: {data['preview_url']}")

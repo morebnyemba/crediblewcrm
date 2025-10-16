@@ -136,9 +136,12 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             error_str = str(e)
             if isinstance(e, ValueError) and "Meta API call failed" in error_str:
                 try:
-                    # The actual error dict is in the exception args
-                    last_error_details = e.args[0].split('Meta API call failed: ', 1)[1]
-                except (IndexError, AttributeError):
+                    # The actual error dict string is in the exception args
+                    error_content_str = e.args[0].split('Meta API call failed: ', 1)[1]
+                    # Safely evaluate the string to a dict, handling potential single quotes
+                    # by replacing them with double quotes for valid JSON.
+                    last_error_details = json.loads(error_content_str.replace("'", "\""))
+                except (IndexError, AttributeError, json.JSONDecodeError):
                     last_error_details = error_str # Fallback to the full string
             else:
                 last_error_details = error_str
