@@ -18,6 +18,7 @@ django-cors-headers
 celery
 django-celery-results
 django-celery-beat
+flower # Web-based monitor for Celery
 redis # For Celery broker if using Redis
 eventlet # For the high-concurrency I/O worker pool
 kombu # Used directly in settings.py for queue definitions
