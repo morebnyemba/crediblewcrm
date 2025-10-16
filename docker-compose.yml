@@ -48,11 +48,6 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"] # Assuming you have a health check endpoint
-      interval: 30s
-      timeout: 10s
-      retries: 5
 
   frontend:
     build: ./whatsapp-crm-frontend
@@ -115,14 +110,9 @@ services:
       - /etc/letsencrypt:/etc/nginx/ssl:ro
     environment: # <-- Added environment section for logging
       - TZ=${TZ:-Africa/Harare}
-    healthcheck:
-      test: ["CMD", "service", "nginx", "status"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
       frontend:
         condition: service_started
     restart: unless-stopped
