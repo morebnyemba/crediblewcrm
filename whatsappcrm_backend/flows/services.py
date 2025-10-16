@@ -994,8 +994,9 @@ def _evaluate_transition_condition(transition: FlowTransition, contact: Contact,
         try:
             actual_value = _get_value_from_context_or_contact(resolved_variable_path, flow_context, contact)
             # An empty string from Jinja often means the path resolved but the value is empty.
-            # For 'variable_exists', we consider an empty string to exist.
-            result = actual_value is not None
+            # For 'variable_exists', we must treat an empty string as non-existent to correctly
+            # differentiate between a missing profile and a profile with an empty field.
+            result = actual_value is not None and actual_value != ''
         except Exception: # Catches UndefinedError from Jinja when the path is invalid
             result = False
         finally:
