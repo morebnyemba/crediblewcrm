@@ -8,7 +8,6 @@ services:
       - TZ=${TZ:-Africa/Harare}
       - POSTGRES_DB=${DB_NAME:-whatsapp_crm_dev}
       - POSTGRES_USER=${DB_USER:-crm_user}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - POSTGRES_PASSWORD=${DB_PASSWORD:?Please set DB_PASSWORD in .env file}
     restart: unless-stopped
     healthcheck:
@@ -34,33 +33,26 @@ services:
   backend:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_backend_app
+    # Use Daphne for ASGI support (Django Channels). Migrations should be run as a separate step in a CI/CD pipeline.
     command: >
       sh -c "python manage.py migrate &&
-             python manage.py collectstatic --noinput &&
-             gunicorn whatsappcrm_backend.wsgi:application --bind 0.0.0.0:8000"
+             daphne -b 0.0.0.0 -p 8000 whatsappcrm_backend.asgi:application"
     volumes:
       - staticfiles_volume:/app/staticfiles
       - ./whatsappcrm_backend/mediafiles:/app/mediafiles
-    environment: # <-- Added environment section
-      - DB_HOST=db
-      - REDIS_HOST=redis
-      - TZ=${TZ:-Africa/Harare}
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?Please set DJANGO_SECRET_KEY}
-      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
-      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:?Please set DJANGO_ALLOWED_HOSTS}
-      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:?Please set CSRF_TRUSTED_ORIGINS}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:?Please set CORS_ALLOWED_ORIGINS}
-      - DB_NAME=${DB_NAME:-whatsapp_crm_dev}
-      - DB_USER=${DB_USER:-crm_user}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - ADMIN_WHATSAPP_NUMBER=${ADMIN_WHATSAPP_NUMBER}
-      - WHATSAPP_APP_SECRET=${WHATSAPP_APP_SECRET}
+    env_file:
+      - ./whatsappcrm_backend/.env
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"] # Assuming you have a health check endpoint
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   frontend:
     build: ./whatsapp-crm-frontend
@@ -74,20 +66,8 @@ services:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_worker_io
     command: celery -A whatsappcrm_backend worker -l INFO -P eventlet -c 100 -Q celery
-    environment: # <-- Added environment section
-      - DB_HOST=db
-      - REDIS_HOST=redis
-      - TZ=${TZ:-Africa/Harare}
-      - CELERY_EXECUTION_POOL=eventlet
-      # --- Add all required variables ---
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
-      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
-      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - REDIS_URL=${REDIS_URL}
+    env_file:
+      - ./whatsappcrm_backend/.env
     depends_on:
       redis:
         condition: service_healthy
@@ -99,19 +79,8 @@ services:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_worker_cpu
     command: celery -A whatsappcrm_backend worker -l INFO -P prefork -c 2 -Q cpu_intensive
-    environment: # <-- Added environment section
-      - DB_HOST=db
-      - REDIS_HOST=redis
-      - TZ=${TZ:-Africa/Harare}
-      # --- Add all required variables ---
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
-      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
-      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - REDIS_URL=${REDIS_URL}
+    env_file:
+      - ./whatsappcrm_backend/.env
     depends_on:
       redis:
         condition: service_healthy
@@ -123,20 +92,8 @@ services:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_beat
     command: celery -A whatsappcrm_backend beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
-    environment: # <-- Added environment section
-      - DB_HOST=db
-      - REDIS_HOST=redis
-      - TZ=${TZ:-Africa/Harare}
-      - CELERY_EXECUTION_POOL=eventlet
-      # --- Add all required variables ---
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
-      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
-      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - REDIS_URL=${REDIS_URL}
+    env_file:
+      - ./whatsappcrm_backend/.env
     depends_on:
       redis:
         condition: service_healthy
@@ -158,9 +115,16 @@ services:
       - /etc/letsencrypt:/etc/nginx/ssl:ro
     environment: # <-- Added environment section for logging
       - TZ=${TZ:-Africa/Harare}
+    healthcheck:
+      test: ["CMD", "service", "nginx", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
     restart: unless-stopped
 
 volumes:

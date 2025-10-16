@@ -9,11 +9,16 @@ from rest_framework_simplejwt.views import (
 )
 from django.conf import settings
 from django.conf.urls.static import static
+from .views import health_check
 
 urlpatterns = [
     # Django Admin interface - useful for backend management via Jazzmin
     path('admin/', admin.site.urls),
     path('prometheus/', include('django_prometheus.urls')),
+
+    # Health check endpoint
+    path('health/', health_check, name='health_check'),
+
     # API endpoints for 'meta_integration' application
     # This includes:
     #   - The webhook receiver for Meta (e.g., /crm-api/meta/webhook/)
