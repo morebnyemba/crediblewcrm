@@ -115,9 +115,6 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             raise ValueError(f"Meta API call failed: {error_info}")
 
     except Exception as e:
-        # Ensure connections are closed before retrying or failing.
-        close_old_connections()
-        
         try:
             # Always attempt to retry on any exception. Celery will raise MaxRetriesExceededError
             # if it can't retry anymore, which is caught below.
@@ -153,10 +150,6 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             # This is the case where Celery is about to retry.
             # We just re-raise the exception to let Celery handle it.
             raise retry_exc
-    finally:
-        # This is a crucial final step to ensure connections are always closed
-        # when the task function exits, regardless of success or failure.
-        close_old_connections()
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=10)
@@ -180,10 +173,7 @@ def send_read_receipt_task(self, wamid: str, config_id: int):
 
     except Exception as e:
         logger.warning(f"Exception sending read receipt, will retry.", extra={'wamid': wamid, 'error': str(e)})
-        close_old_connections() # Close connection before retry
         try:
             raise self.retry(exc=e)
         except self.MaxRetriesExceededError:
             logger.error(f"Max retries exceeded for sending read receipt.", extra={'wamid': wamid})
-    finally:
-        close_old_connections()

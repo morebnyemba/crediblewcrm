@@ -73,7 +73,7 @@ services:
   celery_worker_cpu:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_worker_cpu
-    command: celery -A whatsappcrm_backend worker -l INFO -P prefork -c 2 -Q cpu_intensive
+    command: celery -A whatsappcrm_backend worker -l INFO -P prefork -c 3 -Q cpu_intensive
     env_file:
       - ./whatsappcrm_backend/.env
     depends_on:
@@ -95,6 +95,20 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+
+  flower:
+    build: ./whatsappcrm_backend
+    container_name: whatsappcrm_flower
+    command: celery -A whatsappcrm_backend flower --address=0.0.0.0 --port=5555
+    ports:
+      - "5555:5555"
+    env_file:
+      - ./whatsappcrm_backend/.env
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
 
   nginx_proxy:
     image: nginx:1.25-alpine
