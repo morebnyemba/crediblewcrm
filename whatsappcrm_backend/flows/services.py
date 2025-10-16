@@ -985,12 +985,26 @@ def _evaluate_transition_condition(transition: FlowTransition, contact: Contact,
         if variable_name_template is None: return False
         # Resolve the variable name itself as a template to handle dynamic paths like 'list.{{ index }}'
         resolved_variable_path = _resolve_value(variable_name_template, flow_context, contact)
-        actual_value = _get_value_from_context_or_contact(resolved_variable_path, flow_context, contact)
-        result = actual_value is not None
+        
+        # --- FIX: More robust check for list index existence ---
+        # Jinja's default behavior for an out-of-bounds index is to return an empty string or SilentUndefined.
+        # We need to differentiate this from a variable that genuinely exists but is empty.
+        # By temporarily changing the Undefined handler, we can catch the specific UndefinedError.
+        jinja_env.undefined = Undefined # Temporarily use the default, which raises an error
+        try:
+            actual_value = _get_value_from_context_or_contact(resolved_variable_path, flow_context, contact)
+            # An empty string from Jinja often means the path resolved but the value is empty.
+            # For 'variable_exists', we consider an empty string to exist.
+            result = actual_value is not None
+        except Exception: # Catches UndefinedError from Jinja when the path is invalid
+            result = False
+        finally:
+            jinja_env.undefined = SilentUndefined # Always restore our custom handler
+
         logger.debug(
             f"Contact {contact.id}, Flow {transition.current_step.flow.id}, Step {transition.current_step.id}: "
             f"Condition 'variable_exists' check for '{resolved_variable_path}'. "
-            f"Value: '{str(actual_value)[:100]}' (type: {type(actual_value).__name__}). Result: {result}"
+            f"Result: {result}"
         )
         return result
         
