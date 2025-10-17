@@ -148,19 +148,28 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=10)
-def send_read_receipt_task(self, wamid: str, config_id: int, show_typing_indicator: bool = False):
+def send_read_receipt_task(self, wamid: str, contact_id: int, config_id: int, show_typing_indicator: bool = False):
     """
     Celery task to send a read receipt for a given message ID.
     """
     logger.info(f"Task send_read_receipt_task started for WAMID: {wamid} (Typing: {show_typing_indicator})")
     try:
         active_config = MetaAppConfig.objects.get(pk=config_id)
+        contact = Contact.objects.get(pk=contact_id) if show_typing_indicator else None
     except MetaAppConfig.DoesNotExist:
         logger.error(f"send_read_receipt_task: MetaAppConfig with ID {config_id} not found. Task cannot proceed.")
         return  # Cannot retry if config is missing
+    except Contact.DoesNotExist:
+        logger.error(f"send_read_receipt_task: Contact with ID {contact_id} not found for typing indicator. Task cannot proceed.")
+        return
 
     try:
-        api_response = send_read_receipt_api(wamid=wamid, config=active_config, show_typing_indicator=show_typing_indicator)
+        api_response = send_read_receipt_api(
+            wamid=wamid,
+            contact_wa_id=contact.whatsapp_id if contact else None,
+            config=active_config,
+            show_typing_indicator=show_typing_indicator
+        )
         # The read receipt API returns {"success": true}. If the response is None or 'success' is not true, it's a failure.
         if not api_response or not api_response.get('success'):
             # The utility function has already logged the specific error. We raise an exception to trigger a retry.

@@ -108,12 +108,14 @@ def send_whatsapp_message(to_phone_number: str, message_type: str, data: dict, c
         
     return None
 
-def send_read_receipt_api(wamid: str, config: MetaAppConfig, show_typing_indicator: bool = False):
+def send_read_receipt_api(wamid: str, contact_wa_id: Optional[str], config: MetaAppConfig, show_typing_indicator: bool = False):
     """
     Sends a read receipt to the Meta Graph API for a specific message.
 
     Args:
         wamid (str): The WhatsApp Message ID of the message to mark as read.
+        contact_wa_id (str, optional): The recipient's WhatsApp ID, required if
+                                       `show_typing_indicator` is True.
         config (MetaAppConfig): The MetaAppConfig instance to use.
         show_typing_indicator (bool): If True, sends a 'typing_on' action instead
                                       of a 'read' receipt.
@@ -133,10 +135,13 @@ def send_read_receipt_api(wamid: str, config: MetaAppConfig, show_typing_indicat
     }
 
     if show_typing_indicator:
+        if not contact_wa_id:
+            logger.error("Cannot send typing indicator: contact_wa_id is required.")
+            return None
         payload = {
             "recipient_type": "individual",
             "messaging_product": "whatsapp",
-            "to": wamid, # For typing, 'to' is the recipient's WA ID, not the message ID
+            "to": contact_wa_id, # For typing, 'to' is the recipient's WA ID
             "type": "typing_on"
         }
         log_action = "typing indicator"

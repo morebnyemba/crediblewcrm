@@ -79,7 +79,11 @@ def process_flow_for_message_task(message_id: int):
         with transaction.atomic():
             # Use select_for_update to lock the message row during processing
             # to prevent race conditions if the task is somehow triggered twice.
-            incoming_message = Message.objects.select_for_update().select_related('contact', 'app_config').get(pk=message_id)
+            # --- FIX for "FOR UPDATE cannot be applied..." error ---
+            # First, lock the specific row.
+            Message.objects.select_for_update().get(pk=message_id)
+            # Then, fetch the object with its related fields.
+            incoming_message = Message.objects.select_related('contact', 'app_config').get(pk=message_id)
 
             # --- Idempotency Check ---
             # If the message has already been processed by the flow engine, log it and exit.

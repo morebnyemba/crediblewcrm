@@ -40,6 +40,7 @@ services:
              daphne -b 0.0.0.0 -p 8000 whatsappcrm_backend.asgi:application"
     volumes:
       - staticfiles_volume:/app/staticfiles
+      - ./whatsappcrm_backend:/app # Add this line to sync source code
       - ./whatsappcrm_backend/mediafiles:/app/mediafiles
     env_file:
       - ./whatsappcrm_backend/.env
@@ -66,6 +67,8 @@ services:
     command: celery -A whatsappcrm_backend worker -P prefork -Q celery -l INFO --concurrency=20
     env_file:
       - ./whatsappcrm_backend/.env
+    volumes: # Add this volume to sync source code
+      - ./whatsappcrm_backend:/app
     depends_on:
       redis:
         condition: service_healthy
@@ -83,6 +86,8 @@ services:
       - CELERY_EXECUTION_POOL=prefork
     env_file:
       - ./whatsappcrm_backend/.env
+    volumes: # Add this volume to sync source code
+      - ./whatsappcrm_backend:/app
     depends_on:
       redis:
         condition: service_healthy
@@ -98,6 +103,8 @@ services:
       - CELERY_EXECUTION_POOL=prefork
     env_file:
       - ./whatsappcrm_backend/.env
+    volumes: # Add this volume to sync source code
+      - ./whatsappcrm_backend:/app
     depends_on:
       redis:
         condition: service_healthy
@@ -113,6 +120,8 @@ services:
       - "5555:5555"
     env_file:
       - ./whatsappcrm_backend/.env
+    volumes: # Add this volume to sync source code
+      - ./whatsappcrm_backend:/app
     depends_on:
       redis:
         condition: service_healthy

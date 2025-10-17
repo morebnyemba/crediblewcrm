@@ -432,9 +432,9 @@ class MetaWebhookAPIView(View):
                 self._save_log(log_entry, 'failed', f"Critical error in webhook handler before queueing: {str(e)[:200]}")
         
         # --- Send Read Receipt ---
-        self._send_read_receipt(whatsapp_message_id, active_config, show_typing_indicator=True)
+        self._send_read_receipt(wamid=whatsapp_message_id, contact_id=contact.id, app_config=active_config, show_typing_indicator=True)
 
-    def _send_read_receipt(self, wamid: str, app_config: MetaAppConfig, show_typing_indicator: bool = True):
+    def _send_read_receipt(self, wamid: str, contact_id: int, app_config: MetaAppConfig, show_typing_indicator: bool = True):
         """
         Dispatches a Celery task to send a read receipt for the given message ID.
         By default, it also shows a typing indicator.
@@ -445,6 +445,7 @@ class MetaWebhookAPIView(View):
 
         send_read_receipt_task.delay(
             wamid=wamid,
+            contact_id=contact_id,
             config_id=app_config.id,
             show_typing_indicator=show_typing_indicator
         )
