@@ -1,7 +1,9 @@
 # whatsappcrm_backend/conversations/models.py
 from django.db.models import F
+
 from django.db import models
 from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 # It's good practice to link conversations to the MetaAppConfig if you might have multiple,
 # or just to know which configuration handled this conversation.
@@ -10,18 +12,23 @@ from django.utils import timezone
 class Contact(models.Model):
     """
     Represents a WhatsApp user (contact).
+    Represents a unique contact (person) identified by their WhatsApp ID.
     """
     whatsapp_id = models.CharField(
+        _("WhatsApp ID"),
         max_length=50,
         unique=True,
         db_index=True,
         help_text="The user's WhatsApp ID (phone number)."
+        help_text=_("The contact's phone number in international format (e.g., 15551234567).")
     )
     name = models.CharField(
+        _("Name"),
         max_length=255,
         blank=True,
         null=True,
         help_text="Name of the contact, as provided by WhatsApp or manually entered."
+        help_text=_("The contact's name, as provided by WhatsApp or updated manually.")
     )
     # Link to the MetaAppConfig that this contact is primarily associated with, if applicable
     # This helps if you manage multiple WhatsApp numbers/businesses through the same CRM.
@@ -41,14 +48,20 @@ class Contact(models.Model):
         help_text="The system user account associated with this WhatsApp contact, if any."
     )
     
+    # This links to the one-to-one MemberProfile if it exists
+    # member_profile = models.OneToOneField(...) is defined in customer_data.models
+
+    # Human Intervention Flag
     needs_human_intervention = models.BooleanField(
         default=False,
         db_index=True,
         help_text="Set to true if this contact requires human attention."
+        help_text=_("If True, automated flows will be paused for this contact.")
     )
     intervention_requested_at = models.DateTimeField(
         null=True, blank=True,
         help_text="Timestamp of when human intervention was last requested."
+        help_text=_("Timestamp when human intervention was last requested.")
     )
     first_seen = models.DateTimeField(auto_now_add=True, help_text="Timestamp of when the contact was first created.")
     last_seen = models.DateTimeField(auto_now=True, help_text="Timestamp of the last interaction (message) with this contact.")
@@ -57,11 +70,20 @@ class Contact(models.Model):
     is_blocked = models.BooleanField(default=False, help_text="If the CRM has blocked this contact.")
     # current_flow_state = models.JSONField(default=dict, blank=True, help_text="Stores the current state of the contact within a flow.")
 
+    # Timestamps
+    first_seen = models.DateTimeField(auto_now_add=True, help_text=_("When the contact first interacted with the system."))
+    last_seen = models.DateTimeField(auto_now=True, help_text=_("When the contact last sent a message."))
+    
+    # Flexible JSON field for storing other data
+    custom_fields = models.JSONField(default=dict, blank=True, help_text=_("Custom data stored for this contact."))
 
     def __str__(self):
         return f"{self.name or 'Unknown'} ({self.whatsapp_id})"
+        return self.name or self.whatsapp_id
 
     class Meta:
+        verbose_name = _("Contact")
+        verbose_name_plural = _("Contacts")
         ordering = ['-last_seen']
         verbose_name = "Contact"
         verbose_name_plural = "Contacts"
@@ -70,6 +92,7 @@ class Contact(models.Model):
 class Message(models.Model):
     """
     Represents a single message in a conversation.
+    Represents a single message, either incoming or outgoing.
     """
     DIRECTION_CHOICES = [
         ('in', 'Incoming'), # Message from contact to business
@@ -97,6 +120,7 @@ class Message(models.Model):
     ]
 
     # Status for outgoing messages, reflecting Meta's statuses
+    DIRECTION_CHOICES = [('in', _('Incoming')), ('out', _('Outgoing'))]
     STATUS_CHOICES = [
         ('pending_dispatch', 'Pending Dispatch'), # CRM has created it, queued for Celery task.
         ('sent', 'Sent to Meta'),    # Meta API accepted it (wamid received)
@@ -106,20 +130,34 @@ class Message(models.Model):
         ('deleted', 'Deleted'), # If Meta supports deleting messages
         # For incoming messages, status might be less relevant or just 'received'
         ('received', 'Received'),
+        ('pending_dispatch', _('Pending Dispatch')),
+        ('sent', _('Sent')),
+        ('delivered', _('Delivered')),
+        ('read', _('Read')),
+        ('failed', _('Failed')),
     ]
 
     contact = models.ForeignKey(
         Contact,
         on_delete=models.CASCADE, # If contact is deleted, delete their messages
         related_name='messages'
+    wamid = models.CharField(
+        _("WhatsApp Message ID"),
+        max_length=255,
+        unique=True,
+        blank=True, null=True, # Can be blank for outgoing messages before they are sent
+        help_text=_("The unique ID assigned by WhatsApp to the message.")
     )
     # Link to the MetaAppConfig used for this specific message, if applicable
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='messages')
     app_config = models.ForeignKey(
         'meta_integration.MetaAppConfig',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         help_text="The Meta App Configuration used for sending/receiving this message."
+        null=True, blank=True,
+        help_text=_("The configuration used to send or receive this message.")
     )
     wamid = models.CharField(
         max_length=255,
@@ -138,6 +176,10 @@ class Message(models.Model):
     # Store the raw message object from Meta for incoming, or the payload sent for outgoing.
     # This is useful for debugging, reprocessing, or accessing fields not explicitly modeled.
     content_payload = models.JSONField(help_text="Raw message payload from/to Meta API.")
+    direction = models.CharField(max_length=3, choices=DIRECTION_CHOICES)
+    message_type = models.CharField(max_length=50, help_text=_("e.g., 'text', 'interactive', 'image'"))
+    content_payload = models.JSONField(help_text=_("The structured content of the message."))
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
     
     # For quick access to text content if it's a text message
     text_content = models.TextField(blank=True, null=True, help_text="Text content if it's a text message.")
@@ -150,6 +192,15 @@ class Message(models.Model):
         choices=STATUS_CHOICES,
         default='pending_dispatch', # Default for outgoing, 'received' for incoming
         help_text="Status of the message."
+    # Status tracking for outgoing messages
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending_dispatch', db_index=True)
+    status_timestamp = models.DateTimeField(null=True, blank=True)
+    error_details = models.JSONField(null=True, blank=True)
+
+    # Flow processing tracking
+    flow_processed_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=_("Timestamp when this message was processed by the flow engine.")
     )
     status_timestamp = models.DateTimeField(null=True, blank=True, help_text="Timestamp of the last status update.")
     error_details = models.JSONField(null=True, blank=True, help_text="Error details if message sending failed.")
@@ -163,6 +214,7 @@ class Message(models.Model):
         related_name='triggered_messages',
         help_text="The flow step that triggered this outgoing message."
     )
+    # For linking messages in a conversation thread
     related_incoming_message = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,
@@ -170,11 +222,19 @@ class Message(models.Model):
         blank=True,
         related_name='replies',
         help_text="The incoming message that this message is a reply to."
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='responses', limit_choices_to={'direction': 'in'}
     )
+    
+    # For identifying system-generated notifications
+    is_system_notification = models.BooleanField(default=False)
 
     # --- Meta API Metadata ---
     conversation_id_from_meta = models.CharField(max_length=255, blank=True, null=True, help_text="The conversation ID from Meta for this message.")
     pricing_model_from_meta = models.CharField(max_length=50, blank=True, null=True, help_text="The pricing model from Meta (e.g., 'CBP').")
+    # Meta conversation tracking
+    conversation_id_from_meta = models.CharField(max_length=255, blank=True, null=True)
+    pricing_model_from_meta = models.CharField(max_length=50, blank=True, null=True)
 
 
     # Timestamps for specific statuses (optional, can be derived from status_timestamp and status)
@@ -195,6 +255,8 @@ class Message(models.Model):
         direction_arrow = "->" if self.direction == 'out' else "<-"
         contact_name = self.contact.name or self.contact.whatsapp_id
         return f"Msg {self.id} {direction_arrow} {contact_name} ({self.message_type}) at {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+        direction_arrow = "<-" if self.direction == 'in' else "->"
+        return f"Message {self.id} {direction_arrow} {self.contact.name or self.contact.whatsapp_id}"
 
     def save(self, *args, **kwargs):
         # If it's a text message and text_content is not set, try to populate it from content_payload
@@ -289,3 +351,6 @@ class BroadcastRecipient(models.Model):
     class Meta:
         unique_together = ('broadcast', 'contact')
         ordering = ['broadcast', 'contact']
+        verbose_name = _("Message")
+        verbose_name_plural = _("Messages")
+        ordering = ['-timestamp']

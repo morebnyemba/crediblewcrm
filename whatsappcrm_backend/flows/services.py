@@ -1280,7 +1280,7 @@ def _update_member_profile_data(contact: Contact, fields_to_update_config: Dict[
 # --- Main Service Function (process_message_for_flow) ---
 # This is the function that should be imported by meta_integration/views.py
 @transaction.atomic
-def process_message_for_flow(contact: Contact, message_data: dict, incoming_message_obj: Message, request: Optional[HttpRequest] = None) -> List[Dict[str, Any]]:
+def process_message_for_flow(contact: Contact, message_data: dict, incoming_message_obj: Message) -> List[Dict[str, Any]]:
     """
     Main entry point to process an incoming message for a contact against flows.
     Determines if the contact is in an active flow or if a new flow should be triggered.
@@ -1319,7 +1319,7 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                 logger.info(f"No active flow state for contact {contact.whatsapp_id}. Attempting to trigger a new flow.")
                 
                 # _trigger_new_flow now returns a boolean and handles state creation.
-                flow_was_triggered = _trigger_new_flow(contact, message_data, incoming_message_obj, request=request)
+                flow_was_triggered = _trigger_new_flow(contact, message_data, incoming_message_obj)
                 
                 if flow_was_triggered:
                     # A new flow was started, re-run the loop to process its first step.
@@ -1416,7 +1416,7 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                     break
             
             if next_step_to_transition_to:
-                actions, flow_context = _transition_to_step(contact_flow_state, next_step_to_transition_to, flow_context, contact, message_data, request=request)
+                actions, flow_context = _transition_to_step(contact_flow_state, next_step_to_transition_to, flow_context, contact, message_data)
                 
                 # Check for a switch_flow command specifically to handle it within the loop
                 switch_action = next((a for a in actions if a.get('type') == '_internal_command_switch_flow'), None)
@@ -1447,8 +1447,8 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                         # --- FIX: Manually execute the actions for the new entry point step ---
                         # This ensures that 'action' steps at the start of a flow are run immediately
                         # after a switch, before the loop continues to evaluate transitions.
-                        entry_actions, updated_context = _execute_step_actions(
-                            entry_point_step, contact, initial_context_for_new_flow.copy(), request=request
+                        entry_actions, updated_context = _execute_step_actions( # request object is no longer passed
+                            entry_point_step, contact, initial_context_for_new_flow.copy()
                         )
                         actions_to_perform.extend(entry_actions)
                         
@@ -1542,7 +1542,7 @@ def process_message_for_flow(contact: Contact, message_data: dict, incoming_mess
                 )
 
                 # Execute the new entry step's actions and add them to the final list
-                entry_actions, updated_context = _execute_step_actions(entry_point_step, contact, initial_context.copy(), request=request)
+                entry_actions, updated_context = _execute_step_actions(entry_point_step, contact, initial_context.copy())
                 new_contact_flow_state.flow_context_data = updated_context
                 new_contact_flow_state.save(update_fields=['flow_context_data', 'last_updated_at'])
                 final_actions_for_meta_view.extend(entry_actions)
