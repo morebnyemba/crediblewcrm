@@ -108,13 +108,15 @@ def send_whatsapp_message(to_phone_number: str, message_type: str, data: dict, c
         
     return None
 
-def send_read_receipt_api(wamid: str, config: MetaAppConfig):
+def send_read_receipt_api(wamid: str, config: MetaAppConfig, show_typing_indicator: bool = False):
     """
     Sends a read receipt to the Meta Graph API for a specific message.
 
     Args:
         wamid (str): The WhatsApp Message ID of the message to mark as read.
         config (MetaAppConfig): The MetaAppConfig instance to use.
+        show_typing_indicator (bool): If True, sends a 'typing_on' action instead
+                                      of a 'read' receipt.
 
     Returns:
         dict: The JSON response from Meta API, or None if an error occurs.
@@ -130,27 +132,37 @@ def send_read_receipt_api(wamid: str, config: MetaAppConfig):
         "Content-Type": "application/json",
     }
 
-    payload = {
-        "messaging_product": "whatsapp",
-        "status": "read",
-        "message_id": wamid,
-    }
+    if show_typing_indicator:
+        payload = {
+            "recipient_type": "individual",
+            "messaging_product": "whatsapp",
+            "to": wamid, # For typing, 'to' is the recipient's WA ID, not the message ID
+            "type": "typing_on"
+        }
+        log_action = "typing indicator"
+    else:
+        payload = {
+            "messaging_product": "whatsapp",
+            "status": "read",
+            "message_id": wamid,
+        }
+        log_action = "read receipt"
 
-    logger.debug(f"Sending read receipt via config '{config.name}'. URL: {url}, Payload: {json.dumps(payload)}")
+    logger.debug(f"Sending {log_action} via config '{config.name}'. URL: {url}, Payload: {json.dumps(payload)}")
 
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=15)
         response.raise_for_status()
         
         response_json = response.json()
-        logger.info(f"Read receipt sent successfully for WAMID {wamid} via config '{config.name}'. Response: {response_json}")
+        logger.info(f"{log_action.capitalize()} sent successfully for WAMID {wamid} via config '{config.name}'. Response: {response_json}")
         return response_json
     except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTP error sending read receipt for WAMID {wamid} via config '{config.name}': {e.response.status_code} - {e.response.text}")
+        logger.error(f"HTTP error sending {log_action} for WAMID {wamid} via config '{config.name}': {e.response.status_code} - {e.response.text}")
     except requests.exceptions.RequestException as e:
-        logger.error(f"Request error sending read receipt for WAMID {wamid} via config '{config.name}': {e}")
+        logger.error(f"Request error sending {log_action} for WAMID {wamid} via config '{config.name}': {e}")
     except Exception as e:
-        logger.error(f"An unexpected error occurred while sending read receipt for WAMID {wamid} via config '{config.name}': {e}", exc_info=True)
+        logger.error(f"An unexpected error occurred while sending {log_action} for WAMID {wamid} via config '{config.name}': {e}", exc_info=True)
         
     return None
 
