@@ -104,12 +104,12 @@ def record_payment(
 
             # Create confirmation message action
             if payment_status == 'pending_verification':
-                confirmation_message_text = (
-                    f"Thank you! We have received your proof of payment for *{amount} {currency}* "
-                    f"and will verify it shortly. God bless you! 🙏"
-                )
+                # This message is now sent from the flow definition itself for better control.
+                # We will not generate a confirmation action here for this status.
+                confirmation_action = None
             elif is_manual_payment:
                 ref_text = f" using reference: *{transaction_ref}*" if transaction_ref else ""
+                # This is for a manual payment pledge without immediate proof.
                 confirmation_message_text = (
                     f"Thank you for your pledge! 🙏\n\n"
                     f"We have recorded your pending contribution of *{amount} {currency}* for *{payment.get_payment_type_display()}*{ref_text}.\n\n"
@@ -122,12 +122,13 @@ def record_payment(
                     f"Your transaction ID is: {payment.id}"
                 )
             
-            confirmation_action = {
-                'type': 'send_whatsapp_message',
-                'recipient_wa_id': contact.whatsapp_id,
-                'message_type': 'text',
-                'data': {'body': confirmation_message_text}
-            }
+            if 'confirmation_message_text' in locals():
+                confirmation_action = {
+                    'type': 'send_whatsapp_message',
+                    'recipient_wa_id': contact.whatsapp_id,
+                    'message_type': 'text',
+                    'data': {'body': confirmation_message_text}
+                }
 
             logger.info(f"Successfully recorded payment {payment.id} of {amount} {currency} for contact {contact.id} ({contact.whatsapp_id}). Status: {payment_status}")
             return payment, confirmation_action

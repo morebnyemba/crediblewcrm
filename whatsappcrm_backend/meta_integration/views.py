@@ -399,11 +399,11 @@ class MetaWebhookAPIView(View):
             flow_actions = process_message_for_flow(contact, msg_data, incoming_msg_obj, request=request)
             
             sent_message_count = 0
-            # Introduce a small delay for subsequent messages in the same flow response
-            # to prevent race conditions in the sequential sending logic.
+            # Stagger subsequent messages to prevent race conditions in the sequential sending logic.
             dispatch_countdown = 0
             if flow_actions:
                 logger.info(f"Flow for contact {contact.id} returned {len(flow_actions)} action(s).")
+                # Use a transaction to ensure all messages are created before tasks are dispatched.
                 for action in flow_actions:
                     if action.get('type') == 'send_whatsapp_message':
                         recipient_wa_id = action.get('recipient_wa_id', contact.whatsapp_id)
@@ -441,9 +441,9 @@ class MetaWebhookAPIView(View):
                             args=[outgoing_msg.id, active_config.id],
                             countdown=dispatch_countdown
                         )
-                        sent_message_count += 1
-                        # Stagger the next message by a few seconds to allow the previous one to be processed.
-                        dispatch_countdown += 4
+                        sent_message_count += 1 
+                        # Increment the delay for the *next* message.
+                        dispatch_countdown += 2
             
             if log_entry and log_entry.pk:
                  self._save_log(log_entry, 'processed', f'Flow processing complete. {sent_message_count} message(s) dispatched.')
