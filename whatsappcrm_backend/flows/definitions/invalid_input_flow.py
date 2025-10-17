@@ -60,14 +60,11 @@ INVALID_INPUT_FLOW = {
             "name": "switch_back_to_original_flow",
             "type": "switch_flow",
             "config": {
-                # The original_flow_name and original_step_name are passed in the context
-                # when this fallback flow is triggered.
-                "target_flow_name": "{{ original_flow_name }}", # Dynamically switch back to the original flow
-                "initial_context_template": """
-                    {% set new_context = original_context.copy() %}
-                    {% do new_context.update({'simulated_trigger_keyword': 'reprompt_step_' ~ original_step_name}) %}
-                    {{ new_context | tojson }}
-                """
+                # This is a more robust way to return to the previous step.
+                # It directly tells the flow engine which flow and step to return to,
+                # without needing a simulated keyword.
+                "target_flow_name": "{{ original_flow_name }}",
+                "target_step_name": "{{ original_step_name }}"
             },
             "transitions": []
         },

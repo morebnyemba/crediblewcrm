@@ -464,6 +464,12 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
 
                     if payment_obj:
                         current_step_context['last_payment_id'] = str(payment_obj.id)
+                        # --- FIX: Explicitly trigger the background task to download the POP image ---
+                        # If a proof of payment WAMID was provided, we must schedule the download task.
+                        if proof_of_payment_wamid:
+                            from customer_data.tasks import process_proof_of_payment_image
+                            # Use transaction.on_commit to ensure the task runs only after the payment is saved.
+                            transaction.on_commit(lambda: process_proof_of_payment_image.delay(str(payment_obj.id), proof_of_payment_wamid))
                         logger.info(f"Contact {contact.id}: Action in step {step.id} recorded payment {payment_obj.id}.")
                         if confirmation_action:
                             actions_to_perform.append(confirmation_action)
