@@ -1,21 +1,22 @@
 # whatsappcrm_backend/whatsappcrm_backend/asgi.py
 
 import os
+
+# Set the DJANGO_SETTINGS_MODULE environment variable first.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'whatsappcrm_backend.settings')
+
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
 
-# Import our custom middleware
-from whatsappcrm_backend.middleware import TokenAuthMiddleware
-
-# Set the DJANGO_SETTINGS_MODULE environment variable.
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'whatsappcrm_backend.settings')
-
 # Initialize Django's ASGI application early to populate the apps registry.
 django_asgi_app = get_asgi_application()
 
+# --- FIX for AppRegistryNotReady ---
+# Import your routing and middleware *after* get_asgi_application() is called.
 import stats.routing
 import conversations.routing
+from whatsappcrm_backend.middleware import TokenAuthMiddleware
 
 application = ProtocolTypeRouter({
     # Django's ASGI application to handle traditional HTTP requests
