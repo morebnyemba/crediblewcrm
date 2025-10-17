@@ -114,9 +114,6 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
             config=active_config
         )
 
-        if not isinstance(outgoing_msg.content_payload, dict):
-            raise ValueError("Message content_payload is not a valid dictionary for sending.")
-
         if api_response and api_response.get('messages') and api_response['messages'][0].get('id'):
             outgoing_msg.wamid = api_response['messages'][0]['id']
             outgoing_msg.status = 'sent' # Successfully handed off to Meta

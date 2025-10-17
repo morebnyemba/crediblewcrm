@@ -418,10 +418,12 @@ class MetaWebhookAPIView(View):
         try:
             # --- ARCHITECTURAL CHANGE ---
             # Instead of processing the flow synchronously, queue a Celery task.
-            # This makes the webhook response immediate.
-            transaction.on_commit(
-                lambda: process_flow_for_message_task.delay(incoming_msg_obj.id)
-            )
+            # This makes the webhook response immediate. Using transaction.on_commit ensures
+            # the task is only queued after the database transaction (creating the message)
+            # has successfully completed, preventing race conditions.
+            transaction.on_commit(lambda: process_flow_for_message_task.delay(
+                incoming_msg_obj.id
+            ))
             logger.info(f"Queued process_flow_for_message_task for message {incoming_msg_obj.id}.")
 
         except Exception as e:
