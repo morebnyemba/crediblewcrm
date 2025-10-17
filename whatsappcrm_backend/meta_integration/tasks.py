@@ -158,28 +158,19 @@ def send_read_receipt_task(self, wamid: str, contact_id: int, config_id: int, sh
     """
     logger.info(f"Task send_read_receipt_task started for WAMID: {wamid} (Typing: {show_typing_indicator})")
     try:
+        # No longer need to fetch contact, as it's not required for the combined API call.
         active_config = MetaAppConfig.objects.get(pk=config_id)
-        contact = Contact.objects.get(pk=contact_id) if show_typing_indicator else None
     except MetaAppConfig.DoesNotExist:
         logger.error(f"send_read_receipt_task: MetaAppConfig with ID {config_id} not found. Task cannot proceed.")
         return  # Cannot retry if config is missing
-    except Contact.DoesNotExist:
-        logger.error(f"send_read_receipt_task: Contact with ID {contact_id} not found for typing indicator. Task cannot proceed.")
-        return
 
     try:
-        # --- FIX for Typing On API call ---
-        # First, send the typing indicator if requested. This is a separate API call.
-        if show_typing_indicator and contact:
-            send_whatsapp_message(
-                to_phone_number=contact.whatsapp_id,
-                message_type="typing_on",
-                data={}, # Typing On has no data payload
-                config=active_config
-            )
-
-        # Second, send the actual read receipt.
-        read_receipt_response = send_read_receipt_api(wamid=wamid, config=active_config)
+        # --- FIX: Use the single, combined API call ---
+        read_receipt_response = send_read_receipt_api(
+            wamid=wamid,
+            config=active_config,
+            show_typing_indicator=show_typing_indicator
+        )
 
         # The read receipt API returns {"success": true}. If it fails, trigger a retry.
         if not read_receipt_response or not read_receipt_response.get('success'):
