@@ -3,6 +3,7 @@ from django.db.models import F
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 # It's good practice to link conversations to the MetaAppConfig if you might have multiple,
 # or just to know which configuration handled this conversation.
 # from meta_integration.models import MetaAppConfig # This is removed to prevent circular import
