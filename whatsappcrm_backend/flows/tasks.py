@@ -9,8 +9,6 @@ from django.core.exceptions import ObjectDoesNotExist
 from conversations.models import Contact, Message
 from meta_integration.tasks import send_whatsapp_message_task
 from meta_integration.models import MetaAppConfig
-# Import the main service function that contains the flow logic
-from .services import process_message_for_flow
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +72,21 @@ def process_flow_for_message_task(message_id: int):
     """
     This task asynchronously runs the entire flow engine for an incoming message.
     """
+    # --- FIX for Circular Import ---
+    # Import locally to break the import cycle with flows.services.
+    from .services import process_message_for_flow
     try:
         with transaction.atomic():
-            incoming_message = Message.objects.select_related('contact', 'app_config').get(pk=message_id)
+            # Use select_for_update to lock the message row during processing
+            # to prevent race conditions if the task is somehow triggered twice.
+            incoming_message = Message.objects.select_for_update().select_related('contact', 'app_config').get(pk=message_id)
+
+            # --- Idempotency Check ---
+            # If the message has already been processed by the flow engine, log it and exit.
+            if incoming_message.flow_processed_at:
+                logger.info(f"Skipping flow processing for message {message_id} as it was already processed at {incoming_message.flow_processed_at}.")
+                return
+
             contact = incoming_message.contact
             message_data = incoming_message.content_payload or {}
 
@@ -84,6 +94,9 @@ def process_flow_for_message_task(message_id: int):
 
             if not actions_to_perform:
                 logger.info(f"Flow processing for message {message_id} resulted in no actions.")
+                # Mark as processed even if no actions, to prevent reprocessing.
+                incoming_message.flow_processed_at = timezone.now()
+                incoming_message.save(update_fields=['flow_processed_at'])
                 return
 
             config_to_use = incoming_message.app_config
@@ -105,6 +118,11 @@ def process_flow_for_message_task(message_id: int):
                     )
                     send_whatsapp_message_task.apply_async(args=[outgoing_msg.id, config_to_use.id], countdown=dispatch_countdown)
                     dispatch_countdown += 2
+            
+            # --- Mark as Processed ---
+            # After all actions are dispatched, mark the message as processed.
+            incoming_message.flow_processed_at = timezone.now()
+            incoming_message.save(update_fields=['flow_processed_at'])
 
     except Message.DoesNotExist:
         logger.error(f"process_flow_for_message_task: Message with ID {message_id} not found.")
