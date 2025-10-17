@@ -60,11 +60,12 @@ services:
   celery_worker:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_worker_io
-    # This worker is for I/O-bound tasks (e.g., API calls).
-    # Using prefork pool with higher concurrency.
-    command: celery -A whatsappcrm_backend worker -Q celery -l INFO --concurrency=20
+    # This worker is for I/O-bound tasks (e.g., API calls to Meta).
+    # We use the 'eventlet' pool for high concurrency with low CPU usage,
+    # which significantly reduces database connections and helps prevent race conditions.
+    command: celery -A whatsappcrm_backend worker -Q celery,celery_beat -l INFO -P eventlet -c 100
     environment:
-      - CELERY_EXECUTION_POOL=prefork
+      - CELERY_EXECUTION_POOL=eventlet
     env_file:
       - ./whatsappcrm_backend/.env
     depends_on:
@@ -79,7 +80,7 @@ services:
     container_name: whatsappcrm_celery_worker_cpu
     # This worker is for CPU-bound tasks.
     # Using prefork pool with low concurrency to avoid overloading the CPU.
-    command: celery -A whatsappcrm_backend worker -Q cpu_intensive -l INFO --concurrency=1
+    command: celery -A whatsappcrm_backend worker -Q cpu_intensive -l INFO --concurrency=2
     environment:
       - CELERY_EXECUTION_POOL=prefork
     env_file:
@@ -129,7 +130,7 @@ services:
     volumes:
       - ./nginx_proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - staticfiles_volume:/srv/www/static/:ro
-      - ./whatsappcrm_backend/mediafiles:/srv/www/media/:ro # Keep this for media files
+      - ./whatsappcrm_backend/mediafiles:/app/mediafiles # Correctly mount the media volume
       - /var/www/letsencrypt:/var/www/letsencrypt:ro
       - /etc/letsencrypt:/etc/nginx/ssl:ro
     environment: # <-- Added environment section for logging
