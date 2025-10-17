@@ -168,54 +168,69 @@ class MetaWebhookAPIView(View):
 
     @transaction.atomic
     def post(self, request: HttpRequest, *args, **kwargs): # app_id_or_name removed as it's not in urls.py for this view
-        # Local import
         from conversations.services import get_or_create_contact_by_wa_id
 
-        logger.info(f"Webhook POST request received.") # Removed app_id_or_name
+        logger.info("Webhook POST request received.")
         logger.debug(f"Request headers: {request.headers}")
-        # logger.debug(f"Request body (raw): {request.body[:1000]}") # Log more if needed
-
-        active_config = get_active_meta_config()
-        app_secret = active_config.app_secret if active_config else None
-
-        if not active_config:
-            logger.error("WEBHOOK POST: Processing failed - No active MetaAppConfig. Event ignored.")
-            return HttpResponse("EVENT_RECEIVED_BUT_UNCONFIGURED", status=200)
-
-        if not app_secret:
-             logger.warning(f"App Secret is not configured for '{active_config.name}'. Webhook signature verification will be SKIPPED. This is INSECURE.")
-             # The _verify_signature method will return True if app_secret is None, allowing processing to continue.
-        elif not self._verify_signature(request.body, request.headers.get('X-Hub-Signature-256'), app_secret):
-            logger.error("Webhook signature verification FAILED. Discarding request.")
-            # ... (logging to WebhookEventLog as in your original code) ...
-            WebhookEventLog.objects.create(
-                app_config=active_config, event_type='security',
-                payload={'error': 'Signature verification failed', 'headers': dict(request.headers)},
-                processing_status='rejected', processing_notes='Invalid X-Hub-Signature-256'
-            )
-            return HttpResponse("Invalid signature", status=403)
 
         raw_payload_str = request.body.decode('utf-8', errors='ignore')
         try:
             payload = json.loads(raw_payload_str)
         except json.JSONDecodeError as e:
-            # ... (logging to WebhookEventLog as in your original code) ...
             logger.error(f"Invalid JSON in webhook: {e}. Body: {raw_payload_str[:500]}...")
             WebhookEventLog.objects.create(
-                app_config=active_config, event_type='error',
+                app_config=None, event_type='error',
                 payload={'error': 'Invalid JSON', 'body_snippet': raw_payload_str[:500], 'exception': str(e)},
                 processing_status='error', processing_notes='Failed to parse JSON.'
             )
             return HttpResponse("Invalid JSON payload", status=400)
 
+        # 2. Determine the config based on the payload's phone_number_id
+        target_config = None
+        phone_id_from_payload = None
+        try:
+            phone_id_from_payload = payload.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("metadata", {}).get("phone_number_id")
+            if phone_id_from_payload:
+                target_config = MetaAppConfig.objects.get(phone_number_id=phone_id_from_payload)
+            else:
+                logger.warning("Could not find phone_number_id in webhook payload. Will fall back to active config if possible.")
+                target_config = get_active_meta_config()
+        except MetaAppConfig.DoesNotExist:
+            logger.error(f"WEBHOOK POST: No MetaAppConfig found for phone_number_id '{phone_id_from_payload}'. Event ignored.")
+            WebhookEventLog.objects.create(
+                app_config=None, event_type='security', phone_number_id_received=phone_id_from_payload,
+                payload=payload, processing_status='rejected', processing_notes=f"No config found for phone_number_id {phone_id_from_payload}."
+            )
+            return HttpResponse("EVENT_RECEIVED_BUT_UNCONFIGURED", status=200)
+        except (IndexError, KeyError, AttributeError):
+             logger.warning("Could not extract phone_number_id from payload structure. Falling back to active config.")
+             target_config = get_active_meta_config()
+
+        if not target_config:
+            logger.error("WEBHOOK POST: Processing failed - No matching or active MetaAppConfig. Event ignored.")
+            return HttpResponse("EVENT_RECEIVED_BUT_UNCONFIGURED", status=200)
+
+        logger.info(f"Processing webhook for config: '{target_config.name}' (Phone ID: {target_config.phone_number_id})")
+
+        # 3. Verify signature using the determined config's app_secret
+        app_secret = target_config.app_secret
+        if not app_secret:
+             logger.warning(f"App Secret is not configured for '{target_config.name}'. Webhook signature verification will be SKIPPED. This is INSECURE.")
+        elif not self._verify_signature(request.body, request.headers.get('X-Hub-Signature-256'), app_secret):
+            logger.error("Webhook signature verification FAILED. Discarding request.")
+            WebhookEventLog.objects.create(
+                app_config=target_config, event_type='security',
+                payload={'error': 'Signature verification failed', 'headers': dict(request.headers)},
+                processing_status='rejected', processing_notes='Invalid X-Hub-Signature-256'
+            )
+            return HttpResponse("Invalid signature", status=403)
+
         log_entry = None # Initialize
         base_log_defaults = {
-            'app_config': active_config, 'payload_object_type': payload.get("object")
+            'app_config': target_config, 'payload_object_type': payload.get("object")
         }
 
         try:
-            # The complex dispatch logic from your meta_integration/views.py post method
-            # (identifying messages, statuses, errors from payload structure)
             if payload.get("object") == "whatsapp_business_account":
                 for entry_idx, entry in enumerate(payload.get("entry", [])):
                     waba_id = entry.get("id")
@@ -233,8 +248,8 @@ class MetaWebhookAPIView(View):
                                     wamid = msg_data.get("id")
                                     # Use update_or_create for WebhookEventLog to handle retries from Meta
                                     log_entry, created_log = WebhookEventLog.objects.update_or_create(
-                                        event_identifier=wamid, # Assuming WAMID is unique identifier for message events
-                                        app_config=active_config, # Ensure app_config is part of uniqueness if wamid can repeat across configs
+                                        event_identifier=wamid,
+                                        app_config=target_config,
                                         defaults={
                                             'payload_object_type': payload.get("object"),
                                             'waba_id_received': waba_id,
@@ -250,20 +265,28 @@ class MetaWebhookAPIView(View):
                                         contact, _ = get_or_create_contact_by_wa_id(
                                             wa_id=contact_wa_id,
                                             name=profile_name,
-                                            meta_app_config=active_config
+                                            meta_app_config=target_config
                                         )
-                                        self._handle_message(msg_data, metadata, value, active_config, log_entry, contact, request)
+                                        self._handle_message(msg_data, metadata, value, target_config, log_entry, contact)
                                     else:
                                         logger.info(f"Skipping already processed/ignored WebhookEventLog for WAMID: {wamid} (DB ID: {log_entry.id})")
                             
                             elif "statuses" in value:
                                 for status_data in value["statuses"]:
-                                    wamid = status_data.get("id")
+                                    wamid = status_data.get("id") # This is the WAMID of the message being updated
+                                    status_val = status_data.get("status")
+                                    
+                                    # Create a more unique identifier for status updates to avoid overwriting.
+                                    # A single message (wamid) can have multiple statuses (sent, delivered, read).
+                                    status_identifier = f"{wamid}_{status_val}"
+
                                     log_entry, _ = WebhookEventLog.objects.update_or_create(
-                                        event_identifier=wamid, app_config=active_config, event_type='message_status',
-                                        defaults={**log_defaults_for_change, 'payload': status_data, 'processing_status': 'pending'}
+                                        event_identifier=status_identifier, app_config=target_config,
+                                        defaults={'event_type': 'message_status', 
+                                                  **log_defaults_for_change, 'payload': status_data, 
+                                                  'processing_status': 'pending'}
                                     )
-                                    self.handle_status_update(status_data, metadata, active_config, log_entry)
+                                    self.handle_status_update(status_data, metadata, target_config, log_entry)
                             # Add elif for "errors" here similar to above if needed
                             elif "errors" in value:
                                 for error_data in value["errors"]:
@@ -271,41 +294,40 @@ class MetaWebhookAPIView(View):
                                     error_code = error_data.get('code')
                                     log_id = f"error_{error_code}_{timezone.now().timestamp()}"
                                     log_entry, _ = WebhookEventLog.objects.update_or_create(
-                                        event_identifier=log_id, app_config=active_config, event_type='error',
+                                        event_identifier=log_id, app_config=target_config, event_type='error',
                                         defaults={**log_defaults_for_change, 'payload': error_data, 'processing_status': 'pending'}
                                     )
-                                    self.handle_error_notification(error_data, metadata, active_config, log_entry)
+                                    self.handle_error_notification(error_data, metadata, target_config, log_entry)
                             else:
                                 logger.warning(f"Change field is 'messages' but no 'messages' or 'statuses' key. Value keys: {value.keys()}")
                         # Add other field handlers ('message_template_status_update', etc.)
                         elif field == "account_update":
                             log_entry, _ = WebhookEventLog.objects.update_or_create(
                                 event_identifier=f"{field}_{value.get('event', 'unknown')}_{entry.get('id', 'unknown')}_{timezone.now().timestamp()}",
-                                app_config=active_config, event_type='account_update',
+                                app_config=target_config, event_type='account_update',
                                 defaults={**log_defaults_for_change, 'payload': value, 'processing_status': 'pending'}
                             )
-                            self.handle_account_update(value, metadata, active_config, log_entry)
+                            self.handle_account_update(value, metadata, target_config, log_entry)
                         elif field == "message_template_status_update":
                             log_entry, _ = WebhookEventLog.objects.update_or_create(
                                 event_identifier=f"{field}_{value.get('message_template_id')}_{value.get('event')}",
-                                app_config=active_config, event_type='template_status',
+                                app_config=target_config, event_type='template_status',
                                 defaults={**log_defaults_for_change, 'payload': value, 'processing_status': 'pending'}
                             )
-                            self.handle_template_status_update(value, metadata, active_config, log_entry)
+                            self.handle_template_status_update(value, metadata, target_config, log_entry)
                         else:
                             generic_event_id = f"{field}_{entry.get('id', 'unknown')}_{change_idx}_{timezone.now().timestamp()}"
                             log_entry, _ = WebhookEventLog.objects.update_or_create(
-                                event_identifier=generic_event_id, app_config=active_config, event_type=field or 'unknown_field',
+                                event_identifier=generic_event_id, app_config=target_config, event_type=field or 'unknown_field',
                                 defaults={**log_defaults_for_change, 'payload': value, 'processing_status': 'pending'}
                             )
                             logger.warning(f"Unhandled change field '{field}'. Logged with ID {log_entry.id}")
                             self._save_log(log_entry, 'ignored', f"Unhandled field: {field}")
 
-
             else: # Other object types
                 generic_event_id = f"{payload.get('object', 'unknown_object')}_{timezone.now().timestamp()}"
                 log_entry, _ = WebhookEventLog.objects.update_or_create(
-                    event_identifier=generic_event_id, app_config=active_config,
+                    event_identifier=generic_event_id, app_config=target_config,
                     defaults={**base_log_defaults, 'payload': payload, 'processing_status': 'pending'}
                 )
                 logger.warning(f"Received webhook for unhandled object type: {payload.get('object')}")
@@ -345,10 +367,10 @@ class MetaWebhookAPIView(View):
 
 
     @transaction.atomic
-    def _handle_message(self, msg_data: dict, metadata: dict, value_entry: dict, active_config: MetaAppConfig, log_entry: WebhookEventLog, contact, request: HttpRequest):
+    def _handle_message(self, msg_data: dict, metadata: dict, value_entry: dict, active_config: MetaAppConfig, log_entry: WebhookEventLog, contact):
         # Local imports
         from conversations.models import Message
-        from flows.services import process_message_for_flow
+        from flows.tasks import process_flow_for_message_task
         # Import Contact for type hinting and for the action loop
         from conversations.models import Contact
 
@@ -390,77 +412,32 @@ class MetaWebhookAPIView(View):
         
         if log_entry and log_entry.pk:
             log_entry.message = incoming_msg_obj # Link log to message
-            log_entry.processing_status = 'processing_flow'
+            log_entry.processing_status = 'processing_queued'
             log_entry.save(update_fields=['message', 'processing_status'])
         
         try:
-            # This service function contains its own robust error handling and will
-            # return actions, including user-facing error messages if something goes wrong inside the flow.
-            flow_actions = process_message_for_flow(contact, msg_data, incoming_msg_obj, request=request)
-            
-            sent_message_count = 0
-            # Stagger subsequent messages to prevent race conditions in the sequential sending logic.
-            dispatch_countdown = 0
-            if flow_actions:
-                logger.info(f"Flow for contact {contact.id} returned {len(flow_actions)} action(s).")
-                # Use a transaction to ensure all messages are created before tasks are dispatched.
-                for action in flow_actions:
-                    if action.get('type') == 'send_whatsapp_message':
-                        recipient_wa_id = action.get('recipient_wa_id', contact.whatsapp_id)
-                        outgoing_message_type = action.get('message_type')
-                        outgoing_data_payload = action.get('data')
-                        
-                        # Determine the recipient contact object.
-                        # In most cases, this will be the same contact who sent the message.
-                        # This avoids a DB hit inside the loop if the recipient is the same.
-                        if recipient_wa_id == contact.whatsapp_id:
-                            recipient_contact = contact
-                        else:
-                            # If sending to a different contact, we must fetch them.
-                            # This is less common for direct replies but necessary for some flows.
-                            try:
-                                recipient_contact = Contact.objects.get(whatsapp_id=recipient_wa_id)
-                            except Contact.DoesNotExist:
-                                logger.error(f"Flow action requested sending to a non-existent contact WA_ID: {recipient_wa_id}. Skipping this action.")
-                                continue
-
-                        # Create the outgoing Message object in the database
-                        outgoing_msg = Message.objects.create(
-                            contact=recipient_contact,
-                            app_config=active_config,
-                            direction='out',
-                            message_type=outgoing_message_type,
-                            content_payload=outgoing_data_payload,
-                            status='pending_dispatch',
-                            timestamp=timezone.now(),
-                            triggered_by_flow_step_id=getattr(contact.flow_state, 'current_step_id', None) if hasattr(contact, 'flow_state') and contact.flow_state else None, # Use original contact's flow state
-                            related_incoming_message=incoming_msg_obj # Link to incoming message
-                        )
-                        # Asynchronously dispatch the message to be sent via the WhatsApp API
-                        send_whatsapp_message_task.apply_async(
-                            args=[outgoing_msg.id, active_config.id],
-                            countdown=dispatch_countdown
-                        )
-                        sent_message_count += 1 
-                        # Increment the delay for the *next* message.
-                        dispatch_countdown += 2
-            
-            if log_entry and log_entry.pk:
-                 self._save_log(log_entry, 'processed', f'Flow processing complete. {sent_message_count} message(s) dispatched.')
+            # --- ARCHITECTURAL CHANGE ---
+            # Instead of processing the flow synchronously, queue a Celery task.
+            # This makes the webhook response immediate.
+            transaction.on_commit(
+                lambda: process_flow_for_message_task.delay(incoming_msg_obj.id)
+            )
+            logger.info(f"Queued process_flow_for_message_task for message {incoming_msg_obj.id}.")
 
         except Exception as e:
             # This block catches unexpected errors in the message handling logic itself,
             # outside of the `process_message_for_flow` service's internal error handling.
             logger.error(f"Unhandled exception in _handle_message for WAMID {whatsapp_message_id} (Contact: {contact.id}): {e}", exc_info=True)
             if log_entry and log_entry.pk:
-                self._save_log(log_entry, 'failed', f"Critical error in webhook handler: {str(e)[:200]}")
+                self._save_log(log_entry, 'failed', f"Critical error in webhook handler before queueing: {str(e)[:200]}")
         
         # --- Send Read Receipt ---
-        self._send_read_receipt(whatsapp_message_id, active_config)
+        self._send_read_receipt(whatsapp_message_id, active_config, show_typing_indicator=True)
 
-    def _send_read_receipt(self, wamid: str, app_config: MetaAppConfig):
+    def _send_read_receipt(self, wamid: str, app_config: MetaAppConfig, show_typing_indicator: bool = True):
         """
         Dispatches a Celery task to send a read receipt for the given message ID.
+        By default, it also shows a typing indicator.
         """
         if not wamid:
             logger.warning(f"Cannot send read receipt: Missing WAMID.")
@@ -468,16 +445,16 @@ class MetaWebhookAPIView(View):
 
         send_read_receipt_task.delay(
             wamid=wamid,
-            config_id=app_config.id
+            config_id=app_config.id,
+            show_typing_indicator=show_typing_indicator
         )
-        logger.info(f"Dispatched read receipt task for WAMID {wamid}.")
+        logger.info(f"Dispatched read receipt task for WAMID {wamid} (Typing: {show_typing_indicator}).")
 
 
     # --- Placeholder for other handlers from your original file ---
     def handle_status_update(self, status_data, metadata, app_config, log_entry: WebhookEventLog):
         wamid = status_data.get("id"); status_value = status_data.get("status"); ts_str = status_data.get("timestamp")
         status_ts = timezone.make_aware(datetime.fromtimestamp(int(ts_str))) if ts_str and ts_str.isdigit() else timezone.now()
-        if not log_entry.event_identifier: log_entry.event_identifier = wamid
         logger.info(f"Status Update: WAMID={wamid}, Status='{status_value}'")
         notes = [f"Status for WAMID {wamid} is {status_value}."]
         try: # noqa
