@@ -60,11 +60,9 @@ services:
   celery_worker:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_worker_io
-    # This worker is for I/O-bound tasks (e.g., API calls).
-    # Using prefork pool with higher concurrency.
-    command: celery -A whatsappcrm_backend worker -Q celery -l INFO --concurrency=20
-    environment:
-      - CELERY_EXECUTION_POOL=prefork
+    # This worker is for I/O-bound tasks. Using the default prefork pool.
+    # A lower concurrency is safer and sufficient for many workloads.
+    command: celery -A whatsappcrm_backend worker -P prefork -Q celery -l INFO --concurrency=20
     env_file:
       - ./whatsappcrm_backend/.env
     depends_on:

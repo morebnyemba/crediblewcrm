@@ -1,14 +1,5 @@
 import os
 
-# --- FIX for eventlet/prefork pool conflict ---
-# Conditionally apply eventlet monkey-patching based on an environment variable.
-# This allows you to run different worker types (eventlet for I/O, prefork for CPU)
-# from the same codebase without conflicts.
-# IMPORTANT: This must run before almost all other imports.
-if os.environ.get('CELERY_EXECUTION_POOL') == 'eventlet':
-    import eventlet
-    eventlet.monkey_patch()
-
 from celery import Celery
 import django
 import logging

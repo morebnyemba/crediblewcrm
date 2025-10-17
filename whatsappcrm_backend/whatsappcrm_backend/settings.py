@@ -131,11 +131,12 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', DB_PASSWORD_DEFAULT), # Ensure this is in your .env!
         'HOST': os.getenv('DB_HOST', DB_HOST_DEFAULT),
         'PORT': os.getenv('DB_PORT', DB_PORT_DEFAULT),
-        # --- FIX for 'too many clients' error ---
-        # When using PgBouncer in transaction pooling mode, persistent connections (CONN_MAX_AGE)
-        # must be disabled. PgBouncer handles the connection persistence to the actual database.
-        # Each request from Django will get a connection from PgBouncer's pool for the duration of the transaction.
-        'CONN_MAX_AGE': 0,
+        # --- Database Connection Pooling ---
+        # For prefork workers, it's efficient to have persistent connections.
+        # Each worker process will maintain its own connection.
+        # Set to 300 seconds (5 minutes) to automatically close idle connections.
+        # Set to 0 if you are using an external pooler like PgBouncer.
+        'CONN_MAX_AGE': 300,
     }
 }
 
@@ -263,18 +264,11 @@ CHANNEL_LAYERS = {
         # Use Redis in production for a robust, scalable channel layer
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            # In a Docker environment, 'localhost' refers to the container itself.
-            # You must use the service name of the Redis container (e.g., 'redis') and password
-            # as defined in your docker-compose.yml file.
-            "hosts": [os.getenv(
-                'REDIS_URL',
-                f"redis://:{os.getenv('REDIS_PASSWORD', '')}@redis:6379/1"
-            )],
-            # If Redis does not require a password, the URL should look like this:
-            # "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/1')],
+            # This URL should be defined in your .env file.
+            # It points to the Redis service and specifies database 1,
+            # separating it from Celery's broker (which uses database 0).
+            "hosts": [os.getenv('REDIS_URL', 'redis://localhost:6379/1')],
         },
-        # Use in-memory for local development if you don't have Redis running
-        # "BACKEND": "channels.layers.InMemoryChannelLayer"
     },
 }
 
