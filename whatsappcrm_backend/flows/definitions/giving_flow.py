@@ -101,57 +101,20 @@ GIVING_FLOW = {
             }
         },
         "transitions": [
-            {
-                "to_step": "ask_payment_method",
-                "condition_config": {"type": "always_true"}
-            }
+            {"to_step": "set_manual_payment_and_proceed", "condition_config": {"type": "always_true"}}
         ]
     },
     {
-        "name": "ask_payment_method",
-        "type": "question",
+        "name": "set_manual_payment_and_proceed",
+        "type": "action",
         "config": {
-            "message_config": {
-                "message_type": "interactive",
-                "interactive": {
-                    "type": "list",
-                    "header": {"type": "text", "text": "Payment Method"},
-                    "body": {"text": "How would you like to give?"},
-                    "action": {
-                        "button": "Choose Method",
-                        "sections": [{
-                            "title": "Available Methods",
-                            "rows": [
-                                {"id": "ecocash", "title": "EcoCash"},
-                                {"id": "manual_payment", "title": "Manual/Cash Payment"},
-                                {"id": "omari", "title": "Omari", "description": "Coming Soon"},
-                                {"id": "innbucks", "title": "Innbucks", "description": "Coming Soon"}
-                            ]
-                        }]
-                    }
-                }
-            },
-            "reply_config": {
-                "expected_type": "interactive_id",
-                "save_to_variable": "payment_method"
-            }
+            "actions_to_run": [{
+                "action_type": "set_context_variable",
+                "variable_name": "payment_method",
+                "value_template": "manual_payment"
+            }]
         },
-        "transitions": [
-            {
-                "to_step": "confirm_whatsapp_as_ecocash",
-                "condition_config": {
-                    "type": "interactive_reply_id_equals",
-                    "value": "ecocash"
-                }
-            },
-            {
-                "to_step": "display_manual_payment_details",
-                "condition_config": {
-                    "type": "interactive_reply_id_equals",
-                    "value": "manual_payment"
-                }
-            }
-        ]
+        "transitions": [{"to_step": "display_manual_payment_details", "condition_config": {"type": "always_true"}}]
     },
     # --- EcoCash (Automated) Path ---
     {
