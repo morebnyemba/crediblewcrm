@@ -27,8 +27,12 @@ def send_whatsapp_message_task(self, outgoing_message_id: int, active_config_id:
         outgoing_msg = Message.objects.select_related('contact').get(pk=outgoing_message_id)
         active_config = MetaAppConfig.objects.get(pk=active_config_id)
     except Message.DoesNotExist:
-        logger.error(f"send_whatsapp_message_task: Message with ID {outgoing_message_id} not found. Task cannot proceed.")
-        return # Cannot retry if message doesn't exist
+        # --- FIX for race condition ---
+        # The message might not be in the DB yet if the task was picked up before the transaction committed.
+        # Retry the task to give the DB time to sync.
+        logger.warning(f"send_whatsapp_message_task: Message with ID {outgoing_message_id} not found. Retrying...")
+        raise self.retry()
+
     except MetaAppConfig.DoesNotExist:
         logger.error(f"send_whatsapp_message_task: MetaAppConfig with ID {active_config_id} not found. Task cannot proceed.")
         # Update message status to failed if config is missing
@@ -164,16 +168,22 @@ def send_read_receipt_task(self, wamid: str, contact_id: int, config_id: int, sh
         return
 
     try:
-        api_response = send_read_receipt_api(
-            wamid=wamid,
-            contact_wa_id=contact.whatsapp_id if contact else None,
-            config=active_config,
-            show_typing_indicator=show_typing_indicator
-        )
-        # The read receipt API returns {"success": true}. If the response is None or 'success' is not true, it's a failure.
-        if not api_response or not api_response.get('success'):
-            # The utility function has already logged the specific error. We raise an exception to trigger a retry.
-            raise ValueError(f"API call to send read receipt failed for WAMID {wamid}. Response: {api_response}")
+        # --- FIX for Typing On API call ---
+        # First, send the typing indicator if requested. This is a separate API call.
+        if show_typing_indicator and contact:
+            send_whatsapp_message(
+                to_phone_number=contact.whatsapp_id,
+                message_type="typing_on",
+                data={}, # Typing On has no data payload
+                config=active_config
+            )
+
+        # Second, send the actual read receipt.
+        read_receipt_response = send_read_receipt_api(wamid=wamid, config=active_config)
+
+        # The read receipt API returns {"success": true}. If it fails, trigger a retry.
+        if not read_receipt_response or not read_receipt_response.get('success'):
+            raise ValueError(f"API call to send read receipt failed for WAMID {wamid}. Response: {read_receipt_response}")
 
     except Exception as e:
         logger.warning(f"Exception in send_read_receipt_task for WAMID {wamid}, will retry. Error: {e}")
