@@ -35,7 +35,8 @@ services:
     container_name: whatsappcrm_backend_app
     # Use Daphne for ASGI support (Django Channels). Migrations should be run as a separate step in a CI/CD pipeline.
     command: >
-      sh -c "python manage.py migrate &&
+      sh -c "python manage.py makemigrations &&
+             python manage.py migrate &&
              daphne -b 0.0.0.0 -p 8000 whatsappcrm_backend.asgi:application"
     volumes:
       - staticfiles_volume:/app/staticfiles
