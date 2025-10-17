@@ -60,7 +60,11 @@ services:
   celery_worker:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_worker_io
-    command: celery -A whatsappcrm_backend worker -l INFO -P eventlet -c 100 -Q celery
+    # This worker is for I/O-bound tasks (e.g., API calls).
+    # Using prefork pool with higher concurrency.
+    command: celery -A whatsappcrm_backend worker -Q celery -l INFO --concurrency=20
+    environment:
+      - CELERY_EXECUTION_POOL=prefork
     env_file:
       - ./whatsappcrm_backend/.env
     depends_on:
@@ -73,7 +77,11 @@ services:
   celery_worker_cpu:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_worker_cpu
-    command: celery -A whatsappcrm_backend worker -l INFO -P prefork -c 3 -Q cpu_intensive
+    # This worker is for CPU-bound tasks.
+    # Using prefork pool with low concurrency to avoid overloading the CPU.
+    command: celery -A whatsappcrm_backend worker -Q cpu_intensive -l INFO --concurrency=1
+    environment:
+      - CELERY_EXECUTION_POOL=prefork
     env_file:
       - ./whatsappcrm_backend/.env
     depends_on:
@@ -86,7 +94,9 @@ services:
   celery_beat:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_beat
-    command: celery -A whatsappcrm_backend beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    command: celery -A whatsappcrm_backend beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler -Q celery_beat
+    environment:
+      - CELERY_EXECUTION_POOL=prefork
     env_file:
       - ./whatsappcrm_backend/.env
     depends_on:

@@ -5,6 +5,7 @@ from celery import shared_task
 import random
 from django.db import transaction
 from django.urls import reverse
+from django.db import close_old_connections
 from django.utils import timezone
 from django.conf import settings
 
@@ -70,6 +71,9 @@ def send_payment_failure_notification_task(payment_id: str):
     """
     Sends a WhatsApp message to the user notifying them of a failed payment.
     """
+    # Proactively close stale DB connections
+    close_old_connections()
+
     log_prefix = f"[Failure Notif Task - Ref: {payment_id}]"
     logger.info(f"{log_prefix} Preparing to send failure notification.")
     try:
@@ -103,12 +107,18 @@ def send_payment_failure_notification_task(payment_id: str):
         logger.error(f"{log_prefix} Could not find payment to send failure notification.")
     except Exception as e:
         logger.error(f"{log_prefix} Error sending failure notification: {e}", exc_info=True)
+    finally:
+        # Ensure connections are closed
+        close_old_connections()
 
 @shared_task(name="paynow_integration.send_giving_confirmation_whatsapp")
 def send_giving_confirmation_whatsapp(payment_id: str):
     """
     Sends a WhatsApp message to the user confirming their successful contribution.
     """
+    # Proactively close stale DB connections
+    close_old_connections()
+
     log_prefix = f"[Giving Confirm Task - Ref: {payment_id}]"
     logger.info(f"{log_prefix} Preparing to send giving confirmation.")
     try:
@@ -139,12 +149,18 @@ def send_giving_confirmation_whatsapp(payment_id: str):
         logger.error(f"{log_prefix} Could not find completed payment to send confirmation.")
     except Exception as e:
         logger.error(f"{log_prefix} Error sending giving confirmation: {e}", exc_info=True)
+    finally:
+        # Ensure connections are closed
+        close_old_connections()
 
 @shared_task(name="paynow_integration.poll_paynow_transaction_status", bind=True, max_retries=10, default_retry_delay=120)
 def poll_paynow_transaction_status(self, payment_id: str):
     """
     Polls Paynow to get the transaction status and updates the Payment record accordingly.
     """
+    # Proactively close stale DB connections
+    close_old_connections()
+
     log_prefix = f"[Poll Task - Ref: {payment_id}]"
     logger.info(f"{log_prefix} Polling Paynow status. Attempt {self.request.retries + 1}/{self.max_retries + 1}.")
     try:
@@ -155,6 +171,7 @@ def poll_paynow_transaction_status(self, payment_id: str):
             # FIX: The PaynowService requires the IPN callback URL for initialization.
             try:
                 ipn_url = reverse('customer_data_api:paynow-ipn-webhook')
+            try: # Local import to avoid potential circular dependency at module level
                 paynow_service = PaynowService(ipn_callback_url=ipn_url)
             except Exception as e:
                 logger.error(f"{log_prefix} Failed to initialize PaynowService. Error: {e}", exc_info=True)
@@ -217,6 +234,9 @@ def poll_paynow_transaction_status(self, payment_id: str):
                 logger.warning(f"{log_prefix} Could not find payment to fail after max retries (it might have been processed or failed already).")
             except Exception as final_fail_exc:
                 logger.critical(f"{log_prefix} Could not fail payment after max retries: {final_fail_exc}")
+    finally:
+        # Ensure connections are closed
+        close_old_connections()
 
 @shared_task(name="paynow_integration.process_paynow_ipn_task")
 def process_paynow_ipn_task(ipn_data: dict):
@@ -224,6 +244,9 @@ def process_paynow_ipn_task(ipn_data: dict):
     Processes a Paynow IPN message. It verifies the IPN hash, then updates
     the payment status directly. This is the primary confirmation method.
     """
+    # Proactively close stale DB connections
+    close_old_connections()
+
     reference = ipn_data.get('reference')
     if not reference:
         logger.error("[IPN Task] Received IPN data without a reference. Cannot process.")
@@ -236,6 +259,7 @@ def process_paynow_ipn_task(ipn_data: dict):
     try:
         ipn_url = reverse('customer_data_api:paynow-ipn-webhook')
         paynow_service = PaynowService(ipn_callback_url=ipn_url)
+        paynow_service = PaynowService()
     except Exception as e:
         logger.error(f"{log_prefix} Failed to initialize PaynowService for IPN processing. Error: {e}", exc_info=True)
         return # Cannot proceed without the service
@@ -270,3 +294,6 @@ def process_paynow_ipn_task(ipn_data: dict):
 
     except Exception as e:
         logger.error(f"{log_prefix} An unexpected error occurred while processing the IPN: {e}", exc_info=True)
+    finally:
+        # Ensure connections are closed
+        close_old_connections()

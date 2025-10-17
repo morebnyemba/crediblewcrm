@@ -12,8 +12,7 @@ if os.environ.get('CELERY_EXECUTION_POOL') == 'eventlet':
 from celery import Celery
 import django
 import logging
-from celery.signals import task_prerun, task_postrun
-from celery.signals import worker_process_init, task_prerun, task_postrun
+from celery.signals import worker_process_init, task_prerun, task_postrun, task_failure
 from django.db import close_old_connections
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'whatsappcrm_backend.settings')
@@ -27,10 +26,8 @@ app = Celery('whatsappcrm_backend')
 # Configure Celery using settings from Django settings.py
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
-# Load task modules from all registered Django apps
-# We now use the explicit CELERY_IMPORTS setting in settings.py, which is more robust.
-# The app.config_from_object call above automatically loads it.
-# app.autodiscover_tasks()
+# Load task modules from all registered Django apps.
+app.autodiscover_tasks()
 
 # --- Database Connection Management for Celery ---
 # This is crucial for preventing 'too many clients' errors with PostgreSQL
@@ -52,6 +49,24 @@ def on_task_postrun(*args, **kwargs):
     """Close database connections after the task has finished."""
     close_old_connections()
     logger.debug("Closed DB connections after task execution.")
+
+# --- Global Task Failure Logging ---
+@task_failure.connect
+def on_task_failure(sender=None, task_id=None, exception=None, args=None, kwargs=None, traceback=None, einfo=None, **other_kwargs):
+    """
+    Global handler to log detailed information upon any task failure.
+    This is a great spot for integrating with monitoring services like Sentry.
+    """
+    logger.critical(
+        "CELERY TASK FAILED\n"
+        f"Task ID: {task_id}\n"
+        f"Task: {sender.name if sender else 'N/A'}\n"
+        f"Args: {args}\n"
+        f"Kwargs: {kwargs}\n"
+        f"Exception: {exception}\n"
+        f"Traceback: {traceback}"
+    )
+
 # Test task with result storage
 @app.task(bind=True)
 def debug_task(self):
