@@ -23,6 +23,9 @@ def get_active_meta_config_for_sending():
     except MetaAppConfig.MultipleObjectsReturned:
         logger.critical("CRITICAL: Multiple active Meta App Configurations found. Please fix in Django Admin. Message sending may be unpredictable.")
         return None # Or select the first one, but it's better to enforce a single active config
+    except Exception as e:
+        logger.critical(f"CRITICAL: An unexpected error occurred while fetching the active MetaAppConfig: {e}", exc_info=True)
+        return None
 
 def send_whatsapp_message(to_phone_number: str, message_type: str, data: dict, config: MetaAppConfig = None):
     """
@@ -65,8 +68,10 @@ def send_whatsapp_message(to_phone_number: str, message_type: str, data: dict, c
         "messaging_product": "whatsapp",
         "to": to_phone_number,
         "type": message_type,
-        message_type: data,
     }
+    # The 'typing_on' type does not have a data payload key, so we only add it for other types.
+    if message_type != "typing_on":
+        payload[message_type] = data
 
     # --- FIX for location messages with invalid coordinates ---
     # Ensure latitude and longitude are valid numbers before sending.
@@ -108,7 +113,7 @@ def send_whatsapp_message(to_phone_number: str, message_type: str, data: dict, c
         
     return None
 
-def send_read_receipt_api(wamid: str, config: MetaAppConfig):
+def send_read_receipt_api(wamid: str, config: MetaAppConfig) -> Optional[dict]:
     """
     Sends a read receipt to the Meta Graph API for a specific message.
 
