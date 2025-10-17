@@ -60,12 +60,11 @@ services:
   celery_worker:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_worker_io
-    # This worker is for I/O-bound tasks (e.g., API calls to Meta).
-    # We use the 'eventlet' pool for high concurrency with low CPU usage,
-    # which significantly reduces database connections and helps prevent race conditions.
-    command: celery -A whatsappcrm_backend worker -Q celery,celery_beat -l INFO -P eventlet -c 100
+    # This worker is for I/O-bound tasks (e.g., API calls).
+    # Using prefork pool with higher concurrency.
+    command: celery -A whatsappcrm_backend worker -Q celery -l INFO --concurrency=20
     environment:
-      - CELERY_EXECUTION_POOL=eventlet
+      - CELERY_EXECUTION_POOL=prefork
     env_file:
       - ./whatsappcrm_backend/.env
     depends_on:
