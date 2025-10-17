@@ -58,7 +58,8 @@ path('crm-api/stats/', include('stats.urls', namespace='stats_api')),
 # --- Serve Media Files in Development ---
 # This is not suitable for production. In production, your web server (e.g., Nginx)
 # should be configured to serve media files directly.
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # Note on Namespaces:
 # The 'namespace' argument in include() is useful for URL reversing 

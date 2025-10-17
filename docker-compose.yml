@@ -130,6 +130,7 @@ services:
     volumes:
       - ./nginx_proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - staticfiles_volume:/srv/www/static/:ro
+      - ./whatsappcrm_backend/mediafiles:/srv/www/media/:ro # Add this line to give Nginx access to media files
       - /var/www/letsencrypt:/var/www/letsencrypt:ro
       - /etc/letsencrypt:/etc/nginx/ssl:ro
     environment: # <-- Added environment section for logging
