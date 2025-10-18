@@ -113,17 +113,18 @@ def send_whatsapp_message(to_phone_number: str, message_type: str, data: dict, c
         
     return None
 
-def send_read_receipt_api(wamid: str, config: MetaAppConfig) -> Optional[dict]:
+def send_read_receipt_api(wamid: str, config: MetaAppConfig, show_typing_indicator: bool = False) -> Optional[dict]:
     """
     Sends a read receipt to the Meta Graph API for a specific message.
+    Optionally includes a typing indicator in the same request.
 
     Args:
         wamid (str): The WhatsApp Message ID of the message to mark as read.
         config (MetaAppConfig): The MetaAppConfig instance to use.
-
-    Returns:
-        dict: The JSON response from Meta API, or None if an error occurs.
-    """
+        show_typing_indicator (bool): If True, includes a typing indicator in the request.
+     Returns:
+         dict: The JSON response from Meta API, or None if an error occurs.
+     """
     if not config:
         logger.error("Cannot send read receipt: No MetaAppConfig provided.")
         return None
@@ -141,6 +142,12 @@ def send_read_receipt_api(wamid: str, config: MetaAppConfig) -> Optional[dict]:
         "message_id": wamid,
     }
     log_action = "read receipt"
+
+    # --- FIX: Combine typing indicator with read receipt ---
+    # As per Meta API docs, this can be a single call.
+    if show_typing_indicator:
+        payload["typing_indicator"] = {"type": "text"}
+        log_action += " with typing indicator"
 
     logger.debug(f"Sending {log_action} via config '{config.name}'. URL: {url}, Payload: {json.dumps(payload)}")
 

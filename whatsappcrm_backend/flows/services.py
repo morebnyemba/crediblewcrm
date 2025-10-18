@@ -318,10 +318,10 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                 final_api_data_structure = {'body': resolved_body, 'preview_url': text_content.preview_url}
 
             elif actual_message_type in ['image', 'document', 'audio', 'video', 'sticker'] and getattr(send_message_config, actual_message_type):
-                media_conf: MediaMessageContent = getattr(send_message_config, actual_message_type)
-                media_data_to_send = {}
+                media_conf: MediaMessageContent = getattr(send_message_config, actual_message_type) # e.g., send_message_config.image
+                media_data_to_send = {} # This will hold the {'id': ...} or {'link': ...} part
                 
-                valid_source_found = False
+                valid_source_found = False # Flag to track if we found a usable media source
                 if MEDIA_ASSET_ENABLED and media_conf.asset_pk:
                     try:
                         asset = MediaAsset.objects.get(pk=media_conf.asset_pk)
@@ -334,14 +334,14 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                     except MediaAsset.DoesNotExist:
                         logger.error(f"Contact {contact.id}: MediaAsset pk={media_conf.asset_pk} not found for step {step.id}. Trying direct id/link from config.")
                 
-                if not valid_source_found: # Try direct id or link if asset_pk didn't work or wasn't provided
+                if not valid_source_found: # Fallback to direct id/link if asset_pk fails or isn't provided
                     if media_conf.id:
                         media_data_to_send['id'] = _resolve_value(media_conf.id, current_step_context, contact)
                         valid_source_found = True
                     elif media_conf.link:
                         resolved_link = _resolve_value(media_conf.link, current_step_context, contact)
                         # --- FIX: Ensure the link is an absolute URL ---
-                        if resolved_link.startswith('/') and request:
+                        if resolved_link and resolved_link.startswith('/') and request:
                             media_data_to_send['link'] = request.build_absolute_uri(resolved_link)
                             logger.debug(f"Contact {contact.id}: Converted relative media link '{resolved_link}' to absolute URL '{media_data_to_send['link']}'.")
                         else:
@@ -350,6 +350,8 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                 
                 if not valid_source_found:
                     logger.error(f"Contact {contact.id}: No valid media source (asset_pk, id, or link) for {actual_message_type} in step '{step.name}' (ID: {step.id}).")
+                    # Set the data structure to None to prevent sending a malformed request
+                    final_api_data_structure = None
                 else:
                     if media_conf.caption:
                         media_data_to_send['caption'] = _resolve_value(media_conf.caption, current_step_context, contact)
@@ -357,7 +359,7 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                         media_data_to_send['filename'] = _resolve_value(media_conf.filename, current_step_context, contact)
                     final_api_data_structure = media_data_to_send
             
-            elif actual_message_type == "interactive" and send_message_config.interactive:
+            elif actual_message_type == "interactive" and send_message_config.interactive: # noqa
                 interactive_payload_validated = send_message_config.interactive # Already validated by StepConfigSendMessage
                 interactive_payload_dict = interactive_payload_validated.model_dump(exclude_none=True, by_alias=True)
                 
