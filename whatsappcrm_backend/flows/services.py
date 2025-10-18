@@ -340,10 +340,18 @@ def _execute_step_actions(step: FlowStep, contact: Contact, flow_context: dict, 
                         valid_source_found = True
                     elif media_conf.link:
                         resolved_link = _resolve_value(media_conf.link, current_step_context, contact)
-                        # --- FIX: Ensure the link is an absolute URL ---
-                        if resolved_link and resolved_link.startswith('/') and request:
-                            media_data_to_send['link'] = request.build_absolute_uri(resolved_link)
-                            logger.debug(f"Contact {contact.id}: Converted relative media link '{resolved_link}' to absolute URL '{media_data_to_send['link']}'.")
+                        # --- FIX: Build absolute URL for media without the request object ---
+                        # This is critical for Celery tasks where the request is not available.
+                        if resolved_link and resolved_link.startswith('/'):
+                            site_url = getattr(settings, 'SITE_URL', None)
+                            if site_url:
+                                # Remove trailing slash from site_url and leading slash from resolved_link to avoid double slashes
+                                absolute_url = f"{site_url.rstrip('/')}{resolved_link}"
+                                media_data_to_send['link'] = absolute_url
+                                logger.debug(f"Contact {contact.id}: Converted relative media link '{resolved_link}' to absolute URL '{absolute_url}'.")
+                            else:
+                                logger.error(f"Contact {contact.id}: Cannot build absolute URL for media link '{resolved_link}' because SITE_URL is not defined in settings.")
+                                media_data_to_send['link'] = resolved_link # Send as-is, likely to fail
                         else:
                             media_data_to_send['link'] = resolved_link
                         valid_source_found = True
