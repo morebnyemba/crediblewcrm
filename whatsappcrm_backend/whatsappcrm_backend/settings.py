@@ -410,5 +410,10 @@ JAZZMIN_UI_TWEAKS = {
 # DB_NAME="your_db_name"
 CONVERSATION_EXPIRY_DAYS="60"
 ADMIN_WHATSAPP_NUMBER=os.getenv('ADMIN_WHATSAPP_NUMBER', None)
+# --- Site URL ---
+# This is the public-facing base URL of your backend. It's crucial for generating
+# absolute URLs for media files, webhooks, and links in messages sent from background tasks.
+SITE_URL = os.getenv('SITE_URL', 'https://crmbackend.lifeinternationalministries.com')
+
 JWT_ACCESS_TOKEN_LIFETIME_MINUTES="60"
 JWT_REFRESH_TOKEN_LIFETIME_DAYS="7"
