@@ -64,7 +64,7 @@ services:
     container_name: whatsappcrm_celery_worker_io
     # This worker is for I/O-bound tasks. Using the default prefork pool.
     # A lower concurrency is safer and sufficient for many workloads.
-    command: celery -A whatsappcrm_backend worker -P prefork -Q celery -l INFO --concurrency=20
+    command: celery -A whatsappcrm_backend worker -P prefork -Q celery -l INFO --concurrency=4
     env_file:
       - ./whatsappcrm_backend/.env
     volumes: # Add this volume to sync source code
@@ -98,7 +98,7 @@ services:
   celery_beat:
     build: ./whatsappcrm_backend
     container_name: whatsappcrm_celery_beat
-    command: celery -A whatsappcrm_backend beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler -Q celery_beat
+    command: celery -A whatsappcrm_backend beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
     environment:
       - CELERY_EXECUTION_POOL=prefork
     env_file:
@@ -153,7 +153,3 @@ volumes:
   postgres_data:
   redis_data:
   staticfiles_volume:
-
-networks:
-  default:
-    name: whatsappcrm_network

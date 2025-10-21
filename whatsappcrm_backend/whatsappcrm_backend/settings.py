@@ -229,6 +229,7 @@ from kombu import Queue
 CELERY_TASK_QUEUES = (
     Queue('celery', routing_key='celery'),
     Queue('cpu_intensive', routing_key='cpu_intensive'),
+    Queue('celery_beat', routing_key='celery_beat'), # Dedicated queue for beat tasks
 )
 
 CELERY_DEFAULT_QUEUE = 'celery'
@@ -241,6 +242,13 @@ CELERY_TASK_ROUTES = {
         'queue': 'cpu_intensive',
         'routing_key': 'cpu_intensive',
     },
+    # Route all beat schedule tasks to the 'celery_beat' queue.
+    # This ensures they are picked up by a worker that is not busy with other tasks.
+    'customer_data.tasks.check_for_birthdays_and_dispatch_messages': {'queue': 'celery_beat'},
+    'notifications.tasks.check_and_send_24h_window_reminders': {'queue': 'celery_beat'},
+    'conversations.tasks.run_fail_stuck_messages_command': {'queue': 'celery_beat'},
+    # It's good practice to also route the debug task if you use it with beat for testing.
+    'whatsappcrm_backend.celery.debug_task': {'queue': 'celery_beat'},
 }
 
 # Explicitly define all modules that contain Celery tasks.
