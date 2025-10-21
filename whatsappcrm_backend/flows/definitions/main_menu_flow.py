@@ -263,6 +263,7 @@ MAIN_MENU_FLOW = {
                     {
                         "action_type": "send_admin_notification",
                         "message_template": "New pastor intervention request from {{ contact.name or contact.whatsapp_id }}.\n\nView conversation: {{ settings.CORS_ALLOWED_ORIGINS[2] }}/conversations/{{ contact.id }}/",
+                        "message_template": "New pastor intervention request from {{ contact.name or contact.whatsapp_id }}.\n\nView conversation: {{ settings.SITE_URL | replace('backend', 'frontend') }}/conversations/{{ contact.id }}/",
                         "notify_groups": ["Pastoral Team"]
                     }
                 ]
